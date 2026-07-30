@@ -55,9 +55,24 @@ function resizeCanvas() {
     }
 }
 
-function layoutTopology() {
+// layoutTopology(force)
+// เดิมฟังก์ชันนี้สร้าง Router/Switch/Department ใหม่หมดทุกครั้งที่ถูกเรียก และ refreshAll() ก็เรียกมันทุกครั้ง
+// ที่ state เปลี่ยน ผลคือแค่พิมพ์ชื่อแผนกเพิ่ม 1 ตัวอักษร ตำแหน่งทุกโหนดที่ผู้ใช้อุตส่าห์ลากจัดไว้ก็เด้งกลับหมด
+// ตอนนี้จึงจำตำแหน่งเดิมไว้ตาม id แล้วคืนให้โหนดที่ "ยังเป็นตัวเดิม" หลังสร้างใหม่
+// โหนดที่เพิ่งเกิด (แผนกใหม่) ยังได้ตำแหน่งตามผังมาตรฐานเหมือนเดิม
+// force = true -> ทิ้งตำแหน่งเดิมทั้งหมด จัดผังใหม่จากศูนย์ (ปุ่ม RESET / Clear / โหลด Example)
+function layoutTopology(force) {
+    const prev = {};
+    if (!force) {
+        if (topoNodes.router) prev['router'] = { x: topoNodes.router.x, y: topoNodes.router.y };
+        topoNodes.switches.forEach(n => { prev[n.id] = { x: n.x, y: n.y }; });
+        topoNodes.departments.forEach(n => { prev[n.id] = { x: n.x, y: n.y }; });
+    }
+
     const rX = cW / 2, rY = 65;
     topoNodes.router = new RouterDevice(rX, rY);
+    if (prev['router']) { topoNodes.router.x = prev['router'].x; topoNodes.router.y = prev['router'].y; }
+
     const depts = state.calculated;
     const count = depts.length;
     topoNodes.switches = [];
@@ -72,12 +87,20 @@ function layoutTopology() {
     depts.forEach((dept, i) => {
         const x = startX + i * spacing;
         const color = DEPT_COLORS[i % DEPT_COLORS.length];
-        topoNodes.switches.push(new SwitchDevice(dept, x, 200, color));
-        topoNodes.departments.push({
+
+        const sw = new SwitchDevice(dept, x, 200, color);
+        const swPrev = prev[sw.id];
+        if (swPrev) { sw.x = swPrev.x; sw.y = swPrev.y; }
+        topoNodes.switches.push(sw);
+
+        const deptNode = {
             id: 'dept-' + dept.id, type: 'department', deptId: dept.id,
             x, y: 350, w: 132, h: 60, label: dept.name, hosts: dept.hosts, color,
             subnet: dept.subnet
-        });
+        };
+        const dPrev = prev[deptNode.id];
+        if (dPrev) { deptNode.x = dPrev.x; deptNode.y = dPrev.y; }
+        topoNodes.departments.push(deptNode);
     });
     createParticles();
 }
@@ -447,9 +470,13 @@ function hitTest(mx, my) {
     return null;
 }
 
+// รับได้ทั้ง MouseEvent และ TouchEvent — ฝั่ง touch ใช้นิ้วแรกเสมอ (ไม่รองรับ multi-touch โดยตั้งใจ)
 function getCanvasCoords(e) {
     const r = canvas.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    const src = (e.touches && e.touches.length) ? e.touches[0]
+              : (e.changedTouches && e.changedTouches.length) ? e.changedTouches[0]
+              : e;
+    return { x: src.clientX - r.left, y: src.clientY - r.top };
 }
 
 function findNodeById(id) {
@@ -459,79 +486,123 @@ function findNodeById(id) {
         topoNodes.manualNodes.find(n => n.id === id);
 }
 
-function setupCanvasEvents() {
-    canvas.addEventListener('mousedown', function(e) {
-        try {
-            const { x, y } = getCanvasCoords(e);
+/* ============================================
+   3c. Input handling — Mouse + Touch ใช้ตรรกะชุดเดียวกัน
+   เดิมผูกแค่ mousedown/mousemove/mouseup ทำให้บนมือถือ/แท็บเล็ตแตะวาง PC ลากโหนด หรือเชื่อมสายไม่ได้เลย
+   ทั้งที่ UI เขียนว่า "TAP NODE TO EDIT" และมี responsive layout ครบ
+   จึงแยกตรรกะออกเป็น handlePointerDown/Move/Up แล้วให้ทั้ง mouse และ touch เรียกตัวเดียวกัน
+   หลักสำคัญของฝั่ง touch: ไม่ preventDefault ตอน touchstart (ไม่งั้นเลื่อนหน้าจอไม่ได้ทั้งแคนวาส)
+   จะ preventDefault เฉพาะตอน touchmove ที่กำลังลากโหนดจริงเท่านั้น -> แตะที่ว่างแล้วยังปัดเลื่อนหน้าได้ปกติ
+   ============================================ */
 
-            // โหมดวางอุปกรณ์ใหม่ (ปุ่ม PC/Server ที่มุมขวาบน) มีสิทธิ์ก่อนเสมอ
-            if (state.placingType) {
-                const DeviceClass = state.placingType === 'pc' ? PCDevice : ServerDevice;
-                addManualNode(DeviceClass, x, y);
-                state.placingType = null;
-                if (typeof updateModeButtons === 'function') updateModeButtons();
-                if (typeof showToast === 'function') showToast('วางอุปกรณ์แล้ว — กด Connect เพื่อเชื่อมสาย', 'success');
-                document.getElementById('statusBar').textContent = 'Ready';
-                return;
-            }
-
-            // โหมดลากเชื่อมสาย (ปุ่ม Connect)
-            if (state.connectMode) {
-                const hit = hitTest(x, y);
-                if (!hit) { state.linkFromId = null; return; } // คลิกพื้นที่ว่าง = ยกเลิกตัวที่เลือกไว้
-                if (!state.linkFromId) {
-                    state.linkFromId = hit.node.id;
-                    document.getElementById('statusBar').textContent = 'เลือก ' + hit.node.label + ' แล้ว — คลิกอุปกรณ์ตัวที่สองเพื่อเชื่อม';
-                    return;
-                }
-                if (state.linkFromId === hit.node.id) { state.linkFromId = null; return; } // คลิกตัวเดิมซ้ำ = ยกเลิก
-                const link = addLink(state.linkFromId, hit.node.id);
-                state.linkFromId = null;
-                if (link) {
-                    if (typeof showToast === 'function') showToast(lastLinkMessage || 'เชื่อมสำเร็จ', lastLinkMessage ? 'info' : 'success');
-                } else if (typeof showToast === 'function') {
-                    showToast(lastLinkMessage || 'เชื่อมไม่สำเร็จ', 'error');
-                }
-                document.getElementById('statusBar').textContent = 'โหมดเชื่อมสาย: คลิกอุปกรณ์ตัวแรก';
-                return;
-            }
-
-            // พฤติกรรมเดิม: เลือก/ลาก Node
-            const hit = hitTest(x, y);
-            if (hit) {
-                dragInfo = { nodeId: hit.node.id, type: hit.type, offsetX: x - hit.node.x, offsetY: y - hit.node.y };
-                if (hit.type === 'department' || hit.type === 'switch' || hit.type === 'pc' || hit.type === 'server') selectNode(hit.deptId, hit.type);
-                else { state.selectedDeptId = null; state.selectedNodeType = 'router'; renderDetailPanel(); renderSidebarDepts(); }
-            } else {
-                state.selectedDeptId = null; state.selectedNodeType = null;
-                closeDetailPanel(); renderSidebarDepts();
-            }
-        } catch (err) {
-            console.error('mousedown handler error:', err);
-            dragInfo = null;
+function handlePointerDown(x, y) {
+    try {
+        // โหมดวางอุปกรณ์ใหม่ (ปุ่ม PC/Server ที่มุมขวาบน) มีสิทธิ์ก่อนเสมอ
+        if (state.placingType) {
+            const DeviceClass = state.placingType === 'pc' ? PCDevice : ServerDevice;
+            addManualNode(DeviceClass, x, y);
+            state.placingType = null;
+            if (typeof updateModeButtons === 'function') updateModeButtons();
+            if (typeof showToast === 'function') showToast('วางอุปกรณ์แล้ว — กด Connect เพื่อเชื่อมสาย', 'success');
+            document.getElementById('statusBar').textContent = 'Ready';
+            return;
         }
+
+        // โหมดลากเชื่อมสาย (ปุ่ม Connect)
+        if (state.connectMode) {
+            const hit = hitTest(x, y);
+            if (!hit) { state.linkFromId = null; return; } // คลิกพื้นที่ว่าง = ยกเลิกตัวที่เลือกไว้
+            if (!state.linkFromId) {
+                state.linkFromId = hit.node.id;
+                document.getElementById('statusBar').textContent = 'เลือก ' + hit.node.label + ' แล้ว — คลิกอุปกรณ์ตัวที่สองเพื่อเชื่อม';
+                return;
+            }
+            if (state.linkFromId === hit.node.id) { state.linkFromId = null; return; } // คลิกตัวเดิมซ้ำ = ยกเลิก
+            const link = addLink(state.linkFromId, hit.node.id);
+            state.linkFromId = null;
+            if (link) {
+                if (typeof showToast === 'function') showToast(lastLinkMessage || 'เชื่อมสำเร็จ', lastLinkMessage ? 'info' : 'success');
+            } else if (typeof showToast === 'function') {
+                showToast(lastLinkMessage || 'เชื่อมไม่สำเร็จ', 'error');
+            }
+            document.getElementById('statusBar').textContent = 'โหมดเชื่อมสาย: คลิกอุปกรณ์ตัวแรก';
+            return;
+        }
+
+        // พฤติกรรมเดิม: เลือก/ลาก Node
+        const hit = hitTest(x, y);
+        if (hit) {
+            dragInfo = { nodeId: hit.node.id, type: hit.type, offsetX: x - hit.node.x, offsetY: y - hit.node.y };
+            if (hit.type === 'department' || hit.type === 'switch' || hit.type === 'pc' || hit.type === 'server') selectNode(hit.deptId, hit.type);
+            else { state.selectedDeptId = null; state.selectedNodeType = 'router'; renderDetailPanel(); renderSidebarDepts(); }
+        } else {
+            state.selectedDeptId = null; state.selectedNodeType = null;
+            closeDetailPanel(); renderSidebarDepts();
+        }
+    } catch (err) {
+        console.error('handlePointerDown error:', err);
+        dragInfo = null;
+    }
+}
+
+// isHover = true เฉพาะเมาส์ — นิ้วไม่มีสถานะ "ชี้ค้าง" การอัปเดต hoverInfo จาก touch จะทำให้โหนดค้างสว่างหลังยกนิ้ว
+function handlePointerMove(x, y, isHover) {
+    try {
+        if (dragInfo) {
+            const node = findNodeById(dragInfo.nodeId);
+            if (node) {
+                node.x = Math.max(node.w/2, Math.min(cW - node.w/2, x - dragInfo.offsetX));
+                node.y = Math.max(node.h/2, Math.min(cH - node.h/2, y - dragInfo.offsetY));
+                updateParticlePositions();
+            }
+            if (isHover) canvas.style.cursor = 'grabbing';
+            return;
+        }
+        if (!isHover) return;
+        const hit = hitTest(x, y);
+        hoverInfo = hit ? { id: hit.node.id, type: hit.type } : null;
+        canvas.style.cursor = hit ? 'pointer' : 'default';
+    } catch (err) {
+        console.error('handlePointerMove error:', err);
+        dragInfo = null;
+    }
+}
+
+function handlePointerUp() {
+    dragInfo = null;
+    canvas.style.cursor = 'default';
+}
+
+function setupCanvasEvents() {
+    // ----- Mouse -----
+    canvas.addEventListener('mousedown', function(e) {
+        const { x, y } = getCanvasCoords(e);
+        handlePointerDown(x, y);
     });
     canvas.addEventListener('mousemove', function(e) {
-        try {
-            const { x, y } = getCanvasCoords(e);
-            if (dragInfo) {
-                const node = findNodeById(dragInfo.nodeId);
-                if (node) {
-                    node.x = Math.max(node.w/2, Math.min(cW - node.w/2, x - dragInfo.offsetX));
-                    node.y = Math.max(node.h/2, Math.min(cH - node.h/2, y - dragInfo.offsetY));
-                    updateParticlePositions();
-                }
-                canvas.style.cursor = 'grabbing';
-                return;
-            }
-            const hit = hitTest(x, y);
-            hoverInfo = hit ? { id: hit.node.id, type: hit.type } : null;
-            canvas.style.cursor = hit ? 'pointer' : 'default';
-        } catch (err) {
-            console.error('mousemove handler error:', err);
-            dragInfo = null;
-        }
+        const { x, y } = getCanvasCoords(e);
+        handlePointerMove(x, y, true);
     });
-    canvas.addEventListener('mouseup', function() { dragInfo = null; canvas.style.cursor = 'default'; });
-    canvas.addEventListener('mouseleave', function() { dragInfo = null; canvas.style.cursor = 'default'; });
+    canvas.addEventListener('mouseup', handlePointerUp);
+    canvas.addEventListener('mouseleave', function() { hoverInfo = null; handlePointerUp(); });
+
+    // ----- Touch -----
+    // passive:false จำเป็นเพราะ touchmove ต้อง preventDefault ได้ตอนกำลังลากโหนด
+    // (เบราว์เซอร์สมัยใหม่ตั้ง touchmove เป็น passive โดยปริยาย ซึ่ง preventDefault จะไม่มีผล)
+    canvas.addEventListener('touchstart', function(e) {
+        if (e.touches.length !== 1) return; // สองนิ้วขึ้นไป = ผู้ใช้ตั้งใจ zoom/scroll ปล่อยให้เบราว์เซอร์จัดการเอง
+        const { x, y } = getCanvasCoords(e);
+        handlePointerDown(x, y);
+    }, { passive: true });
+
+    canvas.addEventListener('touchmove', function(e) {
+        if (e.touches.length !== 1) return;
+        // กันหน้าเลื่อน/เด้งเฉพาะตอนลากโหนดจริงเท่านั้น แตะที่ว่างแล้วปัดยังเลื่อนหน้าได้ตามปกติ
+        if (dragInfo) e.preventDefault();
+        const { x, y } = getCanvasCoords(e);
+        handlePointerMove(x, y, false);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', function() { hoverInfo = null; handlePointerUp(); });
+    canvas.addEventListener('touchcancel', function() { hoverInfo = null; handlePointerUp(); });
 }

@@ -30,13 +30,18 @@ var state = {
 };
 
 // รีเฟรชทั้งหมด
-function refreshAll() {
+// forceLayout = true -> จัดผังใหม่หมด ทิ้งตำแหน่งที่ผู้ใช้ลากเอง (ใช้ตอน Clear/โหลด Example/กด RESET)
+// ปกติ (false) -> รักษาตำแหน่งที่ลากไว้ ดู layoutTopology() ใน topology.js
+function refreshAll(forceLayout) {
     calculateVLSM();
     calculateIPv6();
     renderSidebarDepts();
     renderTable();
-    layoutTopology();
+    layoutTopology(forceLayout);
     updateDetailSubnetInfo();
+    // แท็บ CLI ไม่ได้ re-render เองตอนข้อมูลเปลี่ยน เดิมเรียกจาก switchTab() ที่เดียว
+    // ผลคือถ้าเปิดแท็บ CLI ค้างไว้แล้วแก้แผนก/Base IP คำสั่งที่เห็นจะเป็นของเก่าจนกว่าจะสลับแท็บไปกลับ
+    if (state.activeTab === 'cli' && typeof renderCLI === 'function') renderCLI();
     scheduleAutosave(); // debounce เก็บ Snapshot ลง localStorage อัตโนมัติทุกครั้งที่ state เปลี่ยน กันรีเฟรชเผลอข้อมูลหาย
 }
 
@@ -80,7 +85,7 @@ function loadExample(key) {
         document.getElementById('baseIpInput').value = ex.baseIp;
         document.getElementById('baseCidrInput').value = ex.baseCidr;
 
-        refreshAll();
+        refreshAll(true); // ชุดข้อมูลใหม่ทั้งชุด จัดผังใหม่จากศูนย์
 
         // Flash effect
         setTimeout(function() {
@@ -107,7 +112,7 @@ function clearAll() {
         resetVlanRegistry();
         resetManualTopology();
         closeDetailPanel();
-        refreshAll();
+        refreshAll(true); // ล้างหมดแล้ว Router ควรกลับไปกลางจอตามผังมาตรฐาน
         document.getElementById('statusBar').textContent = 'Cleared — กด EXAMPLE เพื่อเริ่มต้น';
         showToast('ล้างข้อมูลทั้งหมดแล้ว', 'info');
     } catch (err) {
@@ -294,7 +299,7 @@ function applyProjectData(data) {
         if (document.getElementById('newPrefixInput')) document.getElementById('newPrefixInput').value = state.newPrefixLen6;
         setIpMode(state.ipMode, true); // silent — ไม่ toast ซ้อนกับ toast โหลดสำเร็จด้านล่าง
 
-        refreshAll();
+        refreshAll(true); // โปรเจกต์ใหม่ทั้งก้อน (ไฟล์ไม่ได้เก็บตำแหน่ง Router/Switch อยู่แล้ว)
         document.getElementById('statusBar').textContent = 'Loaded project — ' + state.departments.length + ' depts — ' + state.baseIp + '/' + state.baseCidr;
         showToast('โหลดโปรเจกต์สำเร็จ', 'success');
     } catch (err) {
@@ -409,6 +414,12 @@ function init() {
         document.getElementById('newPrefixInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') onBaseChange(); });
         document.getElementById('newDeptHosts').addEventListener('keydown', function(e) { if (e.key === 'Enter') onAddDept(); });
         document.getElementById('newDeptName').addEventListener('keydown', function(e) { if (e.key === 'Enter') onAddDept(); });
+
+        // แท็บ Net Tools — กด Enter ในช่องกรอกให้ทำงานเลย เหมือนช่องอื่นทั้งแอป
+        var wcEl = document.getElementById('wcInput');
+        if (wcEl) wcEl.addEventListener('keydown', function(e) { if (e.key === 'Enter') calcWildcard(); });
+        var sumEl = document.getElementById('summaryNew');
+        if (sumEl) sumEl.addEventListener('keydown', function(e) { if (e.key === 'Enter') addSummaryRoute(); });
 
         renderSidebarDepts();
         renderTable();

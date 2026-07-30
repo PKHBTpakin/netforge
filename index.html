@@ -2,8 +2,11 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
+    <!-- เดิมมี meta viewport ซ้ำ 2 บรรทัด และตัวที่มีผลจริงคือตัวหลังซึ่งใส่ user-scalable=no ไว้
+         = ปิด pinch zoom ทั้งหน้า ทำให้ผู้ใช้ที่ต้องซูมอ่านตาราง IP/CLI บนมือถือทำไม่ได้เลย
+         ตอนนี้ตัดเหลือบรรทัดเดียวและอนุญาตให้ซูมได้ตามปกติ (Canvas จัดการ touch ของตัวเองอยู่แล้ว
+         โดย preventDefault เฉพาะตอนลากโหนดจริง ดู setupCanvasEvents() ใน topology.js) -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NetForge — Network Planning Suite</title>
 
     <script src="https://cdn.tailwindcss.com"></script>

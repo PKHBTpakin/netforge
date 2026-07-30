@@ -117,7 +117,41 @@ function renderTable() {
     }).join('');
 }
 
+/* ----- Focus preservation -----
+   renderDetailPanel() เขียนทับ innerHTML ของทั้งพาเนล ซึ่งทำลาย <input> ตัวจริงที่ผู้ใช้กำลังพิมพ์อยู่ทิ้ง
+   เดิมทำให้พิมพ์ชื่อแผนก/จำนวน Host ได้ทีละตัวอักษรแล้วเคอร์เซอร์หลุด (oninput -> refreshAll ->
+   updateDetailSubnetInfo -> renderDetailPanel -> input ใหม่ที่ไม่มี focus) พิมพ์ต่อเนื่องไม่ได้เลย
+   จึงจำ id + ตำแหน่งเคอร์เซอร์ของช่องที่ focus อยู่ไว้ก่อน render แล้วคืนให้ช่องเดิมหลัง render เสร็จ */
+function captureDetailFocus() {
+    try {
+        const active = document.activeElement;
+        if (!active || !active.id || active.tagName !== 'INPUT') return null;
+        const panel = document.getElementById('detailContent');
+        if (!panel || typeof panel.contains !== 'function' || !panel.contains(active)) return null;
+        return { id: active.id, start: active.selectionStart, end: active.selectionEnd };
+    } catch (e) { return null; }
+}
+
+function restoreDetailFocus(snap) {
+    if (!snap) return;
+    try {
+        const el = document.getElementById(snap.id);
+        if (!el || typeof el.focus !== 'function') return;
+        el.focus();
+        // number input บางเบราว์เซอร์ไม่รองรับ setSelectionRange -> ห่อ try ไว้ ไม่ให้ล้มทั้งการ render
+        if (snap.start !== null && snap.start !== undefined && typeof el.setSelectionRange === 'function') {
+            try { el.setSelectionRange(snap.start, snap.end); } catch (e) { /* type=number ไม่รองรับ ข้ามได้ */ }
+        }
+    } catch (e) { /* คืน focus ไม่ได้ ไม่ใช่เหตุให้ทั้งพาเนลพัง */ }
+}
+
 function renderDetailPanel() {
+    const focusSnap = captureDetailFocus();
+    renderDetailPanelInner();
+    restoreDetailFocus(focusSnap);
+}
+
+function renderDetailPanelInner() {
     const el = document.getElementById('detailContent');
     if (!state.selectedDeptId && state.selectedNodeType !== 'router') {
         el.innerHTML = '<div class="text-muted text-center py-10 text-[13px]">เลือก Node ในผังเพื่อแก้ไข</div>';
@@ -284,12 +318,22 @@ function onBaseChange() {
     var cidr = parseInt(document.getElementById('baseCidrInput').value);
     if (!isValidIp(ip)) { showToast('IP ไม่ถูกต้อง', 'error'); return; }
     if (isNaN(cidr) || cidr < 8 || cidr > 30) { showToast('CIDR ต้อง 8-30', 'error'); return; }
+
+    // ปัดลงหาขอบ block ก่อนเสมอ — ใส่ 10.0.0.5/24 ต้องได้ 10.0.0.0/24 ไม่ใช่เริ่มแจกจาก .5
+    var normalized = normalizeNetwork(ip, cidr);
+    var wasAdjusted = normalized !== ip;
+    if (wasAdjusted) {
+        ip = normalized;
+        document.getElementById('baseIpInput').value = ip; // สะท้อนกลับในช่องกรอกให้ผู้ใช้เห็นว่าระบบใช้ค่าไหนจริง
+    }
+
     state.baseIp = ip;
     state.baseCidr = cidr;
     try {
         refreshAll();
         document.getElementById('statusBar').textContent = 'Base: ' + ip + '/' + cidr + ' | ' + state.calculated.length + ' subnets allocated';
-        showToast('VLSM Calculated', 'success');
+        if (wasAdjusted) showToast('ปรับ Base เป็น Network Address: ' + ip + '/' + cidr, 'info');
+        else showToast('VLSM Calculated', 'success');
     } catch (err) {
         console.error('onBaseChange error:', err);
         showToast('คำนวณไม่สำเร็จ ตรวจสอบข้อมูลแผนกอีกครั้ง', 'error');
@@ -448,12 +492,16 @@ function onRemoveDept(id) {
 function renderCLI() {
     var routerEl = document.getElementById('cliRouterOutput');
     var switchEl = document.getElementById('cliSwitchOutput');
-    if (state.calculated.length === 0) {
+    // เดิมเช็คแค่ state.calculated (IPv4) ทำให้ถ้าตั้งค่าเฉพาะ IPv6 จะไม่ได้ CLI อะไรเลยทั้งที่คำนวณสำเร็จแล้ว
+    if (state.calculated.length === 0 && state.calculatedV6.length === 0) {
         var emptyMsg = '<span class="comment">! ยังไม่มีข้อมูล — เพิ่มแผนกและกด Calculate ก่อน</span>';
         routerEl.innerHTML = emptyMsg;
         switchEl.innerHTML = emptyMsg;
         return;
     }
+
+    // ฝั่ง Switch (VLAN/trunk/access port) ไม่ขึ้นกับเวอร์ชัน IP เลย ใช้รายชื่อแผนกจากฝั่งไหนก็ได้ที่มีข้อมูล
+    var deptListForCli = state.calculated.length > 0 ? state.calculated : state.calculatedV6;
 
     // ----- Router Config (คัดลอกไปวางบน Router ได้ทันที ไม่ปนกับ Switch -----
     var cliRouter = '<span class="comment">! ============================================</span>\n' +
@@ -475,20 +523,22 @@ function renderCLI() {
 
     // Dual-Stack: ถ้าแผนกไหนมีทั้ง IPv4 (state.calculated) และ IPv6 (state.calculatedV6) คำนวณไว้แล้ว
     // จะรวม ip address + ipv6 address ไว้ใน Sub-Interface เดียวกัน ตรงกับวิธีตั้งค่า Dual-Stack จริงบน Cisco IOS
-    state.calculated.forEach(function(d) {
-        var s = d.subnet;
-        var sw = topoNodes.switches.find(function(x) { return x.deptId === d.id; });
+    deptListForCli.forEach(function(entry) {
+        var d = state.calculated.find(function(x) { return x.id === entry.id; });
+        var v6 = state.calculatedV6.find(function(x) { return x.id === entry.id; });
+        var sw = topoNodes.switches.find(function(x) { return x.deptId === entry.id; });
         var vlanId = sw ? sw.vlanId : 0;
-        var v6 = state.calculatedV6.find(function(x) { return x.id === d.id; });
 
         cliRouter += '<span class="cmd">interface</span> <span class="value">GigabitEthernet0/0.' + vlanId + '</span>\n' +
-            ' <span class="cmd">encapsulation</span> <span class="value">dot1Q ' + vlanId + '</span>\n' +
-            ' <span class="cmd">ip address</span> <span class="value">' + s.firstUsable + ' ' + s.netmask + '</span>\n';
+            ' <span class="cmd">encapsulation</span> <span class="value">dot1Q ' + vlanId + '</span>\n';
+        if (d) {
+            cliRouter += ' <span class="cmd">ip address</span> <span class="value">' + d.subnet.firstUsable + ' ' + d.subnet.netmask + '</span>\n';
+        }
         if (v6) {
             cliRouter += ' <span class="cmd">ipv6 address</span> <span class="value">' + v6.subnet6.network + '/' + v6.subnet6.prefixLen + '</span>\n' +
                 ' <span class="comment">! Link-Local (fe80::/10) จะถูกสร้างอัตโนมัติบน Interface นี้เสมอ ใช้สำหรับ NDP (ไม่ต้องตั้งเอง)</span>\n';
         }
-        cliRouter += ' <span class="cmd">description</span> <span class="value">' + escapeHtml(d.name) + ' VLAN</span>\n\n';
+        cliRouter += ' <span class="cmd">description</span> <span class="value">' + escapeHtml(entry.name) + ' VLAN</span>\n\n';
     });
 
     if (state.calculatedV6.length > 0) {
@@ -496,15 +546,54 @@ function renderCLI() {
             '<span class="comment">! ไม่ต้องตั้ง DHCPv6 Pool เพิ่มถ้าใช้ SLAAC เฉยๆ พอ</span>\n\n';
     }
 
-    cliRouter += '<span class="comment">! --- DHCP Pools (IPv4) ---</span>\n' +
-        '<span class="cmd">ip dhcp excluded-address</span> <span class="value">' + state.calculated.map(function(d) { return d.subnet.firstUsable; }).join(' ') + '</span>\n\n';
-    state.calculated.forEach(function(d) {
-        var s = d.subnet;
-        cliRouter += '<span class="cmd">ip dhcp pool</span> <span class="value">' + escapeHtml(d.name) + '</span>\n' +
-            ' <span class="cmd">network</span> <span class="value">' + s.network + ' ' + s.netmask + '</span>\n' +
-            ' <span class="cmd">default-router</span> <span class="value">' + s.firstUsable + '</span>\n' +
-            ' <span class="cmd">dns-server</span> <span class="value">8.8.8.8</span>\n\n';
-    });
+    if (state.calculated.length > 0) {
+        cliRouter += '<span class="comment">! --- DHCP Pools (IPv4) ---</span>\n' +
+            '<span class="comment">! excluded-address ต้องแยกบรรทัดละช่วง — IOS รับได้แค่ low [high] ต่อหนึ่งคำสั่ง</span>\n';
+
+        // รวม Gateway + Static IP ของ PC/Server ในผัง แล้วยุบเลขที่ติดกันให้เป็นช่วงเดียว
+        // เดิมโค้ดต่อ Gateway ทุกแผนกด้วยช่องว่างเป็นบรรทัดเดียว ซึ่งผิด syntax และแปะลง IOS ไม่ผ่าน
+        // อีกทั้ง Static IP ที่ผู้ใช้ตั้งให้ PC/Server บน Canvas ไม่เคยถูกกันออกจาก DHCP Pool เลย -> เสี่ยง IP ชนกันจริง
+        state.calculated.forEach(function(d) {
+            var reserved = [ipToLong(d.subnet.firstUsable)]; // Gateway ของ VLAN นี้
+            topoNodes.manualNodes.forEach(function(n) {
+                if (n.linkedDeptId === d.id && n.ip && isValidIp(n.ip)) reserved.push(ipToLong(n.ip));
+            });
+            reserved = reserved.filter(function(v, i, a) { return a.indexOf(v) === i; }).sort(function(a, b) { return a - b; });
+
+            var rangeStart = reserved[0], prev = reserved[0];
+            for (var i = 1; i <= reserved.length; i++) {
+                if (i < reserved.length && reserved[i] === prev + 1) { prev = reserved[i]; continue; }
+                cliRouter += '<span class="cmd">ip dhcp excluded-address</span> <span class="value">' +
+                    longToIp(rangeStart) + (prev !== rangeStart ? ' ' + longToIp(prev) : '') + '</span>' +
+                    ' <span class="comment">! ' + escapeHtml(d.name) + '</span>\n';
+                if (i < reserved.length) { rangeStart = reserved[i]; prev = reserved[i]; }
+            }
+        });
+        cliRouter += '\n';
+
+        state.calculated.forEach(function(d) {
+            var s = d.subnet;
+            cliRouter += '<span class="cmd">ip dhcp pool</span> <span class="value">' + escapeHtml(d.name) + '</span>\n' +
+                ' <span class="cmd">network</span> <span class="value">' + s.network + ' ' + s.netmask + '</span>\n' +
+                ' <span class="cmd">default-router</span> <span class="value">' + s.firstUsable + '</span>\n' +
+                ' <span class="cmd">dns-server</span> <span class="value">8.8.8.8</span>\n\n';
+        });
+
+        // Static IP ของ PC/Server ตั้งบนตัวเครื่องเอง ไม่ใช่บน Router — แต่ต้องมีรายการกำกับไว้ในเอกสาร config
+        // ไม่งั้นงานที่ผู้ใช้จัดไว้บน Canvas ทั้งหมดหายไปจาก output
+        var statics = topoNodes.manualNodes.filter(function(n) { return n.ip && n.linkedDeptId; });
+        if (statics.length > 0) {
+            cliRouter += '<span class="comment">! --- Static IP ที่กำหนดไว้บนผัง (ตั้งค่าที่ตัวเครื่องปลายทาง ไม่ใช่บน Router) ---</span>\n';
+            statics.forEach(function(n) {
+                var dept = state.calculated.find(function(d) { return d.id === n.linkedDeptId; });
+                if (!dept) return;
+                cliRouter += '<span class="comment">!   ' + escapeHtml(n.label) + '  ' + n.ip +
+                    '  mask ' + dept.subnet.netmask + '  gw ' + dept.subnet.firstUsable +
+                    '  (' + escapeHtml(dept.name) + ')</span>\n';
+            });
+            cliRouter += '\n';
+        }
+    }
     cliRouter += '<span class="cmd">end</span>\n';
 
     // ----- Switch Config (คัดลอกไปวางบน Switch ได้ทันที ไม่ปนกับ Router) -----
@@ -512,7 +601,7 @@ function renderCLI() {
         '<span class="comment">! NetForge — Auto-generated Cisco IOS Config (SWITCH)</span>\n' +
         '<span class="comment">! ============================================</span>\n\n' +
         '<span class="cmd">hostname</span> <span class="value">Switch-01</span>\n\n';
-    state.calculated.forEach(function(d) {
+    deptListForCli.forEach(function(d) {
         var sw = topoNodes.switches.find(function(x) { return x.deptId === d.id; });
         var v = sw ? sw.vlanId : 0;
         cliSwitch += '<span class="cmd">vlan</span> <span class="value">' + v + '</span>\n <span class="cmd">name</span> <span class="value">' + escapeHtml(d.name) + '</span>\n';
@@ -520,7 +609,7 @@ function renderCLI() {
     cliSwitch += '\n<span class="cmd">interface</span> <span class="value">GigabitEthernet0/1</span>\n' +
         ' <span class="cmd">description</span> <span class="value">Trunk to Router-01</span>\n' +
         ' <span class="cmd">switchport mode trunk</span>\n\n';
-    state.calculated.forEach(function(d, i) {
+    deptListForCli.forEach(function(d, i) {
         var sw = topoNodes.switches.find(function(x) { return x.deptId === d.id; });
         var v = sw ? sw.vlanId : 0, p = i + 2;
         cliSwitch += '<span class="cmd">interface</span> <span class="value">FastEthernet0/' + p + '</span>\n' +
@@ -589,7 +678,7 @@ function switchTab(tab) {
 }
 
 function resetLayout() {
-    layoutTopology();
+    layoutTopology(true); // force — ปุ่มนี้มีไว้ทิ้งตำแหน่งที่ลากเองโดยเฉพาะ
     showToast('Layout reset', 'info');
 }
 

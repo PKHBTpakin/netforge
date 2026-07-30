@@ -33,9 +33,23 @@ function ipToBinStr(ip) {
     return ip.split('.').map(n => Number(n).toString(2).padStart(8, '0')).join('.');
 }
 
+// คืน Network Address ของ ip ตาม cidr ที่ให้มา (ปัดลงหาขอบ block เสมอ)
+// ใช้กันกรณีผู้ใช้กรอก Base เป็น host address เช่น 10.0.0.5/24 ซึ่งถ้าปล่อยผ่านจะทำให้ calculateVLSM()
+// เริ่มแจก subnet จาก 10.0.0.5/25 (ไม่ใช่ Network Address จริง) และล้นออกนอกขอบ 10.0.0.0/24 ไปด้วย
+// ฝั่ง IPv6 (calculateIPv6Subnets) เช็คเงื่อนไขนี้อยู่แล้ว ฝั่ง IPv4 เดิมไม่มีเลย
+function normalizeNetwork(ip, cidr) {
+    const mask = cidr === 0 ? 0 : (0xFFFFFFFF << (32 - cidr)) >>> 0;
+    return longToIp((ipToLong(ip) & mask) >>> 0);
+}
+
 function calculateVLSM() {
-    const baseLong = ipToLong(state.baseIp);
     const baseCidr = state.baseCidr;
+    // ตาข่ายนิรภัยชั้นสุดท้าย: state.baseIp ถูกตั้งได้จากหลายทาง (กรอกเอง, โหลด Example, import ไฟล์, autosave)
+    // onBaseChange() ปัดให้ตั้งแต่ต้นทางแล้ว แต่เส้นทางอื่นไม่ได้ผ่านตรงนั้น จึงปัดซ้ำตรงนี้ให้ครบทุกทาง
+    // แก้ที่ state เลย (ไม่ใช่แค่ตัวแปรภายใน) เพื่อไม่ให้ Router panel/CLI โชว์ Base คนละค่ากับ subnet ที่แจกจริง
+    const normalized = normalizeNetwork(state.baseIp, baseCidr);
+    if (normalized !== state.baseIp) state.baseIp = normalized;
+    const baseLong = ipToLong(state.baseIp);
     const sorted = [...state.departments].sort((a, b) => b.hosts - a.hosts);
     let currentIp = baseLong;
     const results = [];
