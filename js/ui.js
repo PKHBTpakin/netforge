@@ -533,8 +533,12 @@ function renderDetailPanelInner() {
                 (wan.length === 0
                     ? '<div class="text-muted text-[13px]">ยังไม่ได้เชื่อม — กด Connect แล้วลากไปหา Router อีกตัวเพื่อสร้างลิงก์ WAN</div>'
                     : wan.map(function(w) {
-                        return '<div class="text-[13px] mt-1"><div class="text-neon">' + w.myIp + '/30</div>' +
-                            '<div class="text-muted text-[12px]">ไปยัง ' + escapeHtml(w.peerLabel) + ' (' + w.peerIp + ') • subnet ' + w.link.network + '/30</div></div>';
+                        // เดิมไม่มีทางลบสายทีละเส้นเลย มีแต่ลบทั้งอุปกรณ์ทิ้ง ซึ่งแรงเกินไปเมื่อแค่อยากย้ายสาย
+                        return '<div class="text-[13px] mt-1 flex items-start justify-between gap-2">' +
+                            '<div><div class="text-neon">' + w.myIp + '/30</div>' +
+                            '<div class="text-muted text-[12px]">ไปยัง ' + escapeHtml(w.peerLabel) + ' (' + w.peerIp + ') • subnet ' + w.link.network + '/30</div></div>' +
+                            '<button onclick="onRemoveLink(\'' + w.link.linkId + '\')" class="text-subtle hover:text-hot flex-shrink-0" title="ลบสายเส้นนี้"><i class="fas fa-unlink"></i></button>' +
+                        '</div>';
                     }).join('')) +
                 '</div>' +
 
@@ -1399,6 +1403,18 @@ function onSuggestIp(id) {
     } catch (err) {
         console.error('onSuggestIp error:', err);
         showToast('แนะนำ IP ไม่สำเร็จ', 'error');
+    }
+}
+
+// ลบสายเชื่อมทีละเส้น
+function onRemoveLink(linkId) {
+    try {
+        removeLink(linkId);
+        renderDetailPanel();
+        showToast('ลบสายเชื่อมแล้ว', 'info');
+    } catch (err) {
+        console.error('onRemoveLink error:', err);
+        showToast('ลบสายไม่สำเร็จ', 'error');
     }
 }
 

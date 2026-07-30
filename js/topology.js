@@ -11,6 +11,17 @@ let dragInfo = null;
 let hoverInfo = null;
 let animFrame = null;
 
+/* ----- มุมมอง: ย่อ/ขยาย และเลื่อนผัง -----
+   พอวาง Router สาขาได้หลายตัว ผังจะกว้างเกินกรอบ Canvas จนกล่องทับกันจนอ่านไม่ออก
+   จึงแยก "พิกัดจริงของโหนด" (world) ออกจาก "พิกัดบนจอ" (screen)
+     screen = world * viewZoom + pan
+     world  = (screen - pan) / viewZoom
+   ตำแหน่งโหนดทุกตัวยังเก็บเป็น world เหมือนเดิมทั้งหมด จึงไม่กระทบไฟล์บันทึกหรือโค้ดคำนวณเดิมเลย */
+let viewZoom = 1;
+let viewPanX = 0, viewPanY = 0;
+let panInfo = null; // { startX, startY, panX, panY } ระหว่างลากพื้นที่ว่างเพื่อเลื่อนผัง
+const ZOOM_MIN = 0.35, ZOOM_MAX = 2.5;
+
 const DEPT_COLORS_DARK = ['#14B8A6','#A78BFA','#F59E0B','#22C55E','#EC4899','#818CF8','#F97316','#0EA5E9'];
 const DEPT_COLORS_LIGHT = ['#096459','#6D28D9','#7A4405','#0C5C2C','#9E144D','#4338CA','#8F3408','#025580'];
 let DEPT_COLORS = DEPT_COLORS_DARK; // applyTheme() ใน ui.js สลับให้เมื่อ toggle โหมด
@@ -123,9 +134,16 @@ function recolorTopology() {
     requestRedraw();
 }
 
+// รวมสายอัตโนมัติกับสายที่ผู้ใช้ลากเองไว้ที่เดียว เพื่อให้ทั้งการวาดเส้นและลูกศรวิ่งใช้ชุดเดียวกันเสมอ
+// เดิม particle สร้างจาก getConnections() อย่างเดียว -> สายที่ผู้ใช้ลากเอง (PC/Server และลิงก์ WAN)
+// ถูกวาดเป็นเส้นแต่ไม่มีลูกศรวิ่งเลย ดูเหมือนสายนั้น "ไม่ทำงาน"
+function getAllConnections() {
+    return getConnections().concat(typeof getManualConnections === 'function' ? getManualConnections() : []);
+}
+
 function createParticles() {
     particles = [];
-    getConnections().forEach(c => {
+    getAllConnections().forEach(c => {
         for (let i = 0; i < 3; i++) {
             particles.push({
                 // กลับมาใช้ c.color (สีตามแผนก) ตามที่ผู้ใช้ยืนยัน — ช่วยแยกได้ว่าลูกศรวิ่งอยู่บนสายไหนตอนมีหลายโหนด
@@ -140,7 +158,9 @@ function createParticles() {
 // อัปเดตแค่ปลายเส้นของ particle เดิม ไม่รีเซ็ต progress/speed
 // ใช้ตอน resize หรือลาก node เพื่อไม่ให้ลูกศรกระตุก/รีสตาร์ทระหว่างลาก
 function updateParticlePositions() {
-    const conns = getConnections();
+    const conns = getAllConnections();
+    // จำนวนสายเปลี่ยนไป (เพิ่ม/ลบลิงก์) -> ต้องสร้าง particle ชุดใหม่ ไม่ใช่แค่ขยับปลายเส้นของชุดเดิม
+    if (particles.length !== conns.length * 3) { createParticles(); return; }
     conns.forEach((c, ci) => {
         for (let i = 0; i < 3; i++) {
             const p = particles[ci * 3 + i];
@@ -181,10 +201,17 @@ function addManualNode(DeviceClass, x, y) {
     return node;
 }
 
+// เรียกหลังลบสาย/ลบอุปกรณ์ เพื่อให้ผลคำนวณ WAN และลูกศรตรงกับผังทันที
+function refreshAfterTopologyChange() {
+    if (typeof refreshAll === 'function') refreshAll();
+    else { createParticles(); requestRedraw(); }
+}
+
 function removeManualNode(id) {
     topoNodes.manualNodes = topoNodes.manualNodes.filter(n => n.id !== id);
     // ลบเส้นเชื่อมที่ค้างอยู่กับ node นี้ไปด้วย ป้องกัน Link ชี้ไปหา id ที่ไม่มีอยู่จริงแล้ว (dangling reference)
     topoNodes.links = topoNodes.links.filter(l => l.fromId !== id && l.toId !== id);
+    refreshAfterTopologyChange();
 }
 
 // เก็บเหตุผลล่าสุดจาก addLink() ไว้ให้ผู้เรียกใช้ (มือถือ mousedown handler) แสดง toast ที่เจาะจงกว่าแค่ "สำเร็จ/ไม่สำเร็จ"
@@ -281,6 +308,7 @@ function detachManualNodesFromDept(deptId) {
 
 function removeLink(linkId) {
     topoNodes.links = topoNodes.links.filter(l => l.id !== linkId);
+    refreshAfterTopologyChange();
 }
 
 // คืนค่ารูปแบบเดียวกับ getConnections() เพื่อให้ขั้นที่ 3 เอาไปวาดต่อได้ทันทีโดยไม่ต้องแก้โครงเดิม
@@ -334,20 +362,26 @@ function resetManualTopology() {
 let gridCanvas = null, gridKey = '';
 
 function drawGrid() {
-    const key = cW + 'x' + cH + '|' + CANVAS_GRID_COLOR + '|' + dpr;
+    // ระยะห่างเส้นตารางย่อ/ขยายตามมุมมอง และเลื่อนตามการ pan ด้วยการขยับตำแหน่งที่วาง (ไม่ใช่วาดใหม่)
+    // จึงแคชได้เหมือนเดิม โดยทำ tile ให้ใหญ่กว่าจอ 1 ช่อง แล้วเลื่อนที่วางตามเศษของ pan
+    const spacing = 40 * viewZoom;
+    const offX = ((viewPanX % spacing) + spacing) % spacing;
+    const offY = ((viewPanY % spacing) + spacing) % spacing;
+    const key = cW + 'x' + cH + '|' + CANVAS_GRID_COLOR + '|' + dpr + '|' + spacing.toFixed(3);
     if (gridKey !== key) {
         try {
             if (!gridCanvas) gridCanvas = document.createElement('canvas');
-            gridCanvas.width = Math.max(1, Math.ceil(cW * dpr));
-            gridCanvas.height = Math.max(1, Math.ceil(cH * dpr));
+            const tileW = cW + spacing, tileH = cH + spacing; // เผื่ออีก 1 ช่องให้เลื่อนได้โดยไม่มีขอบโหว่
+            gridCanvas.width = Math.max(1, Math.ceil(tileW * dpr));
+            gridCanvas.height = Math.max(1, Math.ceil(tileH * dpr));
             const g = gridCanvas.getContext('2d');
             g.setTransform(dpr, 0, 0, dpr, 0, 0);
-            g.clearRect(0, 0, cW, cH);
+            g.clearRect(0, 0, tileW, tileH);
             g.strokeStyle = CANVAS_GRID_COLOR;
             g.lineWidth = 1;
             g.beginPath(); // รวมทุกเส้นไว้ใน path เดียว stroke ครั้งเดียวจบ
-            for (let x = 0; x < cW; x += 40) { g.moveTo(x, 0); g.lineTo(x, cH); }
-            for (let y = 0; y < cH; y += 40) { g.moveTo(0, y); g.lineTo(cW, y); }
+            for (let x = 0; x <= tileW; x += spacing) { g.moveTo(x, 0); g.lineTo(x, tileH); }
+            for (let y = 0; y <= tileH; y += spacing) { g.moveTo(0, y); g.lineTo(tileW, y); }
             g.stroke();
             gridKey = key;
         } catch (e) {
@@ -356,17 +390,17 @@ function drawGrid() {
             ctx.strokeStyle = CANVAS_GRID_COLOR;
             ctx.lineWidth = 1;
             ctx.beginPath();
-            for (let x = 0; x < cW; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, cH); }
-            for (let y = 0; y < cH; y += 40) { ctx.moveTo(0, y); ctx.lineTo(cW, y); }
+            for (let x = offX - spacing; x <= cW; x += spacing) { ctx.moveTo(x, 0); ctx.lineTo(x, cH); }
+            for (let y = offY - spacing; y <= cH; y += spacing) { ctx.moveTo(0, y); ctx.lineTo(cW, y); }
             ctx.stroke();
             return;
         }
     }
-    if (gridCanvas) ctx.drawImage(gridCanvas, 0, 0, cW, cH);
+    if (gridCanvas) ctx.drawImage(gridCanvas, offX - spacing, offY - spacing, cW + spacing, cH + spacing);
 }
 
 function drawConnections() {
-    getConnections().concat(getManualConnections()).forEach(c => {
+    getAllConnections().forEach(c => {
         ctx.beginPath();
         ctx.moveTo(c.sx, c.sy);
         const midY = (c.sy + c.ey) / 2;
@@ -512,20 +546,25 @@ function requestRedraw() {
 }
 
 function isAnimating() {
-    return (state.showArrows && particles.length > 0) || dragInfo !== null || hoverInfo !== null;
+    return (state.showArrows && particles.length > 0) || dragInfo !== null || panInfo !== null || hoverInfo !== null;
 }
 
 function renderFrame() {
     try {
         if (needsRedraw || isAnimating()) {
+            // ชั้นที่ 1 — พิกัดจอ: ล้างพื้นและวาดตาราง (ตารางเลื่อนตามผังด้วยการเลื่อน pattern ไม่ใช่ transform)
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, cW, cH);
             drawGrid();
+            // ชั้นที่ 2 — พิกัด world: ทุกอย่างที่เหลือวาดด้วยพิกัดเดิมของโหนด ไม่ต้องแก้โค้ดวาดสักบรรทัด
+            ctx.setTransform(dpr * viewZoom, 0, 0, dpr * viewZoom, viewPanX * dpr, viewPanY * dpr);
             drawConnections();
             drawFlowArrows();
             drawRouterNode();
             drawSwitchNodes();
             drawDeptNodes();
             drawManualNodes();
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // คืนค่าให้โค้ดอื่นที่อาจวาดต่อ
             needsRedraw = false;
         }
     } catch (err) {
@@ -557,11 +596,64 @@ function hitTest(mx, my) {
 
 // รับได้ทั้ง MouseEvent และ TouchEvent — ฝั่ง touch ใช้นิ้วแรกเสมอ (ไม่รองรับ multi-touch โดยตั้งใจ)
 function getCanvasCoords(e) {
+    const p = getScreenCoords(e);
+    // แปลงเป็นพิกัด world ก่อนคืนค่า เพื่อให้ hitTest/การลากโหนดทำงานบนระบบพิกัดเดิมทั้งหมด
+    return { x: (p.x - viewPanX) / viewZoom, y: (p.y - viewPanY) / viewZoom };
+}
+
+// พิกัดดิบบนจอ (ใช้ตอนเลื่อนผังและซูมเข้าหาตำแหน่งเมาส์)
+function getScreenCoords(e) {
     const r = canvas.getBoundingClientRect();
     const src = (e.touches && e.touches.length) ? e.touches[0]
               : (e.changedTouches && e.changedTouches.length) ? e.changedTouches[0]
               : e;
     return { x: src.clientX - r.left, y: src.clientY - r.top };
+}
+
+// ซูมโดยตรึงจุดใต้เมาส์ให้อยู่กับที่ (ความรู้สึกเดียวกับแผนที่ทั่วไป)
+function zoomAt(screenX, screenY, factor) {
+    const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, viewZoom * factor));
+    if (next === viewZoom) return;
+    const wx = (screenX - viewPanX) / viewZoom;
+    const wy = (screenY - viewPanY) / viewZoom;
+    viewZoom = next;
+    viewPanX = screenX - wx * viewZoom;
+    viewPanY = screenY - wy * viewZoom;
+    requestRedraw();
+    updateZoomLabel();
+}
+
+function zoomBy(factor) { zoomAt(cW / 2, cH / 2, factor); }
+
+// จัดมุมมองให้เห็นทุกโหนดพอดีกรอบ
+function zoomToFit() {
+    const nodes = [topoNodes.router].concat(topoNodes.switches, topoNodes.departments, topoNodes.manualNodes)
+        .filter(Boolean);
+    if (nodes.length === 0) { viewZoom = 1; viewPanX = 0; viewPanY = 0; requestRedraw(); updateZoomLabel(); return; }
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    nodes.forEach(n => {
+        minX = Math.min(minX, n.x - n.w / 2); maxX = Math.max(maxX, n.x + n.w / 2);
+        minY = Math.min(minY, n.y - n.h / 2); maxY = Math.max(maxY, n.y + n.h / 2);
+    });
+    const pad = 60; // เผื่อที่ให้ป้ายใต้กล่องและ legend มุมล่างซ้าย
+    const w = (maxX - minX) + pad * 2, h = (maxY - minY) + pad * 2;
+    viewZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.min(cW / w, cH / h)));
+    viewPanX = cW / 2 - ((minX + maxX) / 2) * viewZoom;
+    viewPanY = cH / 2 - ((minY + maxY) / 2) * viewZoom;
+    requestRedraw();
+    updateZoomLabel();
+}
+
+function resetView() {
+    viewZoom = 1; viewPanX = 0; viewPanY = 0;
+    requestRedraw();
+    updateZoomLabel();
+}
+
+function updateZoomLabel() {
+    const el = document.getElementById('zoomLabel');
+    if (el) el.textContent = Math.round(viewZoom * 100) + '%';
 }
 
 function findNodeById(id) {
@@ -588,6 +680,7 @@ function handlePointerDown(x, y) {
                               : state.placingType === 'router-branch' ? BranchRouterDevice
                               : ServerDevice;
             addManualNode(DeviceClass, x, y);
+            refreshAfterTopologyChange();
             state.placingType = null;
             if (typeof updateModeButtons === 'function') updateModeButtons();
             if (typeof showToast === 'function') showToast('วางอุปกรณ์แล้ว — กด Connect เพื่อเชื่อมสาย', 'success');
@@ -607,6 +700,10 @@ function handlePointerDown(x, y) {
             if (state.linkFromId === hit.node.id) { state.linkFromId = null; return; } // คลิกตัวเดิมซ้ำ = ยกเลิก
             const link = addLink(state.linkFromId, hit.node.id);
             state.linkFromId = null;
+            // ต้องคำนวณใหม่ทันที ไม่งั้นลิงก์ WAN ที่เพิ่งสร้างจะยังไม่ได้ /30 จนกว่าผู้ใช้จะไปแก้อย่างอื่น
+            // (อาการที่เห็น: กล่อง Router สาขายังขึ้นว่า "ยังไม่มีลิงก์ WAN" ทั้งที่สายลากเชื่อมแล้ว)
+            // และสายที่เพิ่งเพิ่มก็ต้องมีลูกศรวิ่งด้วย ซึ่ง particle สร้างตอน layoutTopology/createParticles
+            if (typeof refreshAll === 'function') refreshAll();
             if (link) {
                 if (typeof showToast === 'function') showToast(lastLinkMessage || 'เชื่อมสำเร็จ', lastLinkMessage ? 'info' : 'success');
             } else if (typeof showToast === 'function') {
@@ -620,9 +717,14 @@ function handlePointerDown(x, y) {
         const hit = hitTest(x, y);
         if (hit) {
             dragInfo = { nodeId: hit.node.id, type: hit.type, offsetX: x - hit.node.x, offsetY: y - hit.node.y };
-            if (hit.type === 'department' || hit.type === 'switch' || hit.type === 'pc' || hit.type === 'server') selectNode(hit.deptId, hit.type);
+            // 'router-branch' ต้องอยู่ในรายการนี้ด้วย ไม่งั้นจะตกไปเข้าเงื่อนไข else ซึ่งเปิดพาเนลของ
+            // Router หลักแทน -> ผู้ใช้เลยไม่เห็นปุ่มลบและแก้ชื่อของ Router สาขาที่เพิ่งวางเลย
+            if (hit.type === 'department' || hit.type === 'switch' || hit.type === 'pc' || hit.type === 'server' || hit.type === 'router-branch') selectNode(hit.deptId, hit.type);
             else { state.selectedDeptId = null; state.selectedNodeType = 'router'; renderDetailPanel(); renderSidebarDepts(); }
         } else {
+            // คลิกพื้นที่ว่าง = เริ่มเลื่อนผัง (นอกเหนือจากการยกเลิกการเลือก)
+            // ทำให้ผังที่กว้างเกินกรอบยังเข้าถึงได้ทุกส่วนโดยไม่ต้องย่อจนอ่านไม่ออก
+            panInfo = { startX: x * viewZoom + viewPanX, startY: y * viewZoom + viewPanY, panX: viewPanX, panY: viewPanY };
             state.selectedDeptId = null; state.selectedNodeType = null;
             closeDetailPanel(); renderSidebarDepts();
         }
@@ -636,11 +738,23 @@ function handlePointerDown(x, y) {
 // isHover = true เฉพาะเมาส์ — นิ้วไม่มีสถานะ "ชี้ค้าง" การอัปเดต hoverInfo จาก touch จะทำให้โหนดค้างสว่างหลังยกนิ้ว
 function handlePointerMove(x, y, isHover) {
     try {
+        if (panInfo) {
+            const sx = x * viewZoom + viewPanX, sy = y * viewZoom + viewPanY;
+            viewPanX = panInfo.panX + (sx - panInfo.startX);
+            viewPanY = panInfo.panY + (sy - panInfo.startY);
+            if (isHover) canvas.style.cursor = 'grabbing';
+            requestRedraw();
+            return;
+        }
         if (dragInfo) {
             const node = findNodeById(dragInfo.nodeId);
             if (node) {
-                node.x = Math.max(node.w/2, Math.min(cW - node.w/2, x - dragInfo.offsetX));
-                node.y = Math.max(node.h/2, Math.min(cH - node.h/2, y - dragInfo.offsetY));
+                // จำกัดให้อยู่ในพื้นที่ที่ "มองเห็นอยู่ตอนนี้" (แปลงกรอบจอเป็นพิกัด world)
+                // เดิมใช้ 0..cW ตรง ๆ ซึ่งพอซูม/เลื่อนผังแล้วจะลากโหนดไปวางนอกกรอบที่เห็นไม่ได้เลย
+                const vx0 = -viewPanX / viewZoom, vy0 = -viewPanY / viewZoom;
+                const vx1 = vx0 + cW / viewZoom, vy1 = vy0 + cH / viewZoom;
+                node.x = Math.max(vx0 + node.w/2, Math.min(vx1 - node.w/2, x - dragInfo.offsetX));
+                node.y = Math.max(vy0 + node.h/2, Math.min(vy1 - node.h/2, y - dragInfo.offsetY));
                 updateParticlePositions();
             }
             if (isHover) canvas.style.cursor = 'grabbing';
@@ -658,6 +772,7 @@ function handlePointerMove(x, y, isHover) {
 
 function handlePointerUp() {
     dragInfo = null;
+    panInfo = null;
     canvas.style.cursor = 'default';
     requestRedraw();
 }
@@ -672,6 +787,13 @@ function setupCanvasEvents() {
         const { x, y } = getCanvasCoords(e);
         handlePointerMove(x, y, true);
     });
+    // ล้อเมาส์ = ซูมเข้าหาตำแหน่งเคอร์เซอร์  (passive:false เพราะต้อง preventDefault กันหน้าเลื่อน)
+    canvas.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        const p = getScreenCoords(e);
+        zoomAt(p.x, p.y, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+    }, { passive: false });
+
     canvas.addEventListener('mouseup', handlePointerUp);
     canvas.addEventListener('mouseleave', function() { hoverInfo = null; handlePointerUp(); });
 

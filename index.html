@@ -194,6 +194,15 @@
                     <button id="btnAddRouter" onclick="togglePlacingMode('router-branch')" class="btn-cyber text-[12px] px-2 py-1" title="วาง Router สาขา แล้วลากเชื่อมกับ Router หลักเพื่อสร้างลิงก์ WAN"><i class="fas fa-network-wired mr-1"></i>Router</button>
                     <button id="btnConnect" onclick="toggleConnectMode()" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกอุปกรณ์ 2 ตัวเพื่อเชื่อมสาย"><i class="fas fa-link mr-1"></i>Connect</button>
                 </div>
+                <!-- แถบควบคุมมุมมอง — ผังกว้างเกินกรอบเมื่อมี Router หลายตัว จึงต้องย่อ/ขยาย/เลื่อนได้ -->
+                <div class="canvas-zoom">
+                    <button onclick="zoomBy(1/1.2)" title="ย่อ (หรือหมุนล้อเมาส์ลง)"><i class="fas fa-minus"></i></button>
+                    <span id="zoomLabel" title="ระดับการซูม">100%</span>
+                    <button onclick="zoomBy(1.2)" title="ขยาย (หรือหมุนล้อเมาส์ขึ้น)"><i class="fas fa-plus"></i></button>
+                    <button onclick="zoomToFit()" title="จัดให้เห็นทุกอุปกรณ์พอดีกรอบ"><i class="fas fa-expand"></i></button>
+                    <button onclick="resetView()" title="กลับไปขนาด 100% ตำแหน่งเริ่มต้น"><i class="fas fa-rotate-left"></i></button>
+                </div>
+
                 <div class="canvas-legend" title="ความหมายสีบน Topology Canvas">
                     <div class="legend-item"><span class="legend-dot" style="background:var(--neon)"></span>Router</div>
                     <div class="legend-item"><span class="legend-dot-multi"><span style="background:#14B8A6"></span><span style="background:#A78BFA"></span><span style="background:#F59E0B"></span></span>Switch / แผนก (สีต่างกันตาม VLAN)</div>

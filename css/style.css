@@ -335,6 +335,23 @@ button:focus-visible,
 .onboard-step-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
 
 /* --- Canvas Legend: อธิบายความหมายสี/ไอคอนบน Topology Canvas (ดูเหตุผลใน ui.js ใกล้ showOnboarding) --- */
+/* แถบควบคุมมุมมองของ Canvas (ย่อ/ขยาย/จัดพอดี/รีเซ็ต) */
+.canvas-zoom {
+    position: absolute; bottom: 10px; right: 10px; z-index: 10;
+    display: flex; align-items: center; gap: 2px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+    padding: 3px 4px;
+}
+.canvas-zoom button {
+    background: transparent; border: none; color: var(--muted); cursor: pointer;
+    padding: 4px 7px; border-radius: 4px; font-size: 12px; transition: all 0.15s;
+}
+.canvas-zoom button:hover { background: rgba(76,141,255,0.12); color: var(--neon); }
+.canvas-zoom span {
+    font-size: 11px; color: var(--label); min-width: 40px; text-align: center;
+    font-family: 'Share Tech Mono', monospace; user-select: none;
+}
+
 .canvas-legend {
     position: absolute; bottom: 10px; left: 10px; z-index: 10;
     display: flex; flex-wrap: wrap; gap: 4px 12px;

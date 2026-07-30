@@ -639,6 +639,115 @@ run("state.cliRouterId='router'; renderCLI();");
 check('wan: ลบแล้ว CLI กลับมามีทุกแผนกเหมือนเดิม',
     cliText(getElementById('cliRouterOutput').innerHTML).includes('ip dhcp pool Sales'));
 
+/* ===== I. ปัญหาที่พบจากการใช้งานจริงหลัง deploy (30 ก.ค. 2569 รอบ 6) ===== */
+
+// I1 — คลิก Router สาขาแล้วต้องเปิดพาเนลของตัวมันเอง (ที่มีปุ่มลบ) ไม่ใช่พาเนลของ Router หลัก
+run("loadExample('small')");
+const brId = run("(function(){ var b = addManualNode(BranchRouterDevice, 400, 300); b.label='Router-Test'; refreshAll(); return b.id; })()");
+const canvasEl2 = getElementById('topoCanvas');
+run("state.placingType = null; state.connectMode = false;");
+canvasEl2._listeners['mousedown'][0]({ clientX: 400, clientY: 300 });
+check('branch-panel: คลิกแล้วเลือกเป็น router-branch ไม่ใช่ router หลัก',
+    run('state.selectedNodeType') === 'router-branch', run('state.selectedNodeType'));
+check('branch-panel: selectedDeptId ชี้ที่ id ของ Router สาขา', run('state.selectedDeptId') === brId, run('state.selectedDeptId'));
+run('renderDetailPanel()');
+const brPanel = getElementById('detailContent').innerHTML;
+check('branch-panel: มีปุ่มลบ Router (เดิมไม่มีเพราะไปเปิดพาเนล Router หลัก)',
+    brPanel.includes('onRemoveManualNode') && brPanel.includes('ลบ Router นี้'));
+check('branch-panel: มีช่องแก้ชื่อ', brPanel.includes('onBranchRouterRename'));
+check('branch-panel: ไม่ใช่พาเนลของ Router หลัก', !brPanel.includes('BASE NETWORK'));
+
+capturedToasts = [];
+run("onRemoveManualNode('" + brId + "')");
+check('branch-panel: ลบได้จริง', run("topoNodes.manualNodes.some(function(n){return n.id==='" + brId + "'})") === false);
+
+// I2 — เชื่อมสายแล้วต้องคำนวณ WAN ทันที ไม่ต้องรอให้ไปแก้อย่างอื่นก่อน
+run("loadExample('small')");
+const brId2 = run("(function(){ var b = addManualNode(BranchRouterDevice, 500, 300); b.label='BR2'; refreshAll(); return b.id; })()");
+check('link-refresh: ก่อนเชื่อม ยังไม่มีลิงก์ WAN', run('state.wanLinks.length') === 0);
+// ยิงผ่าน flow จริงของโหมด Connect (คลิกสองครั้ง) ไม่ได้เรียก addLink ตรง ๆ
+run("toggleConnectMode()");
+run("(function(){ var r = topoNodes.router; canvasClickAt = null; })()");
+canvasEl2._listeners['mousedown'][0]({ clientX: run('topoNodes.router.x'), clientY: run('topoNodes.router.y') });
+canvasEl2._listeners['mousedown'][0]({ clientX: 500, clientY: 300 });
+check('link-refresh: เชื่อมแล้วได้ลิงก์ WAN ทันที (เดิมต้องรอ refresh อย่างอื่นก่อน)',
+    run('state.wanLinks.length') === 1, run('state.wanLinks.length'));
+check('link-refresh: ป้ายบนกล่อง Router สาขาไม่ขึ้นว่า "ยังไม่มีลิงก์ WAN" อีกแล้ว',
+    run("topoNodes.manualNodes.find(function(n){return n.id==='" + brId2 + "'}).getIpLabel()").indexOf('ยังไม่มี') === -1,
+    run("topoNodes.manualNodes.find(function(n){return n.id==='" + brId2 + "'}).getIpLabel()"));
+run("state.connectMode = false;");
+
+// I3 — ลูกศรวิ่งต้องมีบนสายที่ผู้ใช้ลากเองด้วย ไม่ใช่เฉพาะสายอัตโนมัติ
+const autoCount = run('getConnections().length');
+const allCount = run('getAllConnections().length');
+check('arrows: getAllConnections รวมสายที่ลากเองด้วย', allCount > autoCount, autoCount + ' -> ' + allCount);
+check('arrows: จำนวน particle ตรงกับจำนวนสายทั้งหมด (3 ตัวต่อเส้น)',
+    run('particles.length') === allCount * 3, run('particles.length') + ' vs ' + (allCount * 3));
+
+// ลบสายแล้ว particle ต้องลดตาม ไม่ค้างวิ่งบนสายที่ไม่มีอยู่แล้ว
+const wanLinkId = run('state.wanLinks[0].linkId');
+run("onRemoveLink('" + wanLinkId + "')");
+check('arrows: ลบสายแล้ว particle ลดตาม', run('particles.length') === run('getAllConnections().length') * 3);
+check('link-remove: ลบสายทีละเส้นได้โดยไม่ต้องลบทั้งอุปกรณ์',
+    run('state.wanLinks.length') === 0 && run("topoNodes.manualNodes.some(function(n){return n.id==='" + brId2 + "'})") === true);
+
+// I4 — ระบบพิกัดของมุมมอง (ย่อ/ขยาย/เลื่อน)
+run('resetView()');
+check('view: ค่าเริ่มต้น zoom 100% ไม่เลื่อน', run('viewZoom') === 1 && run('viewPanX') === 0 && run('viewPanY') === 0);
+
+run('zoomBy(1.2)');
+check('view: ขยายแล้ว zoom เพิ่มขึ้น', run('viewZoom') > 1, run('viewZoom').toFixed(3));
+run('resetView(); zoomBy(1/1.2);');
+check('view: ย่อแล้ว zoom ลดลง', run('viewZoom') < 1, run('viewZoom').toFixed(3));
+
+run('resetView();');
+for (let i = 0; i < 40; i++) run('zoomBy(1.2)');
+check('view: ขยายจนสุดแล้วไม่เกินเพดาน', run('viewZoom') <= run('ZOOM_MAX') + 0.0001, run('viewZoom').toFixed(3));
+run('resetView();');
+for (let i = 0; i < 40; i++) run('zoomBy(1/1.2)');
+check('view: ย่อจนสุดแล้วไม่ต่ำกว่าขั้นต่ำ', run('viewZoom') >= run('ZOOM_MIN') - 0.0001, run('viewZoom').toFixed(3));
+
+// ซูมเข้าหาจุดหนึ่ง จุดนั้นต้องอยู่ที่เดิมบนจอ (ความรู้สึกแบบแผนที่)
+run('resetView();');
+const worldBefore = run('(function(){ return { x: (300 - viewPanX)/viewZoom, y: (200 - viewPanY)/viewZoom }; })()');
+run('zoomAt(300, 200, 1.5)');
+const worldAfter = run('(function(){ return { x: (300 - viewPanX)/viewZoom, y: (200 - viewPanY)/viewZoom }; })()');
+check('view: ซูมแล้วจุดใต้เคอร์เซอร์ยังอยู่ตำแหน่งเดิม',
+    Math.abs(worldBefore.x - worldAfter.x) < 0.001 && Math.abs(worldBefore.y - worldAfter.y) < 0.001,
+    JSON.stringify(worldBefore) + ' vs ' + JSON.stringify(worldAfter));
+
+// zoomToFit ต้องครอบทุกโหนดจริง
+run("loadExample('enterprise')");
+run("(function(){ var b = addManualNode(BranchRouterDevice, 1800, 900); refreshAll(); })()"); // วางไกลออกไปนอกกรอบ
+run('zoomToFit()');
+const fitOk = run(`(function(){
+    var nodes = [topoNodes.router].concat(topoNodes.switches, topoNodes.departments, topoNodes.manualNodes).filter(Boolean);
+    return nodes.every(function(n){
+        var sx = n.x * viewZoom + viewPanX, sy = n.y * viewZoom + viewPanY;
+        return sx > -1 && sx < cW + 1 && sy > -1 && sy < cH + 1;
+    });
+})()`);
+check('view: zoomToFit ทำให้ทุกโหนดอยู่ในกรอบที่มองเห็น', fitOk, 'zoom ' + run('viewZoom').toFixed(2));
+
+// I5 — การลากพื้นที่ว่างต้องเลื่อนผัง ไม่ใช่ทำอะไรไม่ได้เลย
+run('resetView(); state.placingType = null; state.connectMode = false;');
+const panBefore = run('viewPanX');
+canvasEl2._listeners['mousedown'][0]({ clientX: 20, clientY: 560 }); // จุดว่างมุมล่างซ้าย
+check('pan: คลิกที่ว่างแล้วเข้าสู่โหมดเลื่อนผัง', run('panInfo !== null'));
+canvasEl2._listeners['mousemove'][0]({ clientX: 120, clientY: 560 });
+check('pan: ลากแล้วผังเลื่อนตาม', run('viewPanX') > panBefore, panBefore + ' -> ' + run('viewPanX'));
+canvasEl2._listeners['mouseup'][0]({});
+check('pan: ปล่อยเมาส์แล้วออกจากโหมดเลื่อน', run('panInfo === null'));
+check('pan: ระหว่างเลื่อนผังนับเป็นการเคลื่อนไหว (ต้องวาดต่อเนื่อง)',
+    (function () { run('panInfo = { startX:0, startY:0, panX:0, panY:0 }'); const r = run('isAnimating()'); run('panInfo = null'); return r === true; })());
+
+// พิกัดที่ส่งให้ hitTest ต้องเป็น world เสมอ แม้จะซูม/เลื่อนอยู่
+run('resetView(); viewZoom = 2; viewPanX = -100; viewPanY = -50;');
+const wc = run('getCanvasCoords({ clientX: 300, clientY: 250 })');
+check('view: getCanvasCoords แปลงจอ -> world ถูกต้อง ((300+100)/2, (250+50)/2)',
+    Math.abs(wc.x - 200) < 0.001 && Math.abs(wc.y - 150) < 0.001, JSON.stringify(wc));
+run('resetView();');
+
 /* ---------- สรุปผล ---------- */
 let pass = 0;
 results.forEach(r => {
