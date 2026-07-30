@@ -315,6 +315,63 @@ check('share: ไม่มี hash -> คืน false เงียบ ๆ', run(
 locationStub.hash = '#somethingelse=1';
 check('share: hash ที่ไม่ใช่ของเรา -> คืน false เงียบ ๆ', run('tryLoadFromUrl()') === false);
 
+/* ===== F. บั๊กที่พบจากการใช้งานจริงบน GitHub Pages (30 ก.ค. 2569 รอบ 3) ===== */
+
+// F1 — ปุ่ม Suggest Base ตอนอยู่โหมด IPv6 ต้องไม่ไปแตะค่าของ IPv4
+run("loadExample('company')");          // 172.16.0.0/23
+run("setIpMode('v6', true)");
+const v4Before = run("state.baseIp + '/' + state.baseCidr");
+capturedToasts = [];
+run('onSuggestBase()');
+check('v6-suggest: ไม่แก้ Base ของ IPv4 ที่ซ่อนอยู่ (บั๊กเดิมย่อ /23 เป็น /24 เงียบ ๆ)',
+    run("state.baseIp + '/' + state.baseCidr") === v4Before, v4Before + ' -> ' + run("state.baseIp + '/' + state.baseCidr"));
+check('v6-suggest: ไม่แก้ค่าในช่อง CIDR ของ IPv4',
+    String(getElementById('baseCidrInput').value) !== '24' || v4Before.endsWith('/24'), getElementById('baseCidrInput').value);
+check('v6-suggest: toast ต้องพูดถึง IPv6 ไม่ใช่รายงานเลข /24 ของ IPv4',
+    capturedToasts.some(t => /IPv6/.test(t.msg)) && !capturedToasts.some(t => /พอดีที่สุด/.test(t.msg)),
+    JSON.stringify(capturedToasts.map(t => t.msg)));
+
+run("state.baseIp6 = '2001:db8::'; state.basePrefixLen6 = 48; state.newPrefixLen6 = 64; refreshAll();");
+capturedToasts = [];
+run('onSuggestBase()');
+check('v6-suggest: รายงานจำนวน subnet ที่แบ่งได้จริง (/48 -> /64 = 65,536)',
+    capturedToasts.some(t => /65,536/.test(t.msg)), JSON.stringify(capturedToasts.map(t => t.msg)));
+check('v6-suggest: อธิบายว่าทำไมไม่ต้องย่อ (อ้าง RFC 4291)',
+    capturedToasts.some(t => /RFC 4291/.test(t.msg)));
+
+// prefix ที่แบ่งได้ไม่พอกับจำนวนแผนก ต้องเตือนพร้อมบอกทางแก้
+run("state.basePrefixLen6 = 62; state.newPrefixLen6 = 64;"); // 2 bits = 4 subnet แต่มี 6 แผนก
+capturedToasts = [];
+run('onSuggestBase()');
+check('v6-suggest: แบ่งไม่พอ -> เตือนพร้อมบอก prefix ที่ควรใช้',
+    capturedToasts.some(t => t.type === 'error' && /แผนก/.test(t.msg)), JSON.stringify(capturedToasts.map(t => t.msg)));
+
+run("state.basePrefixLen6 = 48; state.newPrefixLen6 = 64; setIpMode('v4', true);");
+
+// F2 — กล่อง Router บน Canvas ต้องแสดงค่าตามโหมดที่ดูอยู่
+run("loadExample('company'); state.baseIp6='2001:db8::'; state.basePrefixLen6=48; refreshAll();");
+check('router-label: โหมด IPv4 แสดง Base IPv4',
+    run('topoNodes.router.getBaseNetworkSummary()') === '172.16.0.0/23', run('topoNodes.router.getBaseNetworkSummary()'));
+run("setIpMode('v6', true)");
+check('router-label: โหมด IPv6 แสดง Base IPv6 (เดิมโชว์ IPv4 ค้างไว้ ขัดกับกล่องแผนกที่ขึ้นว่ายังไม่มี IPv6)',
+    run('topoNodes.router.getBaseNetworkSummary()') === '2001:db8::/48', run('topoNodes.router.getBaseNetworkSummary()'));
+run("state.baseIp6 = ''");
+check('router-label: โหมด IPv6 ที่ยังไม่ตั้งค่า แสดงข้อความเดียวกับกล่องแผนก',
+    run('topoNodes.router.getBaseNetworkSummary()') === 'ยังไม่มี IPv6', run('topoNodes.router.getBaseNetworkSummary()'));
+run("setIpMode('v4', true)");
+
+// F3 — exportProject ต้องไม่ปล่อยไฟล์เปล่าออกมา
+run('clearAll()');
+capturedToasts = [];
+run('exportProject()');
+check('export: ไม่มีข้อมูล -> เตือนแทนที่จะโหลดไฟล์เปล่า 362 bytes ติดเครื่อง',
+    capturedToasts.some(t => t.type === 'error') && !capturedToasts.some(t => /เป็นไฟล์แล้ว/.test(t.msg)),
+    JSON.stringify(capturedToasts.map(t => t.msg)));
+run("loadExample('small')");
+capturedToasts = [];
+run('exportProject()');
+check('export: มีข้อมูลแล้วยัง export ได้ปกติ', capturedToasts.some(t => t.type === 'success'), JSON.stringify(capturedToasts.map(t => t.msg)));
+
 /* ---------- สรุปผล ---------- */
 let pass = 0;
 results.forEach(r => {

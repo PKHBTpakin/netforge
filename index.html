@@ -40,7 +40,9 @@
 <body class="bg-dark-900 overflow-x-hidden">
     <div class="scanlines pointer-events-none"></div>
 
-    <div id="toast-container" class="toast-container z-[100]"></div>
+    <!-- ไม่ใส่คลาส z-* ของ Tailwind ตรงนี้ — z-index คุมจาก .toast-container ใน style.css ที่เดียว
+         (เดิมมี z-[100] ซ้อนอยู่ ทำให้มีสองแหล่งค่าจริงที่ขัดกันเอง) -->
+    <div id="toast-container" class="toast-container"></div>
 
     <!-- Onboarding Modal: แสดงอัตโนมัติครั้งแรกที่เปิดแอป (เช็คผ่าน localStorage ใน ui.js) เรียกดูซ้ำได้ทุกเมื่อผ่านปุ่ม HELP ที่ Header -->
     <div id="onboardOverlay" class="onboard-overlay hidden" onclick="if(event.target===this) closeOnboarding()">

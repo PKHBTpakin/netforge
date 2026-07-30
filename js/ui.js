@@ -230,7 +230,14 @@ function renderHeadroomHTML() {
         '</div>';
 }
 
+/* ปุ่มไม้กายสิทธิ์ข้าง Calculate
+   บั๊กที่แก้: เดิมฟังก์ชันนี้เขียนค่าลง #baseCidrInput (ช่องของ IPv4) แล้วเรียก onBaseChange() ตรง ๆ เสมอ
+   แต่ onBaseChange() มีบรรทัดแรกว่า "ถ้าอยู่โหมด v6 ให้ไปทำ onBaseChangeV6() แทน"
+   ผลคือกดปุ่มนี้ตอนอยู่หน้า IPv6 -> ไปแก้ Base ของ IPv4 ที่ซ่อนอยู่แบบเงียบ ๆ
+   แล้ว toast ก็รายงานเลข /24 ของ IPv4 ออกมาทั้งที่ผู้ใช้กำลังดูหน้า IPv6 อยู่ (ดูภาพที่ผู้ใช้ส่งมา)
+   ตอนนี้แยกทางตามโหมดตั้งแต่บรรทัดแรก ไม่ให้ข้ามฝั่งกันอีก */
 function onSuggestBase() {
+    if (state.ipMode === 'v6') { suggestBaseV6Info(); return; }
     try {
         if (state.departments.length === 0) { showToast('เพิ่มแผนกก่อน ถึงจะแนะนำ Base ได้', 'error'); return; }
         var cidr = suggestBaseCidr(state.departments);
@@ -243,6 +250,47 @@ function onSuggestBase() {
     } catch (err) {
         console.error('onSuggestBase error:', err);
         showToast('แนะนำ Base ไม่สำเร็จ', 'error');
+    }
+}
+
+/* โหมด IPv6 — แนวคิด "ย่อ Base ให้พอดี" ใช้ไม่ได้และไม่ควรใช้
+   IPv4: พื้นที่มีจำกัดจริง การจอง block ใหญ่เกินจำเป็นคือการสิ้นเปลืองที่ต้องระวัง
+   IPv6: พื้นที่ไม่ใช่ทรัพยากรที่ต้องประหยัด และ /64 เป็นขนาด subnet มาตรฐานที่ SLAAC ต้องการ (RFC 4291)
+         การไล่ย่อ prefix ให้ "พอดี" จึงเป็นการสอนสิ่งที่ผิดหลักปฏิบัติจริง
+   ปุ่มนี้ในโหมด v6 จึงเปลี่ยนไปทำสิ่งที่มีประโยชน์จริงแทน: ตรวจว่าค่าที่ตั้งไว้แบ่งได้ครบไหม
+   และรายงานว่าเหลือพื้นที่ให้ขยายอีกเท่าไหร่ */
+function suggestBaseV6Info() {
+    try {
+        var count = state.departments.length;
+        if (count === 0) { showToast('เพิ่มแผนกก่อน', 'error'); return; }
+
+        var basePrefix = state.basePrefixLen6, newPrefix = state.newPrefixLen6;
+        if (!Number.isInteger(basePrefix) || !Number.isInteger(newPrefix) || newPrefix <= basePrefix || newPrefix > 128) {
+            showToast('ตั้งค่า Prefix ให้ถูกต้องก่อน — Prefix ย่อยต้องยาวกว่า Base Prefix และไม่เกิน /128', 'error');
+            return;
+        }
+
+        var bits = newPrefix - basePrefix;
+        var maxSubnets = 1n << BigInt(bits); // ใช้ BigInt เพราะ /48 -> /128 คือ 2^80 ซึ่งเกิน Number ปกติ
+        var maxText = maxSubnets > 1000000000000n ? '2^' + bits : Number(maxSubnets).toLocaleString();
+
+        if (BigInt(count) > maxSubnets) {
+            var needBits = Math.ceil(Math.log2(count));
+            showToast('/' + basePrefix + ' แบ่งเป็น /' + newPrefix + ' ได้แค่ ' + maxText + ' subnet แต่มี ' + count + ' แผนก\n' +
+                'ลด Base Prefix ลงเหลือ /' + Math.max(newPrefix - needBits, 1) + ' หรือน้อยกว่า จึงจะพอ', 'error');
+            return;
+        }
+
+        if (!state.baseIp6) {
+            showToast('ยังไม่ได้ตั้ง Base IPv6 — กรอกเช่น 2001:db8:: แล้วกด Calculate ก่อน', 'info');
+            return;
+        }
+
+        showToast('IPv6 ไม่ต้องย่อ Base — /' + basePrefix + ' แบ่งเป็น /' + newPrefix + ' ได้ ' + maxText + ' subnet ใช้จริง ' + count + '\n' +
+            'พื้นที่ IPv6 ไม่ใช่ทรัพยากรที่ต้องประหยัด และ /64 คือขนาดมาตรฐานที่ SLAAC ต้องการ (RFC 4291)', 'info');
+    } catch (err) {
+        console.error('suggestBaseV6Info error:', err);
+        showToast('ตรวจสอบค่า IPv6 ไม่สำเร็จ', 'error');
     }
 }
 

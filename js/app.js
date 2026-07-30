@@ -159,6 +159,12 @@ function buildProjectSnapshot() {
 
 function exportProject() {
     try {
+        // เดิมไม่เช็คอะไรเลย กดตอนยังไม่มีข้อมูลก็ได้ไฟล์เปล่า 362 bytes ติดเครื่องไปโดยไม่มีประโยชน์
+        // (copyShareLink() เช็คอยู่แล้ว ตรงนี้ควรทำเหมือนกันเพื่อความสม่ำเสมอ)
+        if (state.departments.length === 0 && topoNodes.manualNodes.length === 0) {
+            showToast('ยังไม่มีข้อมูลให้บันทึก — กด EXAMPLE หรือเพิ่มแผนกก่อน', 'error');
+            return;
+        }
         var data = buildProjectSnapshot();
 
         var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });

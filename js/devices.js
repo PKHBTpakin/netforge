@@ -58,7 +58,13 @@ class RouterDevice extends NetworkDevice {
         super('router', 'router', x, y, 152, 54, 'Router-01', ROUTER_COLOR, '');
     }
 
+    // ต้องตามโหมดที่ผู้ใช้กำลังดูอยู่ เหมือนที่กล่อง Department ทำ (ดู drawDeptNodes ใน topology.js)
+    // เดิมคืนค่า IPv4 เสมอ ทำให้ตอนสลับไปโหมด IPv6 กล่อง Router ยังโชว์ 172.16.0.0/24
+    // ขณะที่กล่องแผนกข้างล่างโชว์ "ยังไม่มี IPv6" — ขัดกันเองในผังเดียวกัน
     getBaseNetworkSummary() {
+        if (state.ipMode === 'v6') {
+            return state.baseIp6 ? (state.baseIp6 + '/' + state.basePrefixLen6) : 'ยังไม่มี IPv6';
+        }
         return state.baseIp + '/' + state.baseCidr;
     }
 }
