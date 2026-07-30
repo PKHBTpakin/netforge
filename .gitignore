@@ -2,3 +2,6 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.log
+
+# ไฟล์นำเสนอ — เก็บไว้ในเครื่องเท่านั้น ไม่ต้องขึ้น repo สาธารณะ
+*.pptx
