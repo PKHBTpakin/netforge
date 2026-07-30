@@ -19,6 +19,10 @@
     --input-bg: rgba(0,0,0,0.25);
     --item-bg: rgba(0,0,0,0.2);
 
+    /* เงาของ dropdown/modal — เดิมฝังค่า rgba(0,0,0,0.6) ไว้ตรง ๆ ซึ่งบนพื้นขาวของ Light Mode
+       จะกลายเป็นเงาดำทึบดูหนักผิดที่ Light UI ต้องใช้เงาจางกว่ามาก จึงแยกเป็นตัวแปรให้สลับตามธีม */
+    --shadow: rgba(0,0,0,0.6);
+
     /* สำหรับ Canvas Legend เท่านั้น — ต้องตรงกับ PC_COLOR_DARK/SERVER_COLOR_DARK ใน devices.js เป๊ะ
        (Router ใช้ --neon ที่มีอยู่แล้วได้เลยเพราะ ROUTER_COLOR_DARK ค่าตรงกันพอดี) แก้สีฝั่ง JS แล้วต้องมาแก้ตรงนี้คู่กันด้วย */
     --pc-swatch: #22C55E;
@@ -27,13 +31,22 @@
 
 /* --- Light Mode: ชุดสีที่สอง สลับด้วย document.documentElement.setAttribute('data-theme','light') --- */
 /* ทุกค่าวัด WCAG contrast จริงแล้ว (>=4.5:1 บนทั้ง --bg และ --card) เหมือน Dark Mode ทุกตัว ไม่เดา */
+/* ปรับรอบ 30 ก.ค. 2569 — เหตุผล (วัดค่าจริงก่อนแก้ ไม่ได้ปรับตามความรู้สึก):
+   ของเดิม --bg #C9D6F2 มี relative luminance แค่ 66.9% และอิ่มสีฟ้า 17%
+   เทียบกับ light mode มาตรฐานทั่วไปที่อยู่ราว 88-95% (เช่น #F5F5F5 = 91.3%)
+   ผลคือหน้าจอไม่ได้ "แสบตา" แต่ดู "มัวและอมฟ้า" เหมือนธีมยังทำไม่เสร็จ
+   ที่หนักกว่าคือ contrast ระหว่าง --bg กับ --card เดิมอยู่แค่ 1.20:1 -> แยกไม่ออกว่าอะไรพื้นอะไรการ์ด
+   แก้โดยดัน --card เป็นขาวสะอาด ยก --bg ขึ้นเป็น 87.6% ลดอิ่มสีเหลือ 4%
+   แล้วให้ "เส้นขอบ" ทำหน้าที่แบ่งชั้นแทนความสว่าง (วิธีมาตรฐานของ light UI)
+   สีตัวอักษรทุกตัวคงค่าเดิมไว้ เพราะพอพื้นสว่างขึ้น contrast ยิ่งดีขึ้นเองทั้งชุด
+   (text 13.84->16.87, neon 6.93->8.44, hot 6.03->7.16 ฯลฯ ไม่มีตัวไหนตกต่ำกว่า 4.5:1) */
 [data-theme="light"] {
-    --neon: #1841B8;
+    --neon: #1841B8;   /* คงค่าเดิม — ต้องตรงกับ ROUTER_COLOR_LIGHT ใน devices.js เป๊ะ (ใช้กับ legend dot ของ Router) */
     --cyber: #475569;
     --hot: #A81D1B;
-    --bg: #C9D6F2;
-    --card: #E1E9FA;
-    --border: #9DB2E3;
+    --bg: #EDF1F7;     /* เดิม #C9D6F2 (66.9%) -> 87.6% อิ่มสีลดจาก 17% เหลือ 4% */
+    --card: #FFFFFF;   /* เดิม #E1E9FA (81.2%) -> ขาวสะอาด แยกชั้นจากพื้นชัด */
+    --border: #CBD5E1; /* เดิม #9DB2E3 (ฟ้าจัดเกินไปบนพื้นขาว) -> เทากลาง ๆ ทำหน้าที่แบ่งชั้นแทน */
     --text: #1A1D24;
 
     --muted: #4E5765;
@@ -44,6 +57,8 @@
        (ปัญหาเดียวกับที่เจอใน Canvas/Tailwind รอบก่อน — ค่าตรงๆ ไม่ตามธีม) เลยต้องลดสัดส่วนความเข้มลงมากสำหรับพื้นขาวโดยเฉพาะ */
     --input-bg: rgba(0,0,0,0.04);
     --item-bg: rgba(0,0,0,0.03);
+
+    --shadow: rgba(15,23,42,0.13); /* เงาอมน้ำเงินจาง ๆ แทนดำทึบ ให้ยกตัวขึ้นจากพื้นโดยไม่ดูหนัก */
 
     --pc-swatch: #0C5C2C;
     --server-swatch: #9E144D;
@@ -92,6 +107,20 @@ body {
     border-color: var(--neon);
 }
 .input-cyber::placeholder { color: var(--subtle); }
+
+/* --- Focus แบบมองเห็นได้ สำหรับผู้ใช้คีย์บอร์ด ---
+   เดิม .input-cyber ตั้ง outline:none แล้วบอกตำแหน่ง focus ด้วยการเปลี่ยนสีขอบอย่างเดียว
+   ซึ่งบางสถานการณ์แยกแทบไม่ออก ส่วนปุ่มทุกตัวไม่มี :focus เลย -> เดินด้วย Tab แล้วไม่รู้ว่าอยู่ตรงไหน
+   ใช้ :focus-visible เพื่อให้วงแหวนขึ้นเฉพาะตอนใช้คีย์บอร์ด ไม่ขึ้นตอนคลิกเมาส์ (ไม่รบกวนสายตา) */
+button:focus-visible,
+.input-cyber:focus-visible,
+.dept-item:focus-visible,
+.ex-item:focus-visible,
+.tab-btn:focus-visible {
+    outline: 2px solid var(--neon);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
 
 /* --- ปุ่มต่างๆ --- */
 .btn-neon {
@@ -198,7 +227,7 @@ body {
 .example-dropdown {
     position: absolute; top: 100%; right: 0; margin-top: 6px; min-width: 280px;
     background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.6); z-index: 9998; overflow: hidden;
+    box-shadow: 0 8px 30px var(--shadow); z-index: 9998; overflow: hidden;
     opacity: 0; transform: translateY(-8px); pointer-events: none; transition: all 0.2s;
 }
 .example-dropdown.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
@@ -266,7 +295,7 @@ body {
 .onboard-card {
     background: var(--card); border: 1px solid var(--border); border-radius: 10px;
     max-width: 440px; width: 100%; padding: 20px 22px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+    box-shadow: 0 20px 60px var(--shadow);
 }
 .onboard-step { display: flex; gap: 12px; align-items: flex-start; }
 .onboard-step-icon {

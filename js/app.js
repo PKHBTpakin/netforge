@@ -37,6 +37,7 @@ function refreshAll(forceLayout) {
     calculateIPv6();
     renderSidebarDepts();
     renderTable();
+    renderUtilization();
     layoutTopology(forceLayout);
     updateDetailSubnetInfo();
     // แท็บ CLI ไม่ได้ re-render เองตอนข้อมูลเปลี่ยน เดิมเรียกจาก switchTab() ที่เดียว
@@ -389,6 +390,38 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// ปุ่ม Escape — ทางออกมาตรฐานที่ผู้ใช้คาดหวังจากทุกแอป แต่เดิมไม่มีเลย
+// ไล่ปิดทีละชั้นจากบนลงล่าง (modal -> โหมดค้าง -> พาเนล) ไม่ปิดทุกอย่างรวดเดียว
+// เพื่อให้กด Esc ซ้ำ ๆ แล้วถอยออกทีละขั้นได้ตามสัญชาตญาณ
+function setupGlobalKeys() {
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        try {
+            var lib = document.getElementById('libraryOverlay');
+            if (lib && !lib.classList.contains('hidden')) { closeLibrary(); return; }
+
+            var onboard = document.getElementById('onboardOverlay');
+            if (onboard && !onboard.classList.contains('hidden')) { closeOnboarding(); return; }
+
+            var dd = document.getElementById('exampleDropdown');
+            if (dd && dd.classList.contains('open')) { dd.classList.remove('open'); return; }
+
+            if (state.placingType || state.connectMode) {
+                state.placingType = null;
+                state.connectMode = false;
+                state.linkFromId = null;
+                if (typeof updateModeButtons === 'function') updateModeButtons();
+                document.getElementById('statusBar').textContent = 'ยกเลิกโหมดแล้ว';
+                return;
+            }
+
+            if (state.detailOpen) closeDetailPanel();
+        } catch (err) {
+            console.error('Escape handler error:', err);
+        }
+    });
+}
+
 // เริ่มต้นทุกอย่าง
 function init() {
     try {
@@ -423,12 +456,19 @@ function init() {
 
         renderSidebarDepts();
         renderTable();
+        renderUtilization();
         layoutTopology();
         renderFrame();
 
         document.getElementById('statusBar').textContent = 'Ready — กดปุ่ม EXAMPLE เพื่อโหลดข้อมูลตัวอย่าง';
-        tryRestoreAutosave(); // เช็ค Autosave ก่อนโชว์ Onboarding เผื่อมีข้อมูลค้างจากรอบก่อนให้กู้กลับอัตโนมัติ
-        maybeShowOnboardingOnFirstVisit();
+
+        // ลิงก์แชร์ (#p=...) ต้องชนะ Autosave เสมอ — ผู้ใช้กดลิงก์นั้นเพราะตั้งใจจะเปิดงานชิ้นนั้น
+        // ถ้าปล่อยให้ Autosave ทับ จะกลายเป็นเปิดลิงก์แล้วเห็นงานเก่าของตัวเอง ซึ่งสับสนหนัก
+        var loadedFromUrl = (typeof tryLoadFromUrl === 'function') ? tryLoadFromUrl() : false;
+        if (!loadedFromUrl) tryRestoreAutosave();
+        if (!loadedFromUrl) maybeShowOnboardingOnFirstVisit();
+
+        setupGlobalKeys();
     } catch (err) {
         console.error('init() ล้มเหลว:', err);
         document.body.innerHTML = '<div style="padding:40px;font-family:\'Share Tech Mono\',monospace;color:#F0575C;background:#0f1115;min-height:100vh;">' +

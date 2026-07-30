@@ -42,6 +42,65 @@ function normalizeNetwork(ip, cidr) {
     return longToIp((ipToLong(ip) & mask) >>> 0);
 }
 
+/* ============================================
+   1c. Utilization — วิเคราะห์การใช้พื้นที่ใน Base Block
+   แยกพื้นที่ออกเป็น 3 ส่วนแทนการรายงานเป็น "efficiency %" ตัวเดียว เพราะตัวเลขรวมตัวเดียว
+   ทำให้เข้าใจผิดได้: การเหลือพื้นที่ว่างไม่ใช่ข้อบกพร่องเสมอไป ในงานจริงเราจอง block ใหญ่กว่า
+   ที่ใช้ตอนนี้ "โดยตั้งใจ" เพื่อเผื่อขยาย การไล่ % ให้สูงจึงอาจสอนสิ่งที่ผิด
+   3 ส่วนที่แยก:
+     used     = host ที่ขอจริง + network + broadcast ของแต่ละ subnet
+     rounding = ส่วนที่เสียไปจากการปัดขนาด subnet ขึ้นเป็นกำลังสอง (เลี่ยงไม่ได้ในระบบเลขฐานสอง)
+     reserve  = ส่วนที่เหลือใน Base Block ยังไม่ถูกแตะ = พื้นที่สำรองเผื่อโต
+   ============================================ */
+
+// รวมความต้องการของชุดแผนกที่ให้มา — ใช้ได้ทั้ง state.departments (ก่อนคำนวณ) และ state.calculated (หลังคำนวณ)
+function calculateAllocation(departments) {
+    var requested = 0, allocated = 0, counted = 0;
+    (departments || []).forEach(function (d) {
+        var h = Number(d.hosts);
+        if (!isFinite(h) || h < 1) return;
+        requested += h + 2; // +2 = network address กับ broadcast address ที่จ่ายให้เครื่องไม่ได้
+        allocated += Math.pow(2, Math.ceil(Math.log2(Math.max(h + 2, 4))));
+        counted++;
+    });
+    return { requested: requested, allocated: allocated, counted: counted };
+}
+
+// หา CIDR ที่ "สั้นที่สุด" (block เล็กที่สุด) ที่ยังจองครบทุกแผนก
+// เดิมผู้ใช้ต้องเดา Base เอง และข้อมูลตัวอย่างก็ตั้ง Base ใหญ่เกินความจำเป็น 4-8 เท่า
+// ทำให้สัดส่วนการใช้พื้นที่จริงเหลือ 14-36% ทั้งที่อัลกอริทึมแจก subnet ถูกต้องอยู่แล้ว
+function suggestBaseCidr(departments) {
+    var alloc = calculateAllocation(departments).allocated;
+    if (alloc <= 0) return null;
+    var cidr = 32 - Math.ceil(Math.log2(alloc));
+    if (cidr > 30) cidr = 30; // /31,/32 ใช้เป็น Base ของหลาย subnet ไม่ได้
+    if (cidr < 8) cidr = 8;   // ตรงกับขอบเขตที่ onBaseChange() ยอมรับ
+    return cidr;
+}
+
+// นับจาก state.calculated เท่านั้น (แผนกที่จัดสรรสำเร็จจริง) ไม่ใช่ state.departments
+// เพราะแผนกที่ล้นขอบไม่ได้กินพื้นที่ใน block นี้เลย ถ้านับด้วยตัวเลขจะเกิน 100%
+function calculateUtilization() {
+    var a = calculateAllocation(state.calculated);
+    var total = Math.pow(2, 32 - state.baseCidr);
+    var rounding = a.allocated - a.requested;
+    var reserve = total - a.allocated;
+    var pct = function (n) { return total > 0 ? (n / total * 100) : 0; };
+    return {
+        total: total,
+        used: a.requested,
+        rounding: rounding,
+        reserve: reserve < 0 ? 0 : reserve,
+        usedPct: pct(a.requested),
+        roundingPct: pct(rounding),
+        reservePct: pct(reserve < 0 ? 0 : reserve),
+        allocated: a.allocated,
+        // เพดานทางทฤษฎี: ต่อให้เลือก Base พอดีเป๊ะ ก็ยังใช้ได้ไม่เกินสัดส่วนนี้เพราะการปัดกำลังสอง
+        ceilingPct: a.allocated > 0 ? (a.requested / a.allocated * 100) : 0,
+        suggestedCidr: suggestBaseCidr(state.calculated)
+    };
+}
+
 function calculateVLSM() {
     const baseCidr = state.baseCidr;
     // ตาข่ายนิรภัยชั้นสุดท้าย: state.baseIp ถูกตั้งได้จากหลายทาง (กรอกเอง, โหลด Example, import ไฟล์, autosave)

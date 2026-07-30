@@ -145,6 +145,107 @@ function restoreDetailFocus(snap) {
     } catch (e) { /* คืน focus ไม่ได้ ไม่ใช่เหตุให้ทั้งพาเนลพัง */ }
 }
 
+/* ----- แผงสรุปการใช้พื้นที่ใน Base Block -----
+   แสดง 3 ส่วนแทน "efficiency %" ตัวเดียว (ดูเหตุผลใน vlsm.js หัวข้อ 1c)
+   ใช้จริง / เสียจากการปัด / สำรองเผื่อโต — พร้อมแถบสัดส่วนให้เห็นภาพทันที */
+function renderUtilization() {
+    var el = document.getElementById('utilPanel');
+    if (!el) return;
+
+    // โหมด IPv6 ไม่มีแนวคิดนี้ (แบ่งเท่ากันทุกแผนก ไม่มีการปัดตามจำนวน host)
+    if (state.ipMode === 'v6' || state.calculated.length === 0) {
+        el.classList.add('hidden');
+        el.innerHTML = '';
+        return;
+    }
+    el.classList.remove('hidden');
+
+    var u = calculateUtilization();
+    var fmt = function (n) { return n.toLocaleString(); };
+    var pct = function (n) { return n.toFixed(1) + '%'; };
+
+    // แนะนำย่อ Base ก็ต่อเมื่อย่อได้จริงและช่วยได้เกิน 5 จุด ไม่งั้นรบกวนเปล่า ๆ
+    var canShrink = u.suggestedCidr !== null && u.suggestedCidr > state.baseCidr;
+    var wouldBe = canShrink ? (u.used / Math.pow(2, 32 - u.suggestedCidr) * 100) : 0;
+    var worthIt = canShrink && (wouldBe - u.usedPct) > 5;
+
+    el.innerHTML =
+        '<div class="glow-border rounded-lg p-3">' +
+            '<div class="flex items-baseline justify-between mb-2 flex-wrap gap-1">' +
+                '<span class="section-label" style="border:none;padding:0;">การใช้พื้นที่ใน ' + state.baseIp + '/' + state.baseCidr + '</span>' +
+                '<span class="text-[12px] text-muted">' + fmt(u.total) + ' addresses</span>' +
+            '</div>' +
+
+            // แถบสัดส่วน 3 ส่วน — ใช้ flex-grow ตาม % จริง ไม่ใช่ width คงที่
+            '<div class="flex h-3 rounded overflow-hidden mb-2" style="background:var(--border)">' +
+                '<div style="width:' + u.usedPct + '%;background:var(--neon)" title="ใช้จริง"></div>' +
+                '<div style="width:' + u.roundingPct + '%;background:var(--hot)" title="เสียจากการปัด"></div>' +
+                '<div style="width:' + u.reservePct + '%;background:var(--cyber);opacity:.45" title="สำรองเผื่อโต"></div>' +
+            '</div>' +
+
+            '<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[12px]">' +
+                '<div class="flex items-center gap-2"><span class="legend-dot" style="background:var(--neon)"></span>' +
+                    '<span class="text-muted">ใช้จริง</span><span class="ml-auto text-neon">' + fmt(u.used) + ' (' + pct(u.usedPct) + ')</span></div>' +
+                '<div class="flex items-center gap-2"><span class="legend-dot" style="background:var(--hot)"></span>' +
+                    '<span class="text-muted">เสียจากการปัด</span><span class="ml-auto text-hot">' + fmt(u.rounding) + ' (' + pct(u.roundingPct) + ')</span></div>' +
+                '<div class="flex items-center gap-2"><span class="legend-dot" style="background:var(--cyber);opacity:.45"></span>' +
+                    '<span class="text-muted">สำรองเผื่อโต</span><span class="ml-auto text-cyber">' + fmt(u.reserve) + ' (' + pct(u.reservePct) + ')</span></div>' +
+            '</div>' +
+
+            '<div class="text-[11px] text-subtle mt-2 leading-relaxed">' +
+                '"เสียจากการปัด" เลี่ยงไม่ได้ เพราะ subnet ต้องมีขนาดเป็นกำลังสองเสมอ — ต่อให้เลือก Base พอดีเป๊ะ ' +
+                'ก็ใช้ได้สูงสุด ' + pct(u.ceilingPct) + ' &nbsp;•&nbsp; "สำรองเผื่อโต" ไม่ใช่ความสูญเปล่า เป็นพื้นที่รองรับการขยายในอนาคต' +
+            '</div>' +
+
+            (worthIt
+                ? '<div class="text-[12px] mt-2 pt-2" style="border-top:1px solid var(--border)">' +
+                  '<i class="fas fa-lightbulb text-neon mr-1"></i>ถ้าย่อ Base เป็น <span class="text-neon">/' + u.suggestedCidr + '</span> ' +
+                  'สัดส่วนใช้จริงจะขึ้นเป็น <span class="text-neon">' + pct(wouldBe) + '</span> ' +
+                  '<button onclick="onSuggestBase()" class="btn-cyber text-[11px] ml-1 px-2 py-0.5">ปรับให้</button></div>'
+                : '') +
+
+            renderHeadroomHTML() +
+        '</div>';
+}
+
+// "โควตาที่ได้ฟรี" — subnet ที่จองให้มักรองรับได้มากกว่าที่ขอ เพราะปัดขึ้นกำลังสอง
+// บอกผู้ใช้ว่าเพิ่มเครื่องได้อีกกี่ตัวโดยไม่ต้องเปลี่ยนแผนเลย เป็นข้อมูลที่มีอยู่แล้วแต่ไม่เคยถูกแสดง
+function renderHeadroomHTML() {
+    var rows = state.calculated.map(function (d) {
+        var usable = d.subnet.size - 2;
+        var free = usable - Number(d.hosts);
+        return { name: d.name, free: free, usable: usable, cidr: d.subnet.cidr };
+    }).filter(function (r) { return r.free > 0; })
+      .sort(function (a, b) { return b.free - a.free; });
+
+    if (rows.length === 0) return '';
+    var top = rows.slice(0, 4);
+    return '<div class="text-[12px] mt-2 pt-2" style="border-top:1px solid var(--border)">' +
+        '<div class="text-muted mb-1"><i class="fas fa-plus-circle mr-1"></i>เพิ่มเครื่องได้อีกฟรี ๆ โดยไม่เปลี่ยนแผน</div>' +
+        top.map(function (r) {
+            return '<div class="flex justify-between"><span class="text-muted">' + escapeHtml(r.name) + ' (/' + r.cidr + ')</span>' +
+                '<span class="text-cyber">+' + r.free + ' เครื่อง (รองรับ ' + r.usable + ')</span></div>';
+        }).join('') +
+        (rows.length > top.length ? '<div class="text-subtle mt-1">และอีก ' + (rows.length - top.length) + ' แผนก</div>' : '') +
+        '</div>';
+}
+
+function onSuggestBase() {
+    try {
+        if (state.departments.length === 0) { showToast('เพิ่มแผนกก่อน ถึงจะแนะนำ Base ได้', 'error'); return; }
+        var cidr = suggestBaseCidr(state.departments);
+        if (cidr === null) { showToast('คำนวณ Base ที่เหมาะสมไม่ได้', 'error'); return; }
+        if (cidr === state.baseCidr) { showToast('Base /' + cidr + " ตอนนี้พอดีที่สุดแล้ว", 'info'); return; }
+
+        document.getElementById('baseCidrInput').value = cidr;
+        onBaseChange(); // ให้ทางเดิมเป็นคนตรวจ+ปัด Network Address+คำนวณ ไม่เขียนตรรกะซ้ำ
+        showToast('ปรับ Base เป็น /' + cidr + ' — เล็กที่สุดที่ยังจองครบทุกแผนก', 'success');
+    } catch (err) {
+        console.error('onSuggestBase error:', err);
+        showToast('แนะนำ Base ไม่สำเร็จ', 'error');
+    }
+}
+
 function renderDetailPanel() {
     const focusSnap = captureDetailFocus();
     renderDetailPanelInner();
@@ -372,6 +473,7 @@ function setIpMode(mode, silent) {
         if (btnV4) { btnV4.classList.toggle('btn-neon', mode === 'v4'); btnV4.classList.toggle('btn-cyber', mode !== 'v4'); }
         if (btnV6) { btnV6.classList.toggle('btn-neon', mode === 'v6'); btnV6.classList.toggle('btn-cyber', mode !== 'v6'); }
         renderTable();
+        renderUtilization(); // แผงสรุปพื้นที่ใช้เฉพาะโหมด IPv4 — ตัวมันเองเป็นคนซ่อนตัวเองตอนอยู่โหมด v6
         layoutTopology(); // รีเฟรช label บน canvas ให้ตรงกับโหมดที่เพิ่งสลับ
         // silent = true ตอนเรียกจาก applyProjectData() (โหลดโปรเจกต์) — ไม่ใช่ผู้ใช้กดสลับเอง ไม่ควร toast ซ้อนกับ toast โหลดสำเร็จ
         if (!silent) showToast('สลับไปโหมด ' + (mode === 'v6' ? 'IPv6' : 'IPv4'), 'info');
@@ -397,7 +499,7 @@ function applyTheme(mode) {
         ROUTER_COLOR = mode === 'light' ? ROUTER_COLOR_LIGHT : ROUTER_COLOR_DARK;
         PC_COLOR = mode === 'light' ? PC_COLOR_LIGHT : PC_COLOR_DARK;
         SERVER_COLOR = mode === 'light' ? SERVER_COLOR_LIGHT : SERVER_COLOR_DARK;
-        CANVAS_BOX_BG = mode === 'light' ? 'rgba(225,233,250,0.95)' : 'rgba(15,17,21,0.95)'; // ตรงกับ --card เข้มขึ้นรอบล่าสุด (#E1E9FA)
+        CANVAS_BOX_BG = mode === 'light' ? 'rgba(255,255,255,0.95)' : 'rgba(15,17,21,0.95)'; // ต้องตรงกับ --card ใน style.css เสมอ (light = #FFFFFF ตั้งแต่รอบปรับ 30 ก.ค. 2569)
         CANVAS_GRID_COLOR = mode === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(0,212,255,0.04)';
         CANVAS_LABEL_COLOR = mode === 'light' ? '#1A1D24' : '#e0e0f0';
 
