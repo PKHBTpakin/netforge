@@ -194,10 +194,27 @@ const itFree = run(`(function(){var d=state.calculated.find(x=>x.name==='IT-Depa
 check('headroom: IT-Department ขอ 50 ได้ /26 -> เพิ่มได้อีก 12 เครื่อง', itFree === 12, itFree);
 check('headroom: ตัวเลขในแผงตรงกับที่คำนวณ', panel.includes('+' + itFree + ' เครื่อง'), panel.slice(panel.indexOf('เพิ่มเครื่อง'), panel.indexOf('เพิ่มเครื่อง') + 120));
 
-run("setIpMode('v6', true)");
-check('panel: โหมด IPv6 ซ่อนแผงนี้ (แนวคิดคนละแบบ)', getElementById('utilPanel').classList.contains('hidden'));
+// โหมด IPv6 ใช้แผงคนละชุด (เดิมซ่อนไปเฉย ๆ ทำให้พื้นที่วิเคราะห์ว่างเปล่าทั้งแถบ)
+run("state.baseIp6='2001:db8::'; state.basePrefixLen6=48; state.newPrefixLen6=64; refreshAll(); setIpMode('v6', true);");
+let v6panel = stripTags(getElementById('utilPanel').innerHTML);
+check('panel-v6: ไม่ซ่อน แต่แสดงแผงของ IPv6 แทน', !getElementById('utilPanel').classList.contains('hidden'));
+check('panel-v6: บอกจำนวน subnet ที่แบ่งได้', v6panel.includes('65,536'), v6panel.slice(0, 120));
+check('panel-v6: อธิบายว่าจำนวน Host ไม่ใช่ข้อจำกัดของ IPv6', v6panel.includes('ไม่ใช่ข้อจำกัดของ IPv6'));
+check('panel-v6: ยืนยันว่า /64 เป็นมาตรฐานของ SLAAC', v6panel.includes('SLAAC') && v6panel.includes('RFC 4291'));
+
+run("state.newPrefixLen6=80; refreshAll(); renderUtilization();");
+v6panel = stripTags(getElementById('utilPanel').innerHTML);
+check('panel-v6: เตือนเมื่อไม่ได้ใช้ /64 (SLAAC จะใช้ไม่ได้)', v6panel.includes('ไม่ใช่ /64'), v6panel.slice(-160));
+run("state.newPrefixLen6=64; refreshAll();");
+
+run("state.baseIp6=''; refreshAll(); renderUtilization();");
+check('panel-v6: ยังไม่ตั้งค่า -> ชี้ทางให้กดปุ่มแนะนำ ไม่ปล่อยว่าง',
+    stripTags(getElementById('utilPanel').innerHTML).includes('ยังไม่ได้ตั้งค่า IPv6'));
+run("state.baseIp6='2001:db8::'; refreshAll();");
+
 run("setIpMode('v4', true)");
-check('panel: กลับมาโหมด IPv4 แล้วแสดงอีกครั้ง', !getElementById('utilPanel').classList.contains('hidden'));
+check('panel: กลับมาโหมด IPv4 แล้วแสดงแผงของ IPv4 อีกครั้ง',
+    !getElementById('utilPanel').classList.contains('hidden') && stripTags(getElementById('utilPanel').innerHTML).includes('เสียจากการปัด'));
 
 /* ===== D. Library ===== */
 
@@ -339,12 +356,37 @@ check('v6-suggest: รายงานจำนวน subnet ที่แบ่�
 check('v6-suggest: อธิบายว่าทำไมไม่ต้องย่อ (อ้าง RFC 4291)',
     capturedToasts.some(t => /RFC 4291/.test(t.msg)));
 
-// prefix ที่แบ่งได้ไม่พอกับจำนวนแผนก ต้องเตือนพร้อมบอกทางแก้
-run("state.basePrefixLen6 = 62; state.newPrefixLen6 = 64;"); // 2 bits = 4 subnet แต่มี 6 แผนก
+// prefix ที่แบ่งได้ไม่พอกับจำนวนแผนก -> ต้อง "แก้ให้" ไม่ใช่แค่เตือนแล้วปล่อย
+run("state.basePrefixLen6 = 62; state.newPrefixLen6 = 64; refreshAll();"); // 2 bits = 4 subnet แต่มี 6 แผนก
+check('v6-suggest: เงื่อนไขตั้งต้นถูกต้อง (แบ่งได้ 4 แต่มี 6 แผนก)', run('state.calculatedV6.length') === 0);
 capturedToasts = [];
 run('onSuggestBase()');
-check('v6-suggest: แบ่งไม่พอ -> เตือนพร้อมบอก prefix ที่ควรใช้',
-    capturedToasts.some(t => t.type === 'error' && /แผนก/.test(t.msg)), JSON.stringify(capturedToasts.map(t => t.msg)));
+check('v6-suggest: ขยาย Base Prefix ให้เองจนแบ่งครบ', run('state.basePrefixLen6') <= 61, '/' + run('state.basePrefixLen6'));
+check('v6-suggest: คำนวณสำเร็จครบทุกแผนกหลังปรับ', run('state.calculatedV6.length') === 6, run('state.calculatedV6.length'));
+check('v6-suggest: บอกผู้ใช้ว่าไปแก้อะไรมา', capturedToasts.some(t => /ขยาย Base Prefix/.test(t.msg)), JSON.stringify(capturedToasts.map(t => t.msg)));
+
+// ยังไม่มี Base IPv6 เลย -> ต้องเติมให้แล้วคำนวณ ไม่ใช่บอกให้ไปพิมพ์เอง (ปัญหาที่ผู้ใช้รายงาน)
+run("loadExample('company'); setIpMode('v6', true); state.baseIp6=''; state.basePrefixLen6=48; state.newPrefixLen6=64; refreshAll();");
+capturedToasts = [];
+run('onSuggestBase()');
+check('v6-suggest: Base ว่าง -> เติมค่าให้จริง ไม่ใช่แค่บอกให้ไปพิมพ์เอง',
+    run('state.baseIp6') === '2001:db8::', run('state.baseIp6'));
+check('v6-suggest: เติมแล้วคำนวณให้เลยครบทุกแผนก', run('state.calculatedV6.length') === 6, run('state.calculatedV6.length'));
+check('v6-suggest: ไม่ไปแตะค่าของ IPv4 (ยังเป็น /23 ของ Corporate Network)',
+    run('state.baseCidr') === 23, '/' + run('state.baseCidr'));
+check('v6-suggest: สะท้อนค่ากลับในช่องกรอกให้ผู้ใช้เห็น',
+    getElementById('baseIp6Input').value === '2001:db8::', getElementById('baseIp6Input').value);
+
+// Base ที่ไม่ตรงขอบ Block ต้องถูกปัดให้ เหมือนฝั่ง IPv4 (เดิม error แล้วคืนผลเปล่า)
+run("state.baseIp6='2001:db8:0:5::'; state.basePrefixLen6=48; refreshAll();");
+check('v6-normalize: calculateIPv6 ปัด Base ให้ตรงขอบเอง',
+    run('state.baseIp6') === '2001:db8::', run('state.baseIp6'));
+check('v6-normalize: ปัดแล้วคำนวณได้ครบ ไม่คืนผลเปล่าเหมือนเดิม', run('state.calculatedV6.length') === 6);
+check('v6-normalize: helper ทำงานถูกต้อง',
+    run("normalizeIpv6Network('2001:db8:abcd:1234::1', 48)") === '2001:db8:abcd::' &&
+    run("normalizeIpv6Network('2001:db8::', 64)") === '2001:db8::' &&
+    run("normalizeIpv6Network('ไม่ใช่ไอพี', 48)") === null,
+    run("normalizeIpv6Network('2001:db8:abcd:1234::1', 48)"));
 
 run("state.basePrefixLen6 = 48; state.newPrefixLen6 = 64; setIpMode('v4', true);");
 

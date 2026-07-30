@@ -85,6 +85,18 @@ function bigToIpv6(big) {
     return before.join(':') + '::' + after.join(':');
 }
 
+// ปัดที่อยู่ลงหาขอบ Block ของ prefix ที่ให้มา — คู่ขนานกับ normalizeNetwork() ของฝั่ง IPv4
+// เดิมฝั่ง IPv6 ไม่มีตัวนี้ พอผู้ใช้กรอก 2001:db8:0:5::/48 ระบบจะ error แล้วคืนผลเปล่า
+// ขณะที่ฝั่ง IPv4 ปัดให้เองเงียบ ๆ — พฤติกรรมสองฝั่งไม่เหมือนกันทั้งที่เป็นเรื่องเดียวกัน
+// คืน null ถ้ารูปแบบไม่ถูกต้อง เพื่อให้ผู้เรียกแยกได้ระหว่าง "ปัดแล้ว" กับ "กรอกผิด"
+function normalizeIpv6Network(str, prefixLen) {
+    if (!isValidIpv6(str)) return null;
+    prefixLen = Number(prefixLen);
+    if (!Number.isInteger(prefixLen) || prefixLen < 0 || prefixLen > 128) return null;
+    var shift = BigInt(128 - prefixLen);
+    return bigToIpv6((ipv6ToBig(str) >> shift) << shift);
+}
+
 // ---------- คำนวณแบ่ง Subnet ----------
 
 // baseIp6/basePrefixLen = Block ตั้งต้น (เช่น 2001:db8:: /48)

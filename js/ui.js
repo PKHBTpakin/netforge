@@ -176,8 +176,11 @@ function renderUtilization() {
     var el = document.getElementById('utilPanel');
     if (!el) return;
 
-    // โหมด IPv6 ไม่มีแนวคิดนี้ (แบ่งเท่ากันทุกแผนก ไม่มีการปัดตามจำนวน host)
-    if (state.ipMode === 'v6' || state.calculated.length === 0) {
+    // โหมด IPv6 ใช้คนละแนวคิด (แบ่งเท่ากันทุกแผนก ไม่ปัดตามจำนวน host) จึงมีแผงของตัวเองแยกต่างหาก
+    // เดิมซ่อนแผงนี้ไปเฉย ๆ ทำให้พื้นที่วิเคราะห์ทั้งหมดว่างเปล่าเมื่ออยู่โหมด IPv6
+    if (state.ipMode === 'v6') { renderUtilizationV6(el); return; }
+
+    if (state.calculated.length === 0) {
         el.classList.add('hidden');
         el.innerHTML = '';
         return;
@@ -229,6 +232,68 @@ function renderUtilization() {
                 : '') +
 
             renderHeadroomHTML() +
+        '</div>';
+}
+
+/* แผงวิเคราะห์ฝั่ง IPv6
+   คำถามที่ผู้ใช้อยากรู้ในโหมดนี้ต่างจาก IPv4 คนละเรื่อง:
+     IPv4 ถาม "พื้นที่พอไหม เหลือเท่าไหร่" เพราะ address มีจำกัดจริง
+     IPv6 ถาม "แบ่งได้กี่ subnet และขนาด prefix ที่ใช้ถูกต้องตามมาตรฐานไหม"
+   จำนวน host ไม่ใช่ข้อจำกัดใน IPv6 เลย (/64 หนึ่งวงรองรับได้มากกว่าจำนวนอุปกรณ์ทั้งโลกหลายเท่า)
+   จึงรายงานเรื่องนั้นให้ชัดแทนที่จะปล่อยพื้นที่ว่าง */
+function renderUtilizationV6(el) {
+    if (state.calculatedV6.length === 0) {
+        el.classList.remove('hidden');
+        el.innerHTML = '<div class="glow-border rounded-lg p-3 text-[13px] text-muted">' +
+            '<i class="fas fa-circle-info mr-1"></i>ยังไม่ได้ตั้งค่า IPv6 — กรอก Base แล้วกด Calculate ' +
+            'หรือกดปุ่ม <i class="fas fa-wand-magic-sparkles text-neon"></i> ให้ระบบเติมค่ามาตรฐานให้อัตโนมัติ</div>';
+        return;
+    }
+    el.classList.remove('hidden');
+
+    var basePrefix = state.basePrefixLen6, newPrefix = state.newPrefixLen6;
+    var bits = newPrefix - basePrefix;
+    var total = 1n << BigInt(bits);
+    var used = BigInt(state.calculatedV6.length);
+    var perSubnet = 1n << BigInt(128 - newPrefix);
+
+    var big = function (v) { return v > 1000000000000n ? '2^' + (v === total ? bits : (128 - newPrefix)) : Number(v).toLocaleString(); };
+    // ใช้สัดส่วนต่อล้านแทนเปอร์เซ็นต์ เพราะเลขจริงมักน้อยกว่า 0.01% จนแสดงเป็น 0.0% ไปหมด
+    var usedRatio = total > 0n ? Number(used * 1000000n / total) / 10000 : 0;
+    var barPct = Math.max(usedRatio, 0.8); // ให้แถบยังมองเห็นได้แม้สัดส่วนจริงจะเล็กมาก
+
+    var isStandard64 = newPrefix === 64;
+
+    el.innerHTML =
+        '<div class="glow-border rounded-lg p-3">' +
+            '<div class="flex items-baseline justify-between mb-2 flex-wrap gap-1">' +
+                '<span class="section-label" style="border:none;padding:0;">การใช้พื้นที่ใน ' + escapeHtml(state.baseIp6) + '/' + basePrefix + '</span>' +
+                '<span class="text-[12px] text-muted">แบ่งเป็น /' + newPrefix + '</span>' +
+            '</div>' +
+
+            '<div class="flex h-3 rounded overflow-hidden mb-2" style="background:var(--border)">' +
+                '<div style="width:' + barPct + '%;background:var(--neon)"></div>' +
+            '</div>' +
+
+            '<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[12px]">' +
+                '<div class="flex items-center gap-2"><span class="legend-dot" style="background:var(--neon)"></span>' +
+                    '<span class="text-muted">ใช้ไป</span><span class="ml-auto text-neon">' + used.toString() + ' subnet</span></div>' +
+                '<div class="flex items-center gap-2"><span class="legend-dot" style="background:var(--cyber);opacity:.45"></span>' +
+                    '<span class="text-muted">แบ่งได้ทั้งหมด</span><span class="ml-auto text-cyber">' + big(total) + '</span></div>' +
+                '<div class="flex items-center gap-2"><span class="legend-dot" style="background:var(--cyber);opacity:.25"></span>' +
+                    '<span class="text-muted">เหลือ</span><span class="ml-auto">' + big(total - used) + '</span></div>' +
+            '</div>' +
+
+            '<div class="text-[11px] text-subtle mt-2 leading-relaxed">' +
+                'แต่ละ /' + newPrefix + ' รองรับ <span class="text-muted">' + big(perSubnet) + ' address</span> ' +
+                '— จำนวน Host ไม่ใช่ข้อจำกัดของ IPv6 จึงไม่ต้องกรอกจำนวนเครื่องเหมือนฝั่ง IPv4 ' +
+                '(ใช้ไปเพียง ' + (usedRatio < 0.01 ? 'น้อยกว่า 0.01' : usedRatio.toFixed(2)) + '% ของบล็อก ซึ่งเป็นเรื่องปกติและถูกต้อง)' +
+            '</div>' +
+
+            (isStandard64
+                ? '<div class="text-cyber text-[12px] mt-2"><i class="fas fa-circle-check mr-1"></i>ใช้ /64 ตามมาตรฐาน — SLAAC (การแจก address อัตโนมัติ) ต้องการขนาดนี้พอดีตาม RFC 4291</div>'
+                : '<div class="text-hot text-[12px] mt-2"><i class="fas fa-triangle-exclamation mr-1"></i>ใช้ /' + newPrefix + ' ซึ่งไม่ใช่ /64 — SLAAC จะใช้งานไม่ได้ ' +
+                  'เหมาะกับลิงก์ point-to-point (เช่น /127) เท่านั้น ไม่ใช่วงของผู้ใช้ทั่วไป</div>') +
         '</div>';
 }
 
@@ -332,44 +397,72 @@ function onSuggestBase() {
     }
 }
 
-/* โหมด IPv6 — แนวคิด "ย่อ Base ให้พอดี" ใช้ไม่ได้และไม่ควรใช้
-   IPv4: พื้นที่มีจำกัดจริง การจอง block ใหญ่เกินจำเป็นคือการสิ้นเปลืองที่ต้องระวัง
-   IPv6: พื้นที่ไม่ใช่ทรัพยากรที่ต้องประหยัด และ /64 เป็นขนาด subnet มาตรฐานที่ SLAAC ต้องการ (RFC 4291)
-         การไล่ย่อ prefix ให้ "พอดี" จึงเป็นการสอนสิ่งที่ผิดหลักปฏิบัติจริง
-   ปุ่มนี้ในโหมด v6 จึงเปลี่ยนไปทำสิ่งที่มีประโยชน์จริงแทน: ตรวจว่าค่าที่ตั้งไว้แบ่งได้ครบไหม
-   และรายงานว่าเหลือพื้นที่ให้ขยายอีกเท่าไหร่ */
+/* โหมด IPv6 — ปุ่มนี้ต้อง "ลงมือทำ" ไม่ใช่แค่บอกให้ผู้ใช้ไปพิมพ์เอง
+   ฝั่ง IPv4 ปุ่มนี้เปลี่ยนค่าให้จริง ฝั่ง IPv6 เดิมแค่ขึ้นข้อความอธิบายแล้วจบ ซึ่งไม่ช่วยอะไร
+   สิ่งที่ทำได้จริงกับ IPv6 (ไล่ตามลำดับ แก้ทุกอย่างที่ยังไม่พร้อมแล้วคำนวณให้เลย):
+     1. Prefix ตั้งไว้ไม่ถูกต้อง      -> ตั้งเป็นมาตรฐาน /48 -> /64
+     2. ยังไม่มี Base IPv6           -> เติม 2001:db8:: (RFC 3849 บล็อกสำหรับเอกสาร/การเรียนการสอน)
+     3. Base ไม่ตรงขอบ Block         -> ปัดลงให้ตรง
+     4. แบ่ง subnet ได้ไม่พอทุกแผนก  -> ขยาย Base Prefix ให้สั้นลงจนพอ
+   ไม่ทำ "ย่อ prefix ให้พอดีเป๊ะ" แบบ IPv4 เพราะพื้นที่ IPv6 ไม่ใช่ทรัพยากรที่ต้องประหยัด
+   และ /64 คือขนาด subnet มาตรฐานที่ SLAAC ต้องการ (RFC 4291) — การไล่บีบให้เหลือ /61 คือการสอนสิ่งที่ผิด */
 function suggestBaseV6Info() {
     try {
         var count = state.departments.length;
-        if (count === 0) { showToast('เพิ่มแผนกก่อน', 'error'); return; }
+        if (count === 0) { showToast('เพิ่มแผนกก่อน ถึงจะแนะนำค่า IPv6 ได้', 'error'); return; }
 
-        var basePrefix = state.basePrefixLen6, newPrefix = state.newPrefixLen6;
-        if (!Number.isInteger(basePrefix) || !Number.isInteger(newPrefix) || newPrefix <= basePrefix || newPrefix > 128) {
-            showToast('ตั้งค่า Prefix ให้ถูกต้องก่อน — Prefix ย่อยต้องยาวกว่า Base Prefix และไม่เกิน /128', 'error');
-            return;
+        var changes = [];
+        var basePrefix = state.basePrefixLen6;
+        var newPrefix = state.newPrefixLen6;
+
+        // 1. Prefix ไม่ถูกต้อง -> กลับไปใช้คู่มาตรฐาน
+        if (!Number.isInteger(basePrefix) || basePrefix < 1 || basePrefix > 127 ||
+            !Number.isInteger(newPrefix) || newPrefix <= basePrefix || newPrefix > 128) {
+            basePrefix = 48; newPrefix = 64;
+            changes.push('ตั้ง Prefix เป็นมาตรฐาน /48 → /64');
         }
+
+        // 2. ยังไม่มี Base -> เติมให้
+        var base = state.baseIp6;
+        if (!base || !isValidIpv6(base)) {
+            base = '2001:db8::';
+            changes.push('เติม Base IPv6 เป็น 2001:db8:: (บล็อกสำหรับเอกสารตาม RFC 3849)');
+        }
+
+        // 3. subnet ไม่พอ -> ขยาย Base Prefix ให้สั้นลงจนพอ (ยังคงขนาด subnet ย่อยเดิมไว้)
+        var needBits = Math.max(1, Math.ceil(Math.log2(count)));
+        if (newPrefix - basePrefix < needBits) {
+            var wanted = Math.max(1, newPrefix - needBits);
+            changes.push('ขยาย Base Prefix จาก /' + basePrefix + ' เป็น /' + wanted + ' เพื่อให้แบ่งครบ ' + count + ' แผนก');
+            basePrefix = wanted;
+        }
+
+        // 4. ปัด Base ลงหาขอบ Block (ทำหลังสุด เพราะ basePrefix อาจเพิ่งเปลี่ยนในขั้น 3)
+        var normalized = normalizeIpv6Network(base, basePrefix);
+        if (normalized !== null && normalized !== base) {
+            changes.push('ปัด Base เป็นขอบ Block: ' + normalized + '/' + basePrefix);
+            base = normalized;
+        }
+
+        // เขียนค่ากลับลงช่องกรอกจริง แล้วให้ทางเดิมเป็นคนตรวจ+คำนวณ ไม่เขียนตรรกะซ้ำ
+        document.getElementById('baseIp6Input').value = base;
+        document.getElementById('basePrefixInput').value = basePrefix;
+        document.getElementById('newPrefixInput').value = newPrefix;
+        onBaseChangeV6();
 
         var bits = newPrefix - basePrefix;
-        var maxSubnets = 1n << BigInt(bits); // ใช้ BigInt เพราะ /48 -> /128 คือ 2^80 ซึ่งเกิน Number ปกติ
+        var maxSubnets = 1n << BigInt(bits);
         var maxText = maxSubnets > 1000000000000n ? '2^' + bits : Number(maxSubnets).toLocaleString();
 
-        if (BigInt(count) > maxSubnets) {
-            var needBits = Math.ceil(Math.log2(count));
-            showToast('/' + basePrefix + ' แบ่งเป็น /' + newPrefix + ' ได้แค่ ' + maxText + ' subnet แต่มี ' + count + ' แผนก\n' +
-                'ลด Base Prefix ลงเหลือ /' + Math.max(newPrefix - needBits, 1) + ' หรือน้อยกว่า จึงจะพอ', 'error');
-            return;
+        if (changes.length > 0) {
+            showToast('ปรับค่า IPv6 ให้แล้ว:\n• ' + changes.join('\n• '), 'success');
+        } else {
+            showToast('ค่า IPv6 พร้อมใช้งานแล้ว — /' + basePrefix + ' แบ่งเป็น /' + newPrefix + ' ได้ ' + maxText + ' subnet ใช้จริง ' + count + '\n' +
+                'IPv6 ไม่ต้องย่อ Base ให้พอดี เพราะพื้นที่ไม่ใช่ทรัพยากรที่ต้องประหยัด และ /64 คือขนาดมาตรฐานที่ SLAAC ต้องการ (RFC 4291)', 'info');
         }
-
-        if (!state.baseIp6) {
-            showToast('ยังไม่ได้ตั้ง Base IPv6 — กรอกเช่น 2001:db8:: แล้วกด Calculate ก่อน', 'info');
-            return;
-        }
-
-        showToast('IPv6 ไม่ต้องย่อ Base — /' + basePrefix + ' แบ่งเป็น /' + newPrefix + ' ได้ ' + maxText + ' subnet ใช้จริง ' + count + '\n' +
-            'พื้นที่ IPv6 ไม่ใช่ทรัพยากรที่ต้องประหยัด และ /64 คือขนาดมาตรฐานที่ SLAAC ต้องการ (RFC 4291)', 'info');
     } catch (err) {
         console.error('suggestBaseV6Info error:', err);
-        showToast('ตรวจสอบค่า IPv6 ไม่สำเร็จ', 'error');
+        showToast('ปรับค่า IPv6 ไม่สำเร็จ', 'error');
     }
 }
 
@@ -613,13 +706,24 @@ function onBaseChangeV6() {
     if (!isValidIpv6(ip)) { showToast('IPv6 ไม่ถูกต้อง', 'error'); return; }
     if (isNaN(prefix) || prefix < 1 || prefix > 127) { showToast('Base Prefix ต้อง 1-127', 'error'); return; }
     if (isNaN(newPrefix) || newPrefix <= prefix || newPrefix > 128) { showToast('Prefix ย่อยต้องมากกว่า Base Prefix และไม่เกิน 128', 'error'); return; }
+
+    // ปัดลงหาขอบ Block ก่อนเสมอ เหมือนที่ฝั่ง IPv4 ทำ
+    // เดิมถ้ากรอก 2001:db8:0:5::/48 จะขึ้น error แล้วได้ผลลัพธ์เปล่า ผู้ใช้ต้องไปแก้เองทั้งที่ระบบรู้คำตอบอยู่แล้ว
+    var normalized6 = normalizeIpv6Network(ip, prefix);
+    var v6Adjusted = normalized6 !== null && normalized6 !== ip;
+    if (v6Adjusted) {
+        ip = normalized6;
+        document.getElementById('baseIp6Input').value = ip; // สะท้อนกลับให้ผู้ใช้เห็นว่าระบบใช้ค่าไหนจริง
+    }
+
     state.baseIp6 = ip;
     state.basePrefixLen6 = prefix;
     state.newPrefixLen6 = newPrefix;
     try {
         refreshAll();
         document.getElementById('statusBar').textContent = 'IPv6 Base: ' + ip + '/' + prefix + ' → /' + newPrefix + ' | ' + state.calculatedV6.length + ' subnets allocated';
-        showToast('IPv6 Calculated', 'success');
+        if (v6Adjusted) showToast('ปรับ Base เป็นขอบ Block: ' + ip + '/' + prefix, 'info');
+        else showToast('IPv6 Calculated', 'success');
     } catch (err) {
         console.error('onBaseChangeV6 error:', err);
         showToast('คำนวณ IPv6 ไม่สำเร็จ ตรวจสอบข้อมูลอีกครั้ง', 'error');

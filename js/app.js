@@ -58,6 +58,10 @@ function refreshAll(forceLayout) {
 function calculateIPv6() {
     if (!state.baseIp6) { state.calculatedV6 = []; return; } // ยังไม่เคยตั้งค่า Base IPv6 เลย ข้ามไปเงียบๆ ไม่ต้อง error
     try {
+        // ตาข่ายนิรภัยชั้นสุดท้าย เหมือนที่ calculateVLSM() ทำกับฝั่ง IPv4
+        // state.baseIp6 ถูกตั้งได้จากหลายทาง (กรอกเอง, import ไฟล์, ลิงก์แชร์, autosave) ไม่ได้ผ่าน onBaseChangeV6 ทุกทาง
+        var norm6 = normalizeIpv6Network(state.baseIp6, state.basePrefixLen6);
+        if (norm6 !== null && norm6 !== state.baseIp6) state.baseIp6 = norm6;
         var depts = state.departments.map(function(d) { return { id: d.id, name: d.name }; });
         var out = calculateIPv6Subnets(state.baseIp6, state.basePrefixLen6, depts, state.newPrefixLen6);
         state.calculatedV6 = out.results;
