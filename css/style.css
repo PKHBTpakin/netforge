@@ -27,6 +27,7 @@
        (Router ใช้ --neon ที่มีอยู่แล้วได้เลยเพราะ ROUTER_COLOR_DARK ค่าตรงกันพอดี) แก้สีฝั่ง JS แล้วต้องมาแก้ตรงนี้คู่กันด้วย */
     --pc-swatch: #22C55E;
     --server-swatch: #EC4899;
+    --branch-swatch: #F59E0B; /* ต้องตรงกับ BRANCH_COLOR_DARK ใน devices.js */
 }
 
 /* --- Light Mode: ชุดสีที่สอง สลับด้วย document.documentElement.setAttribute('data-theme','light') --- */
@@ -62,6 +63,7 @@
 
     --pc-swatch: #0C5C2C;
     --server-swatch: #9E144D;
+    --branch-swatch: #7A4405; /* ต้องตรงกับ BRANCH_COLOR_LIGHT ใน devices.js */
 }
 
 * { box-sizing: border-box; }

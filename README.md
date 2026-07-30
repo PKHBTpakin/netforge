@@ -29,6 +29,7 @@ npx serve .                    # หรือ
 | **Suggest Base** | หา Base CIDR ที่เล็กที่สุดที่ยังจองครบทุกแผนก |
 | **แผงสรุปพื้นที่** | แยก *ใช้จริง / เสียจากการปัด / สำรองเผื่อโต* พร้อมบอกโควตาเครื่องที่เพิ่มได้ฟรี |
 | **Topology Canvas** | ลากจัดผังได้อิสระ วาง PC/Server เอง ลากเชื่อมสาย รองรับทั้งเมาส์และการสัมผัส |
+| **Router สาขา + WAN** | วาง Router เพิ่มได้ไม่จำกัด ลากเชื่อมกันแล้วระบบจอง `/30` ให้อัตโนมัติ พร้อม static route / default route |
 | **CLI Generator** | สร้าง config Cisco IOS แยก Router / Switch รองรับ Dual-Stack และกัน Static IP ออกจาก DHCP Pool |
 | **Net Tools** | Wildcard Mask และ Route Summarization พร้อมเตือนเมื่อ summary ครอบเกินที่ขอ |
 | **คลังโปรเจกต์** | เก็บงานหลายชิ้นในเบราว์เซอร์ เปิดได้ทันที ไม่ต้องสมัครสมาชิก |
@@ -95,6 +96,28 @@ git push -u origin main
 
 ---
 
+## Router สาขาและลิงก์ WAN
+
+จำลองเครือข่ายหลายสาขาได้โดยไม่ต้องตั้งค่าอะไรเพิ่ม
+
+1. กดปุ่ม **Router** มุมขวาบนของ Canvas แล้วคลิกวางตำแหน่ง
+2. กด **Connect** ลากจาก Router หลักไปยัง Router สาขา — ระบบจอง `/30` จาก WAN Pool ให้ทันที
+3. ลาก Router สาขาไปเชื่อมกับ Switch ของแผนกใด แผนกนั้นจะย้ายไปอยู่หลังสาขานั้น
+   และสายจาก Router หลักจะถูกตัดออกเองอัตโนมัติ
+4. แท็บ **CLI Config** จะมีปุ่มเลือกดู config ทีละ Router
+
+สิ่งที่ระบบสร้างให้เอง
+
+| ฝั่ง | ได้อะไร |
+|---|---|
+| สำนักงานใหญ่ | interface WAN + **static route** เจาะจงไปยังทุกวงที่อยู่หลังสาขา |
+| สาขา | interface WAN + sub-interface ของแผนกตัวเอง + DHCP pool เฉพาะของตัวเอง + **default route** กลับต้นทาง |
+
+ใช้ `/30` เพราะให้ usable address พอดี 2 ตัว ตรงกับลิงก์ point-to-point
+สาขาที่มีทางออกทางเดียว (stub network) ใช้ default route ตามมาตรฐานปฏิบัติ ไม่ต้องไล่ static ทีละวง
+
+---
+
 ## โครงสร้างไฟล์
 
 ```
@@ -108,6 +131,7 @@ js/
   topology.js       วาดผังบน Canvas + จัดการ input ทั้งเมาส์และสัมผัส
   ui.js             ตาราง แผนก Detail Panel ธีม CLI Generator
   tools.js          Wildcard Mask + Route Summarization
+  wan.js            Router สาขา ลิงก์ WAN /30 และการหาว่าแผนกไหนอยู่กับ Router ตัวใด
   library.js        คลังโปรเจกต์ + ลิงก์แชร์
   app.js            รวมทุกอย่าง จุดเริ่มต้น Save/Load Autosave (ต้องโหลดท้ายสุด)
 tests/              ชุดทดสอบอัตโนมัติ ใช้ Node.js อย่างเดียว
@@ -128,7 +152,7 @@ node tests/run-all.js
 | `save-load.test.js` | Export/Import, validation ไฟล์เสีย, Autosave, XSS ผ่านไฟล์นำเข้า |
 | `ui-stability.test.js` | ระบบธีม, ตำแหน่งโหนดคงที่ตอนสลับสี, จำลอง event จริงบน Canvas |
 | `regression-fixes.test.js` | บั๊ก 9 ข้อจากรอบรีวิว 30 ก.ค. 2569 |
-| `library-util.test.js` | การวิเคราะห์พื้นที่, Suggest Base, คลังโปรเจกต์, ลิงก์แชร์ |
+| `library-util.test.js` | การวิเคราะห์พื้นที่, Suggest Base, คลังโปรเจกต์, ลิงก์แชร์, Router สาขา + WAN |
 
 เทสยิงผ่านทางเข้าจริงที่ผู้ใช้กด (เช่นยิง event ผ่าน listener ที่ `setupCanvasEvents()` ลงทะเบียนไว้)
 ไม่ใช่เรียกฟังก์ชันภายในตรง ๆ
@@ -137,8 +161,9 @@ node tests/run-all.js
 
 ## ข้อจำกัดที่รู้อยู่
 
-- รองรับ Router 1 ตัว และ Switch 1 ตัวต่อแผนก (โครงสร้างแบบดาว) ยังไม่รองรับหลายสาขา หรือลิงก์ Router-to-Router
 - จำกัด 8 แผนกต่อโปรเจกต์
-- CLI ใช้ชื่อ interface คงที่ (`Gi0/0`, `Gi0/1`, `Fa0/2`+) และ DNS `8.8.8.8`
+- CLI ใช้ชื่อ interface คงที่ (`Gi0/0`, `Gi0/1`, `Fa0/2`+, `Se0/n/0`) และ DNS `8.8.8.8`
+- ลิงก์ WAN ใช้ static route / default route เท่านั้น ยังไม่รองรับ routing protocol (OSPF, EIGRP)
+- ยังไม่รองรับลิงก์สำรอง (redundancy) หรือ HSRP
 - ยังไม่มี Undo/Redo
 - โหลด Tailwind, Google Fonts และ Font Awesome จาก CDN — ต้องต่ออินเทอร์เน็ตตอนเปิดครั้งแรก

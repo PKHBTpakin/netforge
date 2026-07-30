@@ -260,6 +260,61 @@ function renderHeadroomHTML() {
    ผลคือกดปุ่มนี้ตอนอยู่หน้า IPv6 -> ไปแก้ Base ของ IPv4 ที่ซ่อนอยู่แบบเงียบ ๆ
    แล้ว toast ก็รายงานเลข /24 ของ IPv4 ออกมาทั้งที่ผู้ใช้กำลังดูหน้า IPv6 อยู่ (ดูภาพที่ผู้ใช้ส่งมา)
    ตอนนี้แยกทางตามโหมดตั้งแต่บรรทัดแรก ไม่ให้ข้ามฝั่งกันอีก */
+// เปลี่ยนชื่อ Router สาขา — ชื่อนี้ถูกใช้เป็น hostname ใน CLI และในคำอธิบายลิงก์ WAN ของอีกฝั่งด้วย
+function onBranchRouterRename(id, value) {
+    try {
+        var node = topoNodes.manualNodes.find(function(n) { return n.id === id; });
+        if (!node) return;
+        var trimmed = String(value).trim();
+        if (!trimmed) return; // ชื่อว่างไม่รับ กันไม่ให้ hostname ใน config กลายเป็นค่าว่าง
+        node.label = trimmed.slice(0, 40);
+        if (typeof requestRedraw === 'function') requestRedraw();
+        if (state.activeTab === 'cli') renderCLI();
+        scheduleAutosave();
+    } catch (err) {
+        console.error('onBranchRouterRename error:', err);
+    }
+}
+
+/* ----- ตาราง WAN — ลิงก์ /30 ระหว่าง Router -----
+   แยกออกมาจากตาราง VLSM ของแผนก เพราะเป็นคนละชนิดข้อมูล (ลิงก์ ไม่ใช่เครือข่ายผู้ใช้)
+   และผู้ใช้ต้องเห็นเลข IP ทั้งสองฝั่งพร้อมกันถึงจะเอาไปตั้งค่าอุปกรณ์จริงได้ */
+function renderWanTable() {
+    var el = document.getElementById('wanPanel');
+    if (!el) return;
+    var links = state.wanLinks || [];
+    if (links.length === 0 || state.ipMode === 'v6') {
+        el.classList.add('hidden');
+        el.innerHTML = '';
+        return;
+    }
+    el.classList.remove('hidden');
+    var pool = getWanPool();
+
+    el.innerHTML =
+        '<div class="glow-border rounded-lg p-3">' +
+            '<div class="flex items-baseline justify-between mb-2 flex-wrap gap-2">' +
+                '<span class="section-label" style="border:none;padding:0;"><i class="fas fa-link mr-1"></i>ลิงก์ WAN (' + links.length + ')</span>' +
+                '<span class="text-[12px] text-muted">Pool ' + pool.ip + '/' + pool.cidr + ' — จองทีละ /30</span>' +
+            '</div>' +
+            '<div class="overflow-x-auto"><table class="w-full text-[13px] min-w-[520px]">' +
+            '<thead><tr class="text-neon text-left"><th class="pb-2 pr-3">Subnet</th><th class="pb-2 pr-3">Netmask</th>' +
+            '<th class="pb-2 pr-3">ปลายทาง A</th><th class="pb-2">ปลายทาง B</th></tr></thead><tbody>' +
+            links.map(function(w) {
+                return '<tr class="border-t border-dark-600">' +
+                    '<td class="py-2 pr-3 text-neon">' + w.network + '/30</td>' +
+                    '<td class="py-2 pr-3">' + w.netmask + '</td>' +
+                    '<td class="py-2 pr-3"><span class="text-cyber">' + w.ends[0].ip + '</span> ' +
+                        '<span class="text-muted text-[12px]">' + escapeHtml(w.ends[0].label) + '</span></td>' +
+                    '<td class="py-2"><span class="text-cyber">' + w.ends[1].ip + '</span> ' +
+                        '<span class="text-muted text-[12px]">' + escapeHtml(w.ends[1].label) + '</span></td>' +
+                '</tr>';
+            }).join('') +
+            '</tbody></table></div>' +
+            '<div class="text-[11px] text-subtle mt-2">ใช้ /30 เพราะให้ usable address พอดี 2 ตัว ตรงกับลิงก์ point-to-point ที่มีปลายทางสองฝั่ง</div>' +
+        '</div>';
+}
+
 function onSuggestBase() {
     if (state.ipMode === 'v6') { suggestBaseV6Info(); return; }
     try {
@@ -365,6 +420,45 @@ function renderDetailPanelInner() {
         return;
     }
 
+    if (state.selectedNodeType === 'router-branch') {
+        const br = topoNodes.manualNodes.find(function(n) { return n.id === state.selectedDeptId; });
+        if (!br) {
+            el.innerHTML = '<div class="text-muted text-center py-10 text-[13px]">Router นี้ไม่มีอยู่แล้ว — เลือก Node อื่นจากผัง</div>';
+            state.selectedDeptId = null; state.selectedNodeType = null;
+            return;
+        }
+        const wan = getWanLinksOfRouter(br.id);
+        const owned = getDeptsOfRouter(br.id);
+        el.innerHTML =
+            '<div class="mb-4"><div class="label-tag mb-2" style="background:' + br.color + '15;border:1px solid ' + br.color + '50;color:' + br.color + ';">ROUTER สาขา</div></div>' +
+            '<div class="space-y-3">' +
+                '<div><label class="text-subtle text-[11px] tracking-wider block mb-1">ชื่ออุปกรณ์</label>' +
+                '<input id="detailRouterName" type="text" value="' + escapeHtml(br.label) + '" maxlength="40" class="input-cyber w-full" ' +
+                    'oninput="onBranchRouterRename(\'' + br.id + '\', this.value)" /></div>' +
+
+                '<div class="glow-border rounded p-3"><div class="text-subtle text-[11px] tracking-wider mb-1">ลิงก์ WAN (' + wan.length + ')</div>' +
+                (wan.length === 0
+                    ? '<div class="text-muted text-[13px]">ยังไม่ได้เชื่อม — กด Connect แล้วลากไปหา Router อีกตัวเพื่อสร้างลิงก์ WAN</div>'
+                    : wan.map(function(w) {
+                        return '<div class="text-[13px] mt-1"><div class="text-neon">' + w.myIp + '/30</div>' +
+                            '<div class="text-muted text-[12px]">ไปยัง ' + escapeHtml(w.peerLabel) + ' (' + w.peerIp + ') • subnet ' + w.link.network + '/30</div></div>';
+                    }).join('')) +
+                '</div>' +
+
+                '<div class="glow-border rounded p-3"><div class="text-subtle text-[11px] tracking-wider mb-1">แผนกที่ดูแล (' + owned.length + ')</div>' +
+                (owned.length === 0
+                    ? '<div class="text-muted text-[13px]">ยังไม่มี — ลากเชื่อมกับ Switch ของแผนกเพื่อย้ายแผนกนั้นมาอยู่หลัง Router นี้</div>'
+                    : owned.map(function(d) {
+                        return '<div class="flex justify-between text-[13px]"><span>' + escapeHtml(d.name) + '</span>' +
+                            '<span class="text-neon">' + d.subnet.network + '/' + d.subnet.cidr + '</span></div>';
+                    }).join('')) +
+                '</div>' +
+
+                '<button onclick="onRemoveManualNode(\'' + br.id + '\')" class="btn-hot w-full text-[13px] mt-2"><i class="fas fa-trash mr-1"></i>ลบ Router นี้</button>' +
+            '</div>';
+        return;
+    }
+
     if (state.selectedNodeType === 'pc' || state.selectedNodeType === 'server') {
         const node = topoNodes.manualNodes.find(function(n) { return n.id === state.selectedDeptId; });
         if (!node) {
@@ -452,7 +546,7 @@ function updateDetailSubnetInfo() {
     if (!state.detailOpen) return;
     // Panel ของ PC/Server/Department ล้วนมีข้อมูลที่โยงกับผลคำนวณ (IPv4 และ/หรือ IPv6) -> re-render ทั้งพาเนลทุกครั้งที่คำนวณใหม่
     // (เช่น subnet ขยับตำแหน่งเพราะแก้ hosts ของแผนกอื่น หรือคำนวณ IPv6 ใหม่) กันไม่ให้ Panel ค้างข้อมูลเก่า
-    if (state.selectedNodeType === 'pc' || state.selectedNodeType === 'server' || state.selectedNodeType === 'department') {
+    if (state.selectedNodeType === 'pc' || state.selectedNodeType === 'server' || state.selectedNodeType === 'department' || state.selectedNodeType === 'router-branch') {
         renderDetailPanel();
     }
 }
@@ -544,6 +638,7 @@ function setIpMode(mode, silent) {
         if (btnV4) { btnV4.classList.toggle('btn-neon', mode === 'v4'); btnV4.classList.toggle('btn-cyber', mode !== 'v4'); }
         if (btnV6) { btnV6.classList.toggle('btn-neon', mode === 'v6'); btnV6.classList.toggle('btn-cyber', mode !== 'v6'); }
         renderTable();
+        renderWanTable();
         renderUtilization(); // แผงสรุปพื้นที่ใช้เฉพาะโหมด IPv4 — ตัวมันเองเป็นคนซ่อนตัวเองตอนอยู่โหมด v6
         layoutTopology(); // รีเฟรช label บน canvas ให้ตรงกับโหมดที่เพิ่งสลับ
         // silent = true ตอนเรียกจาก applyProjectData() (โหลดโปรเจกต์) — ไม่ใช่ผู้ใช้กดสลับเอง ไม่ควร toast ซ้อนกับ toast โหลดสำเร็จ
@@ -570,6 +665,7 @@ function applyTheme(mode) {
         ROUTER_COLOR = mode === 'light' ? ROUTER_COLOR_LIGHT : ROUTER_COLOR_DARK;
         PC_COLOR = mode === 'light' ? PC_COLOR_LIGHT : PC_COLOR_DARK;
         SERVER_COLOR = mode === 'light' ? SERVER_COLOR_LIGHT : SERVER_COLOR_DARK;
+        BRANCH_COLOR = mode === 'light' ? BRANCH_COLOR_LIGHT : BRANCH_COLOR_DARK;
         CANVAS_BOX_BG = mode === 'light' ? 'rgba(255,255,255,0.95)' : 'rgba(15,17,21,0.95)'; // ต้องตรงกับ --card ใน style.css เสมอ (light = #FFFFFF ตั้งแต่รอบปรับ 30 ก.ค. 2569)
         CANVAS_GRID_COLOR = mode === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(0,212,255,0.04)';
         CANVAS_LABEL_COLOR = mode === 'light' ? '#1A1D24' : '#e0e0f0';
@@ -663,6 +759,71 @@ function onRemoveDept(id) {
     }
 }
 
+/* ----- ตัวเลือก Router สำหรับดู config -----
+   พอมี Router ได้หลายตัว การยัด config ทุกตัวลงกล่องเดียวจะยาวจนคัดลอกผิดตัวได้ง่าย
+   จึงให้เลือกดูทีละตัว เหมือนการเข้าไปตั้งค่าอุปกรณ์จริงทีละเครื่อง
+   ซ่อนแถบนี้เมื่อมี Router ตัวเดียว เพื่อไม่ให้รกในกรณีใช้งานปกติ */
+function renderCliRouterPicker() {
+    var el = document.getElementById('cliRouterPicker');
+    if (!el) return;
+    var routers = getAllRouters();
+    if (routers.length <= 1) {
+        el.classList.add('hidden');
+        el.innerHTML = '';
+        state.cliRouterId = 'router';
+        return;
+    }
+    el.classList.remove('hidden');
+    el.innerHTML = routers.map(function(r) {
+        var active = r.id === state.cliRouterId;
+        var count = getDeptsOfRouter(r.id).length;
+        return '<button onclick="selectCliRouter(\'' + r.id + '\')" class="' + (active ? 'btn-neon' : 'btn-cyber') + ' text-[11px] px-2 py-0.5">' +
+            escapeHtml(routerHostname(r)) + ' <span class="opacity-70">(' + count + ')</span></button>';
+    }).join('');
+}
+
+function selectCliRouter(id) {
+    state.cliRouterId = id;
+    renderCLI();
+}
+
+// แถว WAN + static route ต่อท้าย config ของ Router แต่ละตัว
+function buildWanSectionHTML(myWan, myRoutes, target) {
+    var out = '';
+    if (myWan.length > 0) {
+        out += '<span class="comment">! --- ลิงก์ WAN (จอง /30 ให้อัตโนมัติ 2 usable address พอดีกับ point-to-point) ---</span>\n';
+        myWan.forEach(function(wl, i) {
+            out += '<span class="cmd">interface</span> <span class="value">Serial0/' + i + '/0</span>\n' +
+                ' <span class="cmd">description</span> <span class="value">WAN to ' + escapeHtml(wl.peerLabel) + '</span>\n' +
+                ' <span class="cmd">ip address</span> <span class="value">' + wl.myIp + ' ' + wl.link.netmask + '</span>\n' +
+                ' <span class="cmd">no shutdown</span>\n' +
+                '<span class="comment">!   ปลายทาง ' + escapeHtml(wl.peerLabel) + ' = ' + wl.peerIp + ' (subnet ' + wl.link.network + '/30)</span>\n\n';
+        });
+    }
+
+    // สาขาที่มีทางออกทางเดียว (stub network) ใช้ default route เป็นมาตรฐานปฏิบัติ
+    // อ่านง่ายกว่าและไม่ต้องแก้ทุกครั้งที่สำนักงานใหญ่เพิ่มวงใหม่
+    // ส่วนสำนักงานใหญ่ต้องรู้เส้นทางเจาะจงของแต่ละสาขา เพราะมีหลายทางให้เลือก
+    if (target.id !== 'router' && myWan.length === 1) {
+        out += '<span class="comment">! --- Default Route: สาขานี้มีทางออกทางเดียว จึงชี้ทุกอย่างที่ไม่รู้จักกลับต้นทาง ---</span>\n' +
+            '<span class="cmd">ip route</span> <span class="value">0.0.0.0 0.0.0.0 ' + myWan[0].peerIp + '</span>' +
+            ' <span class="comment">! ออกทาง ' + escapeHtml(myWan[0].peerLabel) + '</span>\n\n';
+    } else if (myRoutes.length > 0) {
+        out += '<span class="comment">! --- Static Route ไปยังเครือข่ายที่อยู่หลัง Router ตัวอื่น ---</span>\n';
+        myRoutes.forEach(function(r) {
+            out += '<span class="cmd">ip route</span> <span class="value">' + r.network + ' ' + r.netmask + ' ' + r.nextHop + '</span>' +
+                ' <span class="comment">! ' + escapeHtml(r.deptName) + ' ผ่าน ' + escapeHtml(r.via) + '</span>\n';
+        });
+        out += '\n';
+    } else if (myWan.length > 0 && target.id !== 'router') {
+        // สาขาที่ยังไม่มีเส้นทางเจาะจง ใช้ default route ชี้กลับสำนักงานใหญ่ ซึ่งเป็นวิธีมาตรฐานของ stub network
+        out += '<span class="comment">! --- ยังไม่มีเครือข่ายอื่นให้ route เจาะจง ใช้ default route ชี้กลับต้นทาง ---</span>\n' +
+            '<span class="cmd">ip route</span> <span class="value">0.0.0.0 0.0.0.0 ' + myWan[0].peerIp + '</span>' +
+            ' <span class="comment">! ออกทาง ' + escapeHtml(myWan[0].peerLabel) + '</span>\n\n';
+    }
+    return out;
+}
+
 function renderCLI() {
     var routerEl = document.getElementById('cliRouterOutput');
     var switchEl = document.getElementById('cliSwitchOutput');
@@ -678,15 +839,29 @@ function renderCLI() {
     routerEl.classList.remove('cli-empty');
     switchEl.classList.remove('cli-empty');
 
-    // ฝั่ง Switch (VLAN/trunk/access port) ไม่ขึ้นกับเวอร์ชัน IP เลย ใช้รายชื่อแผนกจากฝั่งไหนก็ได้ที่มีข้อมูล
-    var deptListForCli = state.calculated.length > 0 ? state.calculated : state.calculatedV6;
+    renderCliRouterPicker();
+
+    // Router ที่กำลังเลือกดู config อยู่ — ค่าปกติคือ Router หลัก
+    var target = getAllRouters().find(function(r) { return r.id === state.cliRouterId; }) || topoNodes.router;
+    if (!target) return;
+    state.cliRouterId = target.id;
+
+    // แผนกที่ Router ตัวนี้ดูแล (Router หลักได้ทุกแผนกที่ไม่มีสาขารับไป — ดู getDeptsOfRouter ใน wan.js)
+    var myDepts = getDeptsOfRouter(target.id);
+    // โหมด IPv6 ล้วน: state.calculated ว่าง แต่ยังต้องออก config ให้ได้ -> ถอยไปใช้รายชื่อจากฝั่ง v6
+    var deptListForCli = myDepts.length > 0 ? myDepts
+        : (state.calculated.length === 0 && target.id === 'router' ? state.calculatedV6 : []);
+
+    var myWan = getWanLinksOfRouter(target.id);
+    var myRoutes = getStaticRoutesForRouter(target.id);
 
     // ----- Router Config (คัดลอกไปวางบน Router ได้ทันที ไม่ปนกับ Switch -----
     var cliRouter = '<span class="comment">! ============================================</span>\n' +
         '<span class="comment">! NetForge — Auto-generated Cisco IOS Config (ROUTER)</span>\n' +
-        '<span class="comment">! Base: ' + state.baseIp + '/' + state.baseCidr + '</span>\n' +
+        '<span class="comment">! ' + escapeHtml(routerHostname(target)) +
+            (target.id === 'router' ? ' — Base: ' + state.baseIp + '/' + state.baseCidr : ' — Router สาขา') + '</span>\n' +
         '<span class="comment">! ============================================</span>\n\n' +
-        '<span class="cmd">hostname</span> <span class="value">Router-01</span>\n' +
+        '<span class="cmd">hostname</span> <span class="value">' + escapeHtml(routerHostname(target)) + '</span>\n' +
         '<span class="cmd">enable secret</span> <span class="value">cisco</span>\n\n';
 
     // มี IPv6 คำนวณไว้ด้วย -> เปิด global command ที่จำเป็นเสมอแต่มักลืมใส่
@@ -724,14 +899,17 @@ function renderCLI() {
             '<span class="comment">! ไม่ต้องตั้ง DHCPv6 Pool เพิ่มถ้าใช้ SLAAC เฉยๆ พอ</span>\n\n';
     }
 
-    if (state.calculated.length > 0) {
+    // ต้องใช้ myDepts ไม่ใช่ state.calculated ทั้งหมด
+    // ไม่งั้น Router สาขาจะแจก DHCP และกัน address ของเครือข่ายที่ตัวเองไม่ได้ดูแล
+    // ซึ่งบนอุปกรณ์จริงคือการตั้งค่าที่ผิด และทำให้เครื่องปลายทางได้ IP ผิดวง
+    if (myDepts.length > 0) {
         cliRouter += '<span class="comment">! --- DHCP Pools (IPv4) ---</span>\n' +
             '<span class="comment">! excluded-address ต้องแยกบรรทัดละช่วง — IOS รับได้แค่ low [high] ต่อหนึ่งคำสั่ง</span>\n';
 
         // รวม Gateway + Static IP ของ PC/Server ในผัง แล้วยุบเลขที่ติดกันให้เป็นช่วงเดียว
         // เดิมโค้ดต่อ Gateway ทุกแผนกด้วยช่องว่างเป็นบรรทัดเดียว ซึ่งผิด syntax และแปะลง IOS ไม่ผ่าน
         // อีกทั้ง Static IP ที่ผู้ใช้ตั้งให้ PC/Server บน Canvas ไม่เคยถูกกันออกจาก DHCP Pool เลย -> เสี่ยง IP ชนกันจริง
-        state.calculated.forEach(function(d) {
+        myDepts.forEach(function(d) {
             var reserved = [ipToLong(d.subnet.firstUsable)]; // Gateway ของ VLAN นี้
             topoNodes.manualNodes.forEach(function(n) {
                 if (n.linkedDeptId === d.id && n.ip && isValidIp(n.ip)) reserved.push(ipToLong(n.ip));
@@ -749,7 +927,7 @@ function renderCLI() {
         });
         cliRouter += '\n';
 
-        state.calculated.forEach(function(d) {
+        myDepts.forEach(function(d) {
             var s = d.subnet;
             cliRouter += '<span class="cmd">ip dhcp pool</span> <span class="value">' + escapeHtml(d.name) + '</span>\n' +
                 ' <span class="cmd">network</span> <span class="value">' + s.network + ' ' + s.netmask + '</span>\n' +
@@ -759,11 +937,13 @@ function renderCLI() {
 
         // Static IP ของ PC/Server ตั้งบนตัวเครื่องเอง ไม่ใช่บน Router — แต่ต้องมีรายการกำกับไว้ในเอกสาร config
         // ไม่งั้นงานที่ผู้ใช้จัดไว้บน Canvas ทั้งหมดหายไปจาก output
-        var statics = topoNodes.manualNodes.filter(function(n) { return n.ip && n.linkedDeptId; });
+        var statics = topoNodes.manualNodes.filter(function(n) {
+            return n.ip && n.linkedDeptId && myDepts.some(function(d) { return d.id === n.linkedDeptId; });
+        });
         if (statics.length > 0) {
             cliRouter += '<span class="comment">! --- Static IP ที่กำหนดไว้บนผัง (ตั้งค่าที่ตัวเครื่องปลายทาง ไม่ใช่บน Router) ---</span>\n';
             statics.forEach(function(n) {
-                var dept = state.calculated.find(function(d) { return d.id === n.linkedDeptId; });
+                var dept = myDepts.find(function(d) { return d.id === n.linkedDeptId; });
                 if (!dept) return;
                 cliRouter += '<span class="comment">!   ' + escapeHtml(n.label) + '  ' + n.ip +
                     '  mask ' + dept.subnet.netmask + '  gw ' + dept.subnet.firstUsable +
@@ -772,6 +952,7 @@ function renderCLI() {
             cliRouter += '\n';
         }
     }
+    cliRouter += buildWanSectionHTML(myWan, myRoutes, target);
     cliRouter += '<span class="cmd">end</span>\n';
 
     // ----- Switch Config (คัดลอกไปวางบน Switch ได้ทันที ไม่ปนกับ Router) -----
@@ -779,7 +960,8 @@ function renderCLI() {
         '<span class="comment">! NetForge — Auto-generated Cisco IOS Config (SWITCH)</span>\n' +
         '<span class="comment">! ============================================</span>\n\n' +
         '<span class="cmd">hostname</span> <span class="value">Switch-01</span>\n\n';
-    deptListForCli.forEach(function(d) {
+    var allDeptsForSwitch = state.calculated.length > 0 ? state.calculated : state.calculatedV6;
+    allDeptsForSwitch.forEach(function(d) {
         var sw = topoNodes.switches.find(function(x) { return x.deptId === d.id; });
         var v = sw ? sw.vlanId : 0;
         cliSwitch += '<span class="cmd">vlan</span> <span class="value">' + v + '</span>\n <span class="cmd">name</span> <span class="value">' + escapeHtml(d.name) + '</span>\n';
@@ -787,7 +969,7 @@ function renderCLI() {
     cliSwitch += '\n<span class="cmd">interface</span> <span class="value">GigabitEthernet0/1</span>\n' +
         ' <span class="cmd">description</span> <span class="value">Trunk to Router-01</span>\n' +
         ' <span class="cmd">switchport mode trunk</span>\n\n';
-    deptListForCli.forEach(function(d, i) {
+    allDeptsForSwitch.forEach(function(d, i) {
         var sw = topoNodes.switches.find(function(x) { return x.deptId === d.id; });
         var v = sw ? sw.vlanId : 0, p = i + 2;
         cliSwitch += '<span class="cmd">interface</span> <span class="value">FastEthernet0/' + p + '</span>\n' +
@@ -989,7 +1171,8 @@ function updateModeButtons() {
     var pc = document.getElementById('btnAddPc');
     var srv = document.getElementById('btnAddServer');
     var conn = document.getElementById('btnConnect');
-    [[pc, 'pc'], [srv, 'server']].forEach(function(pair) {
+    var br = document.getElementById('btnAddRouter');
+    [[pc, 'pc'], [srv, 'server'], [br, 'router-branch']].forEach(function(pair) {
         var btn = pair[0], type = pair[1];
         if (!btn) return;
         var active = state.placingType === type;
@@ -1010,7 +1193,7 @@ function togglePlacingMode(type) {
         state.placingType = (state.placingType === type) ? null : type; // กดปุ่มเดิมซ้ำ = ยกเลิกโหมด
         updateModeButtons();
         document.getElementById('statusBar').textContent = state.placingType
-            ? 'คลิกตำแหน่งบน Canvas เพื่อวาง ' + (type === 'pc' ? 'PC' : 'Server')
+            ? 'คลิกตำแหน่งบน Canvas เพื่อวาง ' + (type === 'pc' ? 'PC' : type === 'router-branch' ? 'Router สาขา' : 'Server')
             : 'Ready';
     } catch (err) {
         console.error('togglePlacingMode error:', err);

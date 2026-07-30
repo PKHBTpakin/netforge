@@ -114,7 +114,7 @@ function recolorTopology() {
     topoNodes.switches.forEach(sw => { sw.color = getDeptColor(sw.deptId); });
     topoNodes.departments.forEach(d => { d.color = getDeptColor(d.deptId); });
     topoNodes.manualNodes.forEach(n => {
-        n.color = n.type === 'pc' ? PC_COLOR : SERVER_COLOR;
+        n.color = n.type === 'pc' ? PC_COLOR : (n.type === 'router-branch' ? BRANCH_COLOR : SERVER_COLOR);
     });
     // particles (ลูกศรวิ่ง) เก็บสีเป็น string ไว้ตรงๆ ไม่ใช่ reference ที่ตามสีแผนกเองอัตโนมัติ
     // updateParticlePositions() คำนวณ getConnections() ใหม่แล้วอัปเดตทั้งตำแหน่ง+สีให้ตรงกับ sw.color/d.color ปัจจุบันอยู่แล้ว
@@ -154,6 +154,10 @@ function getConnections() {
     const r = topoNodes.router;
     if (!r) return conns;
     topoNodes.switches.forEach(sw => {
+        // แผนกที่ถูกลากไปเชื่อมกับ Router สาขาแล้ว ถือว่าย้ายไปอยู่สาขานั้น
+        // ไม่ต้องลากสายจาก Router หลักซ้ำอีก (ไม่งั้นจะกลายเป็นวงลูปที่ไม่มีความหมายในแบบจำลอง)
+        // สายไปสาขาจะถูกวาดโดย getManualConnections() จากลิงก์ที่ผู้ใช้ลากเองอยู่แล้ว
+        if (typeof getDeptOwnerRouter === 'function' && getDeptOwnerRouter(sw.deptId)) return;
         conns.push({ sx: r.x, sy: r.y + r.h/2, ex: sw.x, ey: sw.y - sw.h/2, color: sw.color });
     });
     topoNodes.switches.forEach(sw => {
@@ -194,7 +198,31 @@ function validateLink(a, b) {
         return { ok: false, message: 'Department ไม่ใช่อุปกรณ์จริง เชื่อมกับ Switch ของแผนกนั้นแทน' };
     }
     const isEndDevice = t => t === 'pc' || t === 'server';
-    if ((a.type === 'router' && isEndDevice(b.type)) || (b.type === 'router' && isEndDevice(a.type))) {
+    const isRouter = t => t === 'router' || t === 'router-branch';
+
+    // ----- ลิงก์ WAN: Router ต่อ Router -----
+    if (isRouter(a.type) && isRouter(b.type)) {
+        return { ok: true, message: 'ลิงก์ WAN — ระบบจองซับเน็ต /30 ให้อัตโนมัติ ดูเลข IP ได้ที่แท็บ IP Table' };
+    }
+
+    // ----- Switch ย้ายไปอยู่กับ Router สาขา -----
+    if ((a.type === 'router-branch' && b.type === 'switch') || (b.type === 'router-branch' && a.type === 'switch')) {
+        const sw = a.type === 'switch' ? a : b;
+        const branch = a.type === 'router-branch' ? a : b;
+        // Switch หนึ่งตัวขึ้นกับ Router ได้ตัวเดียว ไม่งั้น CLI จะกำหนด gateway ซ้ำสองที่
+        const existing = typeof getDeptOwnerRouter === 'function' ? getDeptOwnerRouter(sw.deptId) : null;
+        if (existing && existing.id !== branch.id) {
+            return { ok: false, message: 'แผนกนี้อยู่กับ ' + existing.label + ' อยู่แล้ว — ลบสายเดิมออกก่อนถ้าจะย้าย' };
+        }
+        return { ok: true, message: 'ย้ายแผนกนี้ไปอยู่หลัง ' + branch.label + ' แล้ว — สายจาก Router หลักถูกตัดออกอัตโนมัติ' };
+    }
+
+    // Router หลักกับ Switch เชื่อมกันอยู่แล้วโดยอัตโนมัติ ไม่ต้องลากเพิ่ม
+    if ((a.type === 'router' && b.type === 'switch') || (b.type === 'router' && a.type === 'switch')) {
+        return { ok: false, message: 'Switch เชื่อมกับ Router หลักอยู่แล้วโดยอัตโนมัติ — ถ้าจะย้ายไปสาขา ให้ลากไปที่ Router สาขาแทน' };
+    }
+
+    if ((isRouter(a.type) && isEndDevice(b.type)) || (isRouter(b.type) && isEndDevice(a.type))) {
         return { ok: true, message: 'ปกติ PC/Server จะไม่เชื่อมตรงกับ Router ควรผ่าน Switch — เชื่อมให้ตามที่สั่งแล้ว' };
     }
     if (isEndDevice(a.type) && isEndDevice(b.type)) {
@@ -222,6 +250,9 @@ function addLink(fromId, toId) {
     // เพื่อให้ suggestNextIp() รู้ว่าจะแนะนำ IP จาก subnet ไหน โดยไม่ต้องให้ผู้ใช้เลือกเอง
     [[a, b], [b, a]].forEach(pair => {
         const self = pair[0], other = pair[1];
+        // Router สาขามีช่อง linkedDeptId ติดมาด้วย (สืบทอดโครงเดียวกับ PC/Server) แต่ความหมายคนละเรื่อง
+        // ความเป็นเจ้าของแผนกของ Router ดูจากลิงก์โดยตรงผ่าน getDeptOwnerRouter() ไม่ใช่จากช่องนี้
+        if (self.type === 'router-branch') return;
         if (other.type === 'switch' && 'linkedDeptId' in self) {
             // ย้ายไปเชื่อมแผนกใหม่ที่ไม่ใช่แผนกเดิม -> IP เก่าอ้างอิง subnet ที่ไม่เกี่ยวข้องแล้ว ล้างทิ้งกันข้อมูลหลอก
             if (self.linkedDeptId !== null && self.linkedDeptId !== other.deptId) {
@@ -293,6 +324,7 @@ function resetManualTopology() {
     topoNodes.links = [];
     nextManualNodeId = 1;
     nextLinkId = 1;
+    if (typeof resetWanRegistry === 'function') resetWanRegistry(); // ลิงก์หายหมดแล้ว index ของ /30 เดิมไม่มีความหมาย
 }
 
 /* ตารางพื้นหลัง — วาดครั้งเดียวเก็บใส่ canvas ซ่อนไว้ แล้วแปะเป็นภาพทุกเฟรม
@@ -455,7 +487,10 @@ function drawDeptNodes() {
 
 function drawManualNodes() {
     topoNodes.manualNodes.forEach(n => {
-        n.subnetInfo = n.getIpLabel() + (n.linkedDeptId ? '' : ' • ยังไม่เชื่อม');
+        // Router สาขามีความหมายของ 'เชื่อมแล้ว' คนละแบบกับ PC/Server (ดูจากลิงก์ WAN ไม่ใช่ linkedDeptId)
+        n.subnetInfo = n.type === 'router-branch'
+            ? n.getIpLabel()
+            : n.getIpLabel() + (n.linkedDeptId ? '' : ' • ยังไม่เชื่อม');
         drawNodeBox(n, n.icon, n.color,
             state.selectedNodeType === n.type && state.selectedDeptId === n.id,
             hoverInfo && hoverInfo.id === n.id);
@@ -549,7 +584,9 @@ function handlePointerDown(x, y) {
     try {
         // โหมดวางอุปกรณ์ใหม่ (ปุ่ม PC/Server ที่มุมขวาบน) มีสิทธิ์ก่อนเสมอ
         if (state.placingType) {
-            const DeviceClass = state.placingType === 'pc' ? PCDevice : ServerDevice;
+            const DeviceClass = state.placingType === 'pc' ? PCDevice
+                              : state.placingType === 'router-branch' ? BranchRouterDevice
+                              : ServerDevice;
             addManualNode(DeviceClass, x, y);
             state.placingType = null;
             if (typeof updateModeButtons === 'function') updateModeButtons();

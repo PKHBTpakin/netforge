@@ -17,7 +17,7 @@ var state = {
     activeTab: 'table',
     summaryRoutes: ['192.168.1.0/24', '192.168.2.0/24', '192.168.3.0/24'],
     showArrows: true, // <--- ตัวแปรสำหรับเปิดปิดลูกศร
-    placingType: null, // null | 'pc' | 'server' — กำลังอยู่ในโหมดวางอุปกรณ์ใหม่หรือไม่
+    placingType: null, // null | 'pc' | 'server' | 'router-branch' — กำลังอยู่ในโหมดวางอุปกรณ์ใหม่หรือไม่
     connectMode: false, // กำลังอยู่ในโหมดลากเชื่อมสายหรือไม่
     linkFromId: null,   // id ของอุปกรณ์ตัวแรกที่เลือกไว้ระหว่างโหมด Connect
     theme: 'light',       // 'dark' | 'light' — applyTheme() ใน ui.js เป็นคนอัปเดตค่านี้จริง ตรงนี้แค่ default ตอนเริ่ม (Light = โหมดมาตรฐาน)
@@ -27,7 +27,12 @@ var state = {
     baseIp6: '',        // ว่างจนกว่าผู้ใช้จะกด Calculate ในโหมด IPv6 ครั้งแรก (calculateIPv6() จะข้ามถ้ายังว่าง)
     basePrefixLen6: 48,
     newPrefixLen6: 64,
-    calculatedV6: []
+    calculatedV6: [],
+
+    // ----- WAN (Router สาขา) — ดู js/wan.js -----
+    wanBase: WAN_DEFAULT_BASE,   // Pool สำหรับจอง /30 ให้ลิงก์ระหว่าง Router
+    wanCidr: WAN_DEFAULT_CIDR,
+    wanLinks: []                 // ผลคำนวณ calculateWanLinks() เติมให้ทุกครั้งที่ refreshAll()
 };
 
 // รีเฟรชทั้งหมด
@@ -36,9 +41,11 @@ var state = {
 function refreshAll(forceLayout) {
     calculateVLSM();
     calculateIPv6();
+    calculateWanLinks(); // ต้องหลัง calculateVLSM เพราะ static route อ้างซับเน็ตของแผนก
     renderSidebarDepts();
     renderTable();
     renderUtilization();
+    renderWanTable();
     layoutTopology(forceLayout);
     updateDetailSubnetInfo();
     // แท็บ CLI ไม่ได้ re-render เองตอนข้อมูลเปลี่ยน เดิมเรียกจาก switchTab() ที่เดียว
@@ -76,6 +83,7 @@ function loadExample(key) {
         state.baseIp = ex.baseIp;
         state.baseCidr = ex.baseCidr;
         resetVlanRegistry();
+        resetWanRegistry();
         resetManualTopology();
         state.departments = ex.departments.map(function(d) {
             return { id: state.nextId++, name: d.name, hosts: d.hosts };
@@ -113,6 +121,7 @@ function clearAll() {
         state.selectedDeptId = null;
         state.selectedNodeType = null;
         resetVlanRegistry();
+        resetWanRegistry();
         resetManualTopology();
         closeDetailPanel();
         refreshAll(true); // ล้างหมดแล้ว Router ควรกลับไปกลางจอตามผังมาตรฐาน
@@ -152,8 +161,14 @@ function buildProjectSnapshot() {
             nextVlanId: nextVlanId
         },
         manualNodes: topoNodes.manualNodes.map(function(n) {
-            return { id: n.id, type: n.type, x: n.x, y: n.y, ip: n.ip, linkedDeptId: n.linkedDeptId };
+            return { id: n.id, type: n.type, x: n.x, y: n.y, ip: n.ip, linkedDeptId: n.linkedDeptId, label: n.label };
         }),
+        wanBase: state.wanBase,
+        wanCidr: state.wanCidr,
+        wan: {
+            entries: Array.from(wanRegistry.entries()), // linkId -> index ของ block /30 (คงที่ตลอดชีพลิงก์)
+            nextIndex: nextWanIndex
+        },
         nextManualNodeId: nextManualNodeId,
         links: topoNodes.links.map(function(l) {
             return { id: l.id, fromId: l.fromId, toId: l.toId };
@@ -240,6 +255,7 @@ function applyProjectData(data) {
     }
     try {
         resetVlanRegistry();
+        resetWanRegistry();
         resetManualTopology();
         state.selectedDeptId = null;
         state.selectedNodeType = null;
@@ -276,17 +292,30 @@ function applyProjectData(data) {
                 if (Array.isArray(pair) && pair.length === 2) vlanRegistry.set(pair[0], pair[1]);
             });
         }
+        state.wanBase = (typeof data.wanBase === 'string' && isValidIp(data.wanBase)) ? data.wanBase : WAN_DEFAULT_BASE;
+        state.wanCidr = Number.isInteger(data.wanCidr) ? data.wanCidr : WAN_DEFAULT_CIDR;
+        if (data.wan && Array.isArray(data.wan.entries)) {
+            data.wan.entries.forEach(function(pair) {
+                if (Array.isArray(pair) && pair.length === 2) wanRegistry.set(pair[0], pair[1]);
+            });
+        }
+        var maxWan = -1;
+        wanRegistry.forEach(function(v) { maxWan = Math.max(maxWan, v); });
+        nextWanIndex = (data.wan && Number.isInteger(data.wan.nextIndex) && data.wan.nextIndex > maxWan) ? data.wan.nextIndex : maxWan + 1;
+
         var maxVlan = 0;
         vlanRegistry.forEach(function(v) { maxVlan = Math.max(maxVlan, v); });
         nextVlanId = (data.vlan && Number.isInteger(data.vlan.nextVlanId) && data.vlan.nextVlanId > maxVlan) ? data.vlan.nextVlanId : maxVlan + 10;
 
         // สร้าง instance จริงของ PCDevice/ServerDevice (ไม่ใช่ก็อบปี้ object เฉยๆ) เพราะตอน render ต้องเรียก method อย่าง getIpLabel()
+        var DEVICE_CLASSES = { pc: PCDevice, server: ServerDevice, 'router-branch': BranchRouterDevice };
         data.manualNodes.forEach(function(n) {
-            if (!n || (n.type !== 'pc' && n.type !== 'server') || typeof n.id !== 'string') return;
-            var DeviceClass = n.type === 'pc' ? PCDevice : ServerDevice;
+            if (!n || typeof n.id !== 'string' || !DEVICE_CLASSES[n.type]) return;
+            var DeviceClass = DEVICE_CLASSES[n.type];
             var node = new DeviceClass(n.id, Number(n.x) || 0, Number(n.y) || 0);
             node.ip = (typeof n.ip === 'string' && isValidIp(n.ip)) ? n.ip : null;
             node.linkedDeptId = Number.isInteger(n.linkedDeptId) ? n.linkedDeptId : null;
+            if (typeof n.label === 'string' && n.label.trim()) node.label = n.label.trim().slice(0, 40);
             topoNodes.manualNodes.push(node);
         });
         var maxNodeNum = 0;
@@ -476,6 +505,7 @@ function init() {
         renderSidebarDepts();
         renderTable();
         renderUtilization();
+        renderWanTable();
         layoutTopology();
         renderFrame();
 

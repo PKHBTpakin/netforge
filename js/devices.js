@@ -57,9 +57,13 @@ const SERVER_COLOR_DARK = '#EC4899';
 const ROUTER_COLOR_LIGHT = '#1841B8';
 const PC_COLOR_LIGHT = '#0C5C2C';
 const SERVER_COLOR_LIGHT = '#9E144D';
+// Router สาขาใช้สีต่างจาก Router หลัก เพื่อให้แยกออกทันทีว่าอันไหนเป็นศูนย์กลาง อันไหนเป็นปลายทาง WAN
+const BRANCH_COLOR_DARK = '#F59E0B';
+const BRANCH_COLOR_LIGHT = '#7A4405';
 let ROUTER_COLOR = ROUTER_COLOR_DARK;
 let PC_COLOR = PC_COLOR_DARK;
 let SERVER_COLOR = SERVER_COLOR_DARK;
+let BRANCH_COLOR = BRANCH_COLOR_DARK;
 
 // ----- คลาสฐาน: คุณสมบัติร่วมที่ทุก Node บน Canvas ต้องมี -----
 class NetworkDevice {
@@ -117,6 +121,28 @@ class PCDevice extends NetworkDevice {
 
     getIpLabel() {
         return this.ip || 'No IP';
+    }
+}
+
+/* ----- Router สาขา: Router ตัวที่สองขึ้นไป ที่ผู้ใช้วางเองบน Canvas -----
+   ต่างจาก RouterDevice (Router หลัก) ตรงที่:
+     - มีได้หลายตัว และอยู่ใน topoNodes.manualNodes ชุดเดียวกับ PC/Server
+       จึงใช้กลไกวาง/ลาก/ลบ/บันทึก-โหลด ร่วมกันได้ทั้งหมดโดยไม่ต้องเขียนใหม่
+     - ไม่ได้เป็นเจ้าของ Base Network ของทั้งระบบ แต่เป็นเจ้าของเฉพาะแผนกที่ลากมาเชื่อมกับมัน
+   มี ip/linkedDeptId เหมือน PC/Server เพื่อให้โค้ดเดิมที่วนอ่าน manualNodes ไม่พัง
+   แต่ทั้งสองค่าจะไม่ถูกใช้จริง (IP ของ Router มาจากการจอง /30 ของลิงก์ WAN ดู wan.js) */
+class BranchRouterDevice extends NetworkDevice {
+    constructor(id, x, y) {
+        super(id, 'router-branch', x, y, 150, 50, 'Router-' + id.replace('m-', ''), BRANCH_COLOR, ''); // fa-network-wired
+        this.ip = null;
+        this.linkedDeptId = null;
+    }
+
+    getIpLabel() {
+        var links = (typeof getWanLinksOfRouter === 'function') ? getWanLinksOfRouter(this.id) : [];
+        if (links.length === 0) return 'ยังไม่มีลิงก์ WAN';
+        if (links.length === 1) return links[0].myIp + '/30';
+        return links.length + ' ลิงก์ WAN';
     }
 }
 

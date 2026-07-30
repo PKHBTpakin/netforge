@@ -21,7 +21,7 @@ const vm = require('vm');
 const path = require('path');
 
 const PROJECT_ROOT = path.join(__dirname, '..');
-const JS_FILES = ['js/examples.js', 'js/vlsm.js', 'js/vlsm6.js', 'js/devices.js', 'js/topology.js', 'js/ui.js', 'js/tools.js', 'js/library.js', 'js/app.js'];
+const JS_FILES = ['js/examples.js', 'js/vlsm.js', 'js/vlsm6.js', 'js/devices.js', 'js/topology.js', 'js/ui.js', 'js/wan.js', 'js/tools.js', 'js/library.js', 'js/app.js'];
 
 let capturedToasts = [];
 let clipboardText = null;
@@ -466,6 +466,136 @@ check('cli-empty: ใส่คลาส cli-empty ตอนไม่มีข้
 run("loadExample('small'); renderCLI();");
 check('cli-empty: ถอดคลาสออกเมื่อมีคำสั่งแล้ว',
     !getElementById('cliRouterOutput').classList.contains('cli-empty'));
+
+/* ===== H. Router สาขา + ลิงก์ WAN (30 ก.ค. 2569 รอบ 5) =====
+   จำลองสถานการณ์จริง: สำนักงานใหญ่ 6 แผนก + สาขา 1 แห่งที่รับแผนก Sales ไปดูแล
+   เทสทั้งหมดในหมวดนี้ยิงผ่านทางเข้าจริง (addManualNode/addLink/renderCLI) ไม่ได้เรียกฟังก์ชันภายในลอย ๆ */
+
+// stripTags ด้านบนแทนแท็กด้วย ' ' ซึ่งทำให้ 'hostname</span> <span>Router-01' กลายเป็น 'hostname   Router-01'
+// หมวดนี้ต้องเทียบข้อความคำสั่ง IOS แบบตรงตัว จึงใช้ตัวถอดแท็กที่ไม่แทรกช่องว่างเพิ่ม
+const cliText = (html) => String(html).replace(/<[^>]*>/g, '');
+
+run("loadExample('company')"); // 172.16.0.0/23, 6 แผนก
+const wanSetup = run(`(function(){
+    var br = addManualNode(BranchRouterDevice, 1100, 300);
+    br.label = 'Router-Branch-CM';
+    addLink('router', br.id);
+    var swSales = topoNodes.switches.find(function(s){
+        return state.calculated.find(function(d){ return d.id === s.deptId; }).name === 'Sales';
+    });
+    addLink(br.id, swSales.id);
+    refreshAll();
+    return { branch: br.id, sw: swSales.id, vlan: swSales.vlanId };
+})()`);
+
+// H1 — การจอง /30
+const wl = run('state.wanLinks[0]');
+check('wan: ลิงก์ Router-Router ถูกจอง /30', wl && wl.cidr === 30, wl && wl.network + '/30');
+check('wan: สองปลายได้คนละ IP และอยู่ใน usable range',
+    wl && wl.ends[0].ip !== wl.ends[1].ip &&
+    run("ipToLong('" + (wl ? wl.ends[0].ip : '0.0.0.0') + "')") === run("ipToLong('" + (wl ? wl.network : '0.0.0.0') + "') + 1") &&
+    run("ipToLong('" + (wl ? wl.ends[1].ip : '0.0.0.0') + "')") === run("ipToLong('" + (wl ? wl.network : '0.0.0.0') + "') + 2"),
+    wl && wl.ends.map(function(e) { return e.ip; }).join(' <-> '));
+check('wan: netmask ของ /30 ถูกต้อง', wl && wl.netmask === '255.255.255.252');
+
+// index ของ block ต้องไม่เลื่อนเมื่อเพิ่ม/ลบลิงก์อื่น (เหตุผลเดียวกับ VLAN)
+const firstNet = wl.network;
+run(`(function(){ var b2 = addManualNode(BranchRouterDevice, 1200, 420); addLink('router', b2.id); refreshAll(); })()`);
+check('wan: เพิ่มลิงก์ใหม่แล้ว subnet ของลิงก์เดิมไม่เลื่อน',
+    run('state.wanLinks.find(function(w){return w.network==="' + firstNet + '"})') !== undefined, firstNet);
+check('wan: ลิงก์ที่สองได้ block ถัดไป ไม่ทับกัน',
+    run('state.wanLinks.length') === 2 && run('state.wanLinks[0].network') !== run('state.wanLinks[1].network'),
+    run('state.wanLinks.map(function(w){return w.network}).join(", ")'));
+run("(function(){ var extra = topoNodes.manualNodes[topoNodes.manualNodes.length-1]; removeManualNode(extra.id); refreshAll(); })()");
+
+// H2 — ความเป็นเจ้าของแผนก
+check('wan: แผนกที่ลากไปเชื่อมสาขา ย้ายไปอยู่กับสาขาแล้ว',
+    run("getDeptsOfRouter('" + wanSetup.branch + "').map(function(d){return d.name}).join()") === 'Sales');
+check('wan: แผนกที่เหลือยังอยู่กับ Router หลัก',
+    run("getDeptsOfRouter('router').length") === 5, run("getDeptsOfRouter('router').map(function(d){return d.name}).join(', ')"));
+check('wan: Router หลักไม่ลากสายไป Switch ที่ย้ายไปสาขาแล้ว (กันวงลูปที่ไม่มีความหมาย)',
+    run('getConnections().length') === (run('topoNodes.switches.length') - 1) + run('topoNodes.switches.length'),
+    run('getConnections().length'));
+
+// H3 — CLI ของสำนักงานใหญ่
+run("state.cliRouterId='router'; renderCLI();");
+const hqCli = cliText(getElementById('cliRouterOutput').innerHTML);
+const salesSub = run("state.calculated.find(function(d){return d.name==='Sales'}).subnet");
+check('cli-hq: hostname ยังเป็น Router-01', hqCli.includes('hostname Router-01'));
+check('cli-hq: มี static route ไปวงของสาขา',
+    hqCli.includes('ip route ' + salesSub.network + ' ' + salesSub.netmask), (hqCli.match(/ip route [^!\n]+/) || [''])[0].trim());
+check('cli-hq: ไม่มี sub-interface ของแผนกที่ย้ายไปสาขาแล้ว',
+    !hqCli.includes('GigabitEthernet0/0.' + wanSetup.vlan));
+check('cli-hq: ไม่มี DHCP pool ของแผนกที่ย้ายไปสาขา', !hqCli.includes('ip dhcp pool Sales'));
+check('cli-hq: มี interface WAN พร้อม netmask ของ /30', hqCli.includes('Serial0/') && hqCli.includes('255.255.255.252'));
+
+// H4 — CLI ของสาขา
+run("state.cliRouterId='" + wanSetup.branch + "'; renderCLI();");
+const brCli = cliText(getElementById('cliRouterOutput').innerHTML);
+check('cli-branch: hostname ใช้ชื่อที่ผู้ใช้ตั้ง', brCli.includes('hostname Router-Branch-CM'));
+check('cli-branch: เป็น gateway ของแผนกตัวเอง', brCli.includes('ip address ' + salesSub.firstUsable));
+check('cli-branch: มี DHCP pool ของแผนกตัวเอง',
+    brCli.includes('ip dhcp pool Sales') && brCli.includes('default-router ' + salesSub.firstUsable));
+check('cli-branch: ไม่มี pool ของแผนกที่อยู่สำนักงานใหญ่ (บั๊กที่ E2E จับได้)',
+    !brCli.includes('ip dhcp pool IT-Department') && !brCli.includes('ip dhcp pool Finance'),
+    (brCli.match(/ip dhcp pool \S+/g) || []).join(', '));
+check('cli-branch: excluded-address มีเฉพาะของแผนกตัวเอง',
+    (brCli.match(/ip dhcp excluded-address/g) || []).length === 1,
+    (brCli.match(/ip dhcp excluded-address[^\n]*/g) || []).join(' | '));
+check('cli-branch: ใช้ default route กลับต้นทาง (stub network มีทางออกทางเดียว)',
+    brCli.includes('ip route 0.0.0.0 0.0.0.0'), (brCli.match(/ip route [^!\n]+/) || [''])[0].trim());
+check('cli-branch: ไม่ไล่ static route ทีละวงของสำนักงานใหญ่', (brCli.match(/ip route /g) || []).length === 1);
+
+// H5 — Switch config ยังครบทุก VLAN (สวิตช์กายภาพตัวเดียวรวมทุกแผนก)
+const swCli = cliText(getElementById('cliSwitchOutput').innerHTML);
+check('cli-switch: ยังมี VLAN ครบทุกแผนกไม่ว่าจะอยู่สาขาไหน',
+    (swCli.match(/^vlan \d+$/gm) || []).length === run('state.calculated.length'),
+    (swCli.match(/^vlan \d+$/gm) || []).length + ' vs ' + run('state.calculated.length'));
+
+// H6 — กติกาการเชื่อมสาย
+check('wan: ห้ามลาก Router หลักไป Switch ตรง ๆ (เชื่อมอัตโนมัติอยู่แล้ว)',
+    run("validateLink(topoNodes.router, topoNodes.switches[0]).ok") === false);
+check('wan: ห้ามให้แผนกเดียวขึ้นกับสองสาขาพร้อมกัน',
+    (function () {
+        const r = run(`(function(){
+            var b3 = addManualNode(BranchRouterDevice, 900, 500);
+            var sw = topoNodes.switches.find(function(s){ return getDeptOwnerRouter(s.deptId) !== null; });
+            var res = validateLink(b3, sw);
+            removeManualNode(b3.id);
+            return res;
+        })()`);
+        return r.ok === false && /อยู่กับ/.test(r.message);
+    })());
+
+// H7 — ตาราง WAN
+run('renderWanTable()');
+const wanHtml = cliText(getElementById('wanPanel').innerHTML);
+check('wan-table: แสดง subnet และ IP ทั้งสองฝั่ง',
+    wanHtml.includes(wl.network) && wanHtml.includes(wl.ends[0].ip) && wanHtml.includes(wl.ends[1].ip));
+run("setIpMode('v6', true); renderWanTable();");
+check('wan-table: ซ่อนในโหมด IPv6 (WAN /30 เป็นเรื่องของ IPv4)',
+    getElementById('wanPanel').classList.contains('hidden'));
+run("setIpMode('v4', true);");
+
+// H8 — save / load
+const wanBefore = run('JSON.stringify({w:state.wanLinks, n:topoNodes.manualNodes.map(function(n){return [n.id,n.type,n.label]}), l:topoNodes.links.map(function(l){return [l.fromId,l.toId]})})');
+const wanSnap = run('buildProjectSnapshot()');
+run('clearAll()');
+run('applyProjectData(__ws)', Object.assign(context, { __ws: wanSnap }));
+const wanAfter = run('JSON.stringify({w:state.wanLinks, n:topoNodes.manualNodes.map(function(n){return [n.id,n.type,n.label]}), l:topoNodes.links.map(function(l){return [l.fromId,l.toId]})})');
+check('wan: save/load ไป-กลับได้ Router สาขา ลิงก์ และ IP เดิมเป๊ะ', wanBefore === wanAfter,
+    wanBefore === wanAfter ? '' : 'ก่อน ' + wanBefore.slice(0, 120) + ' / หลัง ' + wanAfter.slice(0, 120));
+check('wan: ชื่อที่ผู้ใช้ตั้งไว้ไม่หายหลังโหลด',
+    run("topoNodes.manualNodes.some(function(n){return n.label==='Router-Branch-CM'})"));
+
+// H9 — ลบ Router สาขาแล้วทุกอย่างกลับสู่สภาพเดิม
+run("(function(){ var br = topoNodes.manualNodes.find(function(n){return n.type==='router-branch'}); removeManualNode(br.id); refreshAll(); })()");
+check('wan: ลบ Router สาขา -> ลิงก์ WAN หายตาม', run('state.wanLinks.length') === 0, run('state.wanLinks.length'));
+check('wan: ลบ Router สาขา -> แผนกกลับมาขึ้นกับ Router หลักทั้งหมด',
+    run("getDeptsOfRouter('router').length") === run('state.calculated.length'));
+run("state.cliRouterId='router'; renderCLI();");
+check('wan: ลบแล้ว CLI กลับมามีทุกแผนกเหมือนเดิม',
+    cliText(getElementById('cliRouterOutput').innerHTML).includes('ip dhcp pool Sales'));
 
 /* ---------- สรุปผล ---------- */
 let pass = 0;
