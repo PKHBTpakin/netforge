@@ -113,11 +113,18 @@ function calculateVLSM() {
     let currentIp = baseLong;
     const results = [];
     const errors = [];
+    // แผนกที่จัดสรรไม่สำเร็จ เดิมถูกทิ้งไปเงียบ ๆ เหลือแค่ toast 2.5 วินาที
+    // ผู้ใช้ที่พลาดช่วงนั้นจะไม่มีทางรู้เลยว่ามีแผนกหนึ่งไม่ได้อยู่ในแผน -> เก็บเหตุผลไว้ให้ UI แสดงค้าง
+    const failed = [];
+    const fail = (dept, reason) => {
+        failed.push({ id: dept.id, name: dept.name || 'Dept', hosts: dept.hosts, reason: reason });
+        errors.push((dept.name || 'Dept') + ': ' + reason);
+    };
 
     for (const dept of sorted) {
         const hostsNum = Number(dept.hosts);
         if (!isFinite(hostsNum) || hostsNum < 1) {
-            errors.push((dept.name || 'Dept') + ': จำนวน Host ไม่ถูกต้อง');
+            fail(dept, 'จำนวน Host ไม่ถูกต้อง');
             continue;
         }
         const needed = Math.max(hostsNum + 2, 4);
@@ -126,16 +133,16 @@ function calculateVLSM() {
         const newCidr = 32 - bits;
 
         if (bits > 32 || newCidr < 0) {
-            errors.push(dept.name + ': จำนวน Host มากเกินกว่าจะคำนวณเป็น IPv4 ได้');
+            fail(dept, 'จำนวน Host มากเกินกว่าจะคำนวณเป็น IPv4 ได้');
             continue;
         }
         if (newCidr < baseCidr) {
-            errors.push(dept.name + ': ต้องการ /' + newCidr + ' แต่ Base เป็น /' + baseCidr);
+            fail(dept, 'ต้องการ /' + newCidr + ' แต่ Base เป็น /' + baseCidr + ' — ขยาย Base ให้ใหญ่ขึ้น');
             continue;
         }
         const baseEnd = baseLong + Math.pow(2, 32 - baseCidr);
         if (currentIp + subnetSize > baseEnd) {
-            errors.push(dept.name + ': เกินขอบเขต Base Network');
+            fail(dept, 'พื้นที่ใน Base /' + baseCidr + ' เหลือไม่พอ (ต้องการ /' + newCidr + ')');
             continue;
         }
 
@@ -158,6 +165,7 @@ function calculateVLSM() {
     }
 
     state.calculated = results;
+    state.failed = failed;
     if (errors.length) showToast(errors.join('\n'), 'error');
     return results;
 }

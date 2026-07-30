@@ -10,6 +10,7 @@ var state = {
     nextId: 1,
     departments: [],
     calculated: [],
+    failed: [],   // แผนกที่ VLSM จัดสรรไม่สำเร็จ + เหตุผล (calculateVLSM เป็นคนเติม ดู vlsm.js)
     selectedDeptId: null,
     selectedNodeType: null,
     detailOpen: false,
@@ -108,6 +109,7 @@ function clearAll() {
     try {
         state.departments = [];
         state.calculated = [];
+        state.failed = [];
         state.selectedDeptId = null;
         state.selectedNodeType = null;
         resetVlanRegistry();
@@ -142,6 +144,9 @@ function buildProjectSnapshot() {
         baseIp6: state.baseIp6,
         basePrefixLen6: state.basePrefixLen6,
         newPrefixLen6: state.newPrefixLen6,
+        // เส้นทางในเครื่องมือ Route Summary เดิมไม่ถูกเก็บ หายทุกครั้งที่โหลดโปรเจกต์ใหม่
+        // ทั้งที่เป็นข้อมูลที่ผู้ใช้พิมพ์เองและเป็นส่วนหนึ่งของงานที่ทำค้างไว้
+        summaryRoutes: Array.isArray(state.summaryRoutes) ? state.summaryRoutes.slice(0, 16) : [],
         vlan: {
             entries: Array.from(vlanRegistry.entries()), // Map ไม่ใช่ JSON ได้ตรงๆ ต้องแปลงเป็น [[deptId, vlanId], ...] ก่อน
             nextVlanId: nextVlanId
@@ -257,6 +262,14 @@ function applyProjectData(data) {
         state.baseIp6 = typeof data.baseIp6 === 'string' ? data.baseIp6 : '';
         state.basePrefixLen6 = Number.isInteger(data.basePrefixLen6) ? data.basePrefixLen6 : 48;
         state.newPrefixLen6 = Number.isInteger(data.newPrefixLen6) ? data.newPrefixLen6 : 64;
+
+        // ไฟล์เก่าที่บันทึกก่อนเพิ่มฟิลด์นี้จะไม่มี summaryRoutes -> คงค่าเดิมไว้ ไม่ล้างทิ้ง
+        if (Array.isArray(data.summaryRoutes)) {
+            state.summaryRoutes = data.summaryRoutes
+                .filter(function(r) { return typeof r === 'string' && parseCidrText(r); })
+                .slice(0, 16);
+            if (typeof renderSummaryInputs === 'function') renderSummaryInputs();
+        }
 
         if (data.vlan && Array.isArray(data.vlan.entries)) {
             data.vlan.entries.forEach(function(pair) {

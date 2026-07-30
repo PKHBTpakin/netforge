@@ -188,6 +188,11 @@ button:focus-visible,
 .dept-item.selected {
     border-color: var(--neon); background: rgba(76,141,255,0.08);
 }
+/* แผนกที่ VLSM จัดสรรไม่สำเร็จ — ต้องเห็นชัดว่าไม่ได้อยู่ในแผนจริง ไม่ใช่หายเงียบ ๆ */
+.dept-item.dept-failed {
+    border-color: var(--hot);
+    background: rgba(240,87,92,0.06);
+}
 
 /* --- Detail Panel ซ่อน/แสดง --- */
 .detail-panel {
@@ -227,6 +232,19 @@ button:focus-visible,
 /* หมายเหตุ: CLI panel ตั้งใจให้เป็นจอ terminal สีเข้มเสมอ ไม่ตามธีม Light/Dark ของทั้งแอป
    (เหมือน terminal ใน editor ทั่วไปที่มักคงโทนเข้มไว้) เลยใช้ค่าตายตัวแทน var() ตรงนี้
    ถ้าใช้ var(--neon) ฯลฯ พอสลับ Light Mode ตัวอักษรจะกลายเป็นสีเข้มบนพื้นดำ อ่านไม่ออก */
+/* ตอนยังไม่มีคำสั่งให้แสดง อย่าปล่อยเป็นกล่องดำทึบเต็มจอสองกล่อง
+   ในโหมด Light มันกลายเป็นช่องว่างสีดำก้อนโตที่ดูหนักและสะดุดตาผิดที่
+   (จอ terminal สีเข้มมีความหมายเมื่อ "มีคำสั่งอยู่ข้างใน" เท่านั้น) */
+.cli-output.cli-empty {
+    background: var(--input-bg);
+    border-style: dashed;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
 .cli-output .cmd { color: #4C8DFF; }
 .cli-output .comment { color: #9BA4B8; }
 .cli-output .value { color: #94A3B8; }

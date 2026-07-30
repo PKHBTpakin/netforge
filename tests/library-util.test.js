@@ -372,6 +372,101 @@ capturedToasts = [];
 run('exportProject()');
 check('export: มีข้อมูลแล้วยัง export ได้ปกติ', capturedToasts.some(t => t.type === 'success'), JSON.stringify(capturedToasts.map(t => t.msg)));
 
+/* ===== G. ผลตรวจรอบละเอียด (30 ก.ค. 2569 รอบ 4) ===== */
+
+// อ่าน "สีที่ผู้ใช้เห็นจริง" ออกมาจาก HTML ที่ render แทนการเดาจาก index
+function colorsFromHtml(html) {
+    const map = {}; const re = /style="color:([^"]+)"[^>]*>([^<]+)</g; let m;
+    while ((m = re.exec(html))) map[m[2].trim()] = m[1];
+    return map;
+}
+
+// G1 — สีประจำแผนกต้องเป็นสีเดียวกันทุกที่ที่แสดง
+run("loadExample('company'); state.baseIp6='2001:db8::'; state.basePrefixLen6=48; state.newPrefixLen6=64; refreshAll();");
+run("setIpMode('v4', true); renderTable();");
+const colV4 = colorsFromHtml(getElementById('ipTableBody').innerHTML);
+run("setIpMode('v6', true); renderTable();");
+const colV6 = colorsFromHtml(getElementById('ipTableBody').innerHTML);
+run("setIpMode('v4', true); renderSidebarDepts();");
+const colSide = colorsFromHtml(getElementById('deptList').innerHTML);
+const deptNames = run('state.departments.map(d=>d.name)');
+
+const colorBad = deptNames.filter(n => colV4[n] && colV6[n] && colV4[n] !== colV6[n]);
+check('สี: แผนกเดียวกันได้สีเดียวกันในตาราง IPv4 และ IPv6 (เดิม 3/6 ไม่ตรง)',
+    colorBad.length === 0, colorBad.length ? colorBad.map(n => n + ' ' + colV4[n] + '/' + colV6[n]).join(', ') : deptNames.length + ' แผนกตรงกันหมด');
+check('สี: sidebar ใช้สีเดียวกับตาราง',
+    deptNames.every(n => !colSide[n] || !colV4[n] || colSide[n] === colV4[n]));
+check('สี: Canvas ใช้สีเดียวกับตาราง',
+    run('topoNodes.switches').every(s => {
+        const name = run('state.calculated.find(d=>d.id===' + s.deptId + ').name');
+        return !colV4[name] || colV4[name] === s.color;
+    }));
+
+// ลบแผนกกลางแถวแล้วสีของแผนกที่เหลือต้องไม่เลื่อน (เหตุผลเดียวกับที่ VLAN ไม่เลื่อน)
+const colBefore = run("state.calculated.map(d=>[d.name, getDeptColor(d.id)])");
+run("onRemoveDept(state.departments[1].id)");
+const colAfter = run("state.calculated.map(d=>[d.name, getDeptColor(d.id)])");
+check('สี: ลบแผนกกลางแถวแล้วสีของแผนกอื่นไม่เลื่อนตาม',
+    colAfter.every(([n, c]) => { const b = colBefore.find(x => x[0] === n); return !b || b[1] === c; }),
+    JSON.stringify(colAfter.filter(([n, c]) => { const b = colBefore.find(x => x[0] === n); return b && b[1] !== c; })));
+
+// G2 — แผนกที่จัดสรรไม่สำเร็จต้องไม่หายเงียบ
+run("clearAll(); state.baseIp='10.0.0.0'; state.baseCidr=24; state.departments=[{id:1,name:'BigDept',hosts:500},{id:2,name:'SmallDept',hosts:10}]; refreshAll();");
+check('failed: บันทึกลง state.failed พร้อมเหตุผล', run('state.failed.length') === 1, run('JSON.stringify(state.failed)'));
+check('failed: มีแถวในตาราง IP', stripTags(getElementById('ipTableBody').innerHTML).includes('BigDept'));
+check('failed: ตารางบอกเหตุผลที่แก้ตามได้', /จัดสรรไม่สำเร็จ.*Base/.test(stripTags(getElementById('ipTableBody').innerHTML)));
+check('failed: sidebar ค้างเหตุผลไว้ถาวร (ไม่ใช่แค่ toast 2.5 วินาที)',
+    /ขยาย Base|เหลือไม่พอ/.test(stripTags(getElementById('deptList').innerHTML)));
+check('failed: แผนกที่สำเร็จยังคำนวณได้ปกติ', run('state.calculated.length') === 1 && run("state.calculated[0].name") === 'SmallDept');
+
+run("clearAll(); state.baseIp='10.0.0.0'; state.baseCidr=28; state.departments=[{id:1,name:'A',hosts:500},{id:2,name:'B',hosts:400}]; refreshAll();");
+check('failed: ทุกแผนกล้มเหลว -> ยังเห็นแถวเหตุผล', stripTags(getElementById('ipTableBody').innerHTML).includes('A'));
+check('failed: ทุกแผนกล้มเหลว -> ไม่ขึ้น "เพิ่มแผนกและกด Calculate" ผิดบริบท',
+    getElementById('tableEmpty').classList.contains('hidden'));
+
+run('clearAll()');
+check('failed: Clear แล้วล้าง state.failed ด้วย', run('state.failed.length') === 0);
+
+// G3 — summaryRoutes ต้องถูกเก็บและคืนค่า
+run("loadExample('small'); state.summaryRoutes=['10.9.9.0/24','10.9.10.0/24'];");
+const snapWithRoutes = run('buildProjectSnapshot()');
+check('summaryRoutes: ถูกเก็บลง snapshot', Array.isArray(snapWithRoutes.summaryRoutes) && snapWithRoutes.summaryRoutes.length === 2);
+run("state.summaryRoutes=[]");
+run('applyProjectData(__sr)', Object.assign(context, { __sr: snapWithRoutes }));
+check('summaryRoutes: คืนค่ากลับครบหลังโหลดโปรเจกต์', run('state.summaryRoutes.length') === 2, run('JSON.stringify(state.summaryRoutes)'));
+const oldSchema = JSON.parse(JSON.stringify(snapWithRoutes)); delete oldSchema.summaryRoutes;
+run("state.summaryRoutes=['1.1.1.0/24']");
+run('applyProjectData(__old)', Object.assign(context, { __old: oldSchema }));
+check('summaryRoutes: ไฟล์เก่าที่ไม่มีฟิลด์นี้ -> ไม่ล้างของเดิมทิ้ง', run('state.summaryRoutes.length') === 1);
+
+// G4 — หยุดวาดตอนไม่มีอะไรเคลื่อนไหว
+run("loadExample('company'); state.showArrows = false; hoverInfo = null; dragInfo = null;");
+run('renderFrame()'); // เฟรมนี้ล้าง needsRedraw
+check('idle: ไม่มีอะไรขยับ -> isAnimating() เป็น false', run('isAnimating()') === false);
+check('idle: needsRedraw ถูกล้างหลังวาด', run('needsRedraw') === false);
+run('requestRedraw()');
+check('idle: requestRedraw() สั่งให้วาดรอบใหม่ได้', run('needsRedraw') === true);
+run("state.showArrows = true;");
+check('idle: เปิดลูกศร -> ต้องวาดต่อเนื่อง', run('isAnimating()') === true);
+run("state.showArrows = false; dragInfo = { nodeId:'router' };");
+check('idle: กำลังลากโหนด -> ต้องวาดต่อเนื่อง', run('isAnimating()') === true);
+run("dragInfo = null; hoverInfo = { id:'router' };");
+check('idle: ชี้ค้างอยู่ -> ต้องวาดต่อเนื่อง', run('isAnimating()') === true);
+run("hoverInfo = null; state.showArrows = true;");
+
+check('idle: layoutTopology สั่งวาดใหม่เสมอ',
+    (function () { run('renderFrame(); needsRedraw = false; layoutTopology();'); return run('needsRedraw') === true; })());
+check('idle: เลือกโหนดสั่งวาดใหม่ (กรอบเน้นเปลี่ยน)',
+    (function () { run('needsRedraw = false; selectNode(state.departments[0].id, "department");'); return run('needsRedraw') === true; })());
+
+// G5 — CLI ตอนว่างต้องไม่เป็นจอดำทึบ
+run('clearAll(); renderCLI();');
+check('cli-empty: ใส่คลาส cli-empty ตอนไม่มีข้อมูล',
+    getElementById('cliRouterOutput').classList.contains('cli-empty') && getElementById('cliSwitchOutput').classList.contains('cli-empty'));
+run("loadExample('small'); renderCLI();");
+check('cli-empty: ถอดคลาสออกเมื่อมีคำสั่งแล้ว',
+    !getElementById('cliRouterOutput').classList.contains('cli-empty'));
+
 /* ---------- สรุปผล ---------- */
 let pass = 0;
 results.forEach(r => {

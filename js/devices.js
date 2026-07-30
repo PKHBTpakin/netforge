@@ -23,6 +23,31 @@ function resetVlanRegistry() {
     nextVlanId = 10;
 }
 
+/* ----- สีประจำแผนก -----
+   บั๊กที่แก้: เดิมทุกที่หยิบสีด้วย DEPT_COLORS[index] โดยที่ "index" มาจากคนละอาเรย์กัน
+     ตาราง IPv4 / ผัง / sidebar  ใช้ index ใน state.calculated  (เรียงตามขนาด subnet ใหญ่->เล็ก)
+     ตาราง IPv6                  ใช้ index ใน state.calculatedV6 (เรียงตามลำดับที่เพิ่มแผนก)
+   สองลำดับนี้ไม่ตรงกันเมื่อผู้ใช้ไม่ได้เพิ่มแผนกเรียงตามขนาด -> แผนกเดียวกันได้คนละสีในสองแท็บ
+   (ตัวอย่าง Corporate Network: 3 จาก 6 แผนกสีไม่ตรงกัน) และพอสลับไปโหมด IPv6
+   สีบนผัง (ยึด v4) ก็ไม่ตรงกับสีในตาราง (ยึด v6) อีก
+
+   วิธีแก้: ผูกสีกับ "ตัวแผนก" ไม่ใช่ตำแหน่งในอาเรย์ โดยอาศัย vlanId ที่ผูกกับ deptId ตลอดชีพอยู่แล้ว
+   (10,20,30,... -> index 0,1,2,...) ได้ประโยชน์ 3 อย่างฟรี ๆ:
+     - ไม่ต้องเพิ่ม state ใหม่ และไม่ต้องแก้ schema ของไฟล์บันทึก (vlanRegistry ถูกเก็บอยู่แล้ว)
+     - ลบแผนกกลางแถวแล้วสีของแผนกอื่นไม่เลื่อนตาม (เหตุผลเดียวกับที่ VLAN ไม่เลื่อน)
+     - โหลดโปรเจกต์เก่ากลับมาได้สีเดิมเป๊ะ
+   assignVlanId() เป็น idempotent อยู่แล้ว เรียกตรงนี้ได้ปลอดภัยแม้แผนกจะยังไม่มี Switch บนผัง
+   (renderTable ทำงานก่อน layoutTopology ใน refreshAll) */
+function getDeptColorIndex(deptId) {
+    return Math.floor(assignVlanId(deptId) / 10) - 1;
+}
+
+function getDeptColor(deptId) {
+    var i = getDeptColorIndex(deptId);
+    if (!(i >= 0)) i = 0;
+    return DEPT_COLORS[i % DEPT_COLORS.length];
+}
+
 // ----- สีของอุปกรณ์ตายตัว (Router/PC/Server) แยกชุด Dark/Light -----
 // ตัวที่ constructor ใช้จริงคือ ROUTER_COLOR/PC_COLOR/SERVER_COLOR (let เปลี่ยนค่าได้)
 // applyTheme() ใน ui.js จะสลับให้เมื่อ toggle โหมด

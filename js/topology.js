@@ -53,6 +53,7 @@ function resizeCanvas() {
         topoNodes.manualNodes.forEach(n => { n.x *= sx; n.y *= sy; }); // PC/Server ต้องขยับตามสัดส่วนเหมือน node อื่นๆ ไม่งั้นจะหลุดตำแหน่งหลัง resize
         updateParticlePositions();
     }
+    requestRedraw();
 }
 
 // layoutTopology(force)
@@ -77,7 +78,7 @@ function layoutTopology(force) {
     const count = depts.length;
     topoNodes.switches = [];
     topoNodes.departments = [];
-    if (count === 0) { createParticles(); return; }
+    if (count === 0) { createParticles(); requestRedraw(); return; }
 
     const maxSpacing = 180, minSpacing = 100;
     let spacing = maxSpacing;
@@ -86,7 +87,7 @@ function layoutTopology(force) {
 
     depts.forEach((dept, i) => {
         const x = startX + i * spacing;
-        const color = DEPT_COLORS[i % DEPT_COLORS.length];
+        const color = getDeptColor(dept.id); // ผูกกับแผนก ไม่ใช่ลำดับ (ดู getDeptColor ใน devices.js)
 
         const sw = new SwitchDevice(dept, x, 200, color);
         const swPrev = prev[sw.id];
@@ -103,20 +104,15 @@ function layoutTopology(force) {
         topoNodes.departments.push(deptNode);
     });
     createParticles();
+    requestRedraw();
 }
 
 // เรียกจาก applyTheme() ตอนสลับ Light/Dark — อัปเดตแค่สี "ในตัว" node ที่มีอยู่แล้ว
 // ไม่รื้อ/สร้างใหม่เหมือน layoutTopology() เพราะจะทำให้ตำแหน่งที่ผู้ใช้ลากเองหายหมด
 function recolorTopology() {
     if (topoNodes.router) topoNodes.router.color = ROUTER_COLOR;
-    topoNodes.switches.forEach((sw, i) => {
-        const idx = state.calculated.findIndex(d => d.id === sw.deptId);
-        sw.color = DEPT_COLORS[(idx >= 0 ? idx : i) % DEPT_COLORS.length];
-    });
-    topoNodes.departments.forEach((d, i) => {
-        const idx = state.calculated.findIndex(cd => cd.id === d.deptId);
-        d.color = DEPT_COLORS[(idx >= 0 ? idx : i) % DEPT_COLORS.length];
-    });
+    topoNodes.switches.forEach(sw => { sw.color = getDeptColor(sw.deptId); });
+    topoNodes.departments.forEach(d => { d.color = getDeptColor(d.deptId); });
     topoNodes.manualNodes.forEach(n => {
         n.color = n.type === 'pc' ? PC_COLOR : SERVER_COLOR;
     });
@@ -124,6 +120,7 @@ function recolorTopology() {
     // updateParticlePositions() คำนวณ getConnections() ใหม่แล้วอัปเดตทั้งตำแหน่ง+สีให้ตรงกับ sw.color/d.color ปัจจุบันอยู่แล้ว
     // เรียกซ้ำตรงนี้ได้เลย ตำแหน่งจะเท่าเดิม (ยังไม่ขยับ) แต่สีจะตรงกับที่เพิ่งทาใหม่ด้านบน
     updateParticlePositions();
+    requestRedraw();
 }
 
 function createParticles() {
@@ -298,11 +295,42 @@ function resetManualTopology() {
     nextLinkId = 1;
 }
 
+/* ตารางพื้นหลัง — วาดครั้งเดียวเก็บใส่ canvas ซ่อนไว้ แล้วแปะเป็นภาพทุกเฟรม
+   เดิมวาดเส้นใหม่ทั้งหมดทุกเฟรม: จอ 1400x600 = 50 เส้น x 4 คำสั่ง = ~200 คำสั่ง/เฟรม
+   คิดเป็น 21% ของภาระวาดทั้งหมด ทั้งที่ภาพออกมาเหมือนเดิมทุกเฟรมไม่เคยเปลี่ยน
+   สร้างใหม่เฉพาะตอนขนาด canvas หรือสีธีมเปลี่ยนเท่านั้น */
+let gridCanvas = null, gridKey = '';
+
 function drawGrid() {
-    ctx.strokeStyle = CANVAS_GRID_COLOR;
-    ctx.lineWidth = 1;
-    for (let x = 0; x < cW; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, cH); ctx.stroke(); }
-    for (let y = 0; y < cH; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(cW, y); ctx.stroke(); }
+    const key = cW + 'x' + cH + '|' + CANVAS_GRID_COLOR + '|' + dpr;
+    if (gridKey !== key) {
+        try {
+            if (!gridCanvas) gridCanvas = document.createElement('canvas');
+            gridCanvas.width = Math.max(1, Math.ceil(cW * dpr));
+            gridCanvas.height = Math.max(1, Math.ceil(cH * dpr));
+            const g = gridCanvas.getContext('2d');
+            g.setTransform(dpr, 0, 0, dpr, 0, 0);
+            g.clearRect(0, 0, cW, cH);
+            g.strokeStyle = CANVAS_GRID_COLOR;
+            g.lineWidth = 1;
+            g.beginPath(); // รวมทุกเส้นไว้ใน path เดียว stroke ครั้งเดียวจบ
+            for (let x = 0; x < cW; x += 40) { g.moveTo(x, 0); g.lineTo(x, cH); }
+            for (let y = 0; y < cH; y += 40) { g.moveTo(0, y); g.lineTo(cW, y); }
+            g.stroke();
+            gridKey = key;
+        } catch (e) {
+            // สร้าง canvas ซ้อนไม่ได้ (เช่นในสภาพแวดล้อมทดสอบ) -> ถอยไปวาดตรง ๆ แบบเดิม ไม่ให้ทั้งเฟรมพัง
+            gridCanvas = null; gridKey = '';
+            ctx.strokeStyle = CANVAS_GRID_COLOR;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let x = 0; x < cW; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, cH); }
+            for (let y = 0; y < cH; y += 40) { ctx.moveTo(0, y); ctx.lineTo(cW, y); }
+            ctx.stroke();
+            return;
+        }
+    }
+    if (gridCanvas) ctx.drawImage(gridCanvas, 0, 0, cW, cH);
 }
 
 function drawConnections() {
@@ -434,19 +462,41 @@ function drawManualNodes() {
     });
 }
 
+/* ----- หยุดวาดตอนไม่มีอะไรเคลื่อนไหว -----
+   เดิม renderFrame() วนที่ 60fps ตลอดเวลาที่เปิดแอปค้างไว้ แม้ผู้ใช้ไม่ได้แตะอะไรเลย
+   วัดจริงได้ ~937 คำสั่งวาด/เฟรม = ~56,000 คำสั่ง/วินาที กินซีพียูและแบตฟรี ๆ
+   ตอนนี้วาดต่อเมื่อมีเหตุผลจริงเท่านั้น:
+     - ลูกศรวิ่งเปิดอยู่และมี particle (ภาพเปลี่ยนทุกเฟรมจริง)
+     - กำลังลากโหนด / มีการชี้ค้าง (hover)
+     - มีอะไรสั่ง requestRedraw() มา (ข้อมูลเปลี่ยน สลับธีม resize ฯลฯ)
+   วาดเผื่อไปอีก 1 เฟรมหลังหมดเหตุผล เพื่อให้สถานะสุดท้าย (เช่นกรอบ hover ที่หายไป) ถูกลบออกจริง */
+let needsRedraw = true;
+
+function requestRedraw() {
+    needsRedraw = true;
+}
+
+function isAnimating() {
+    return (state.showArrows && particles.length > 0) || dragInfo !== null || hoverInfo !== null;
+}
+
 function renderFrame() {
     try {
-        ctx.clearRect(0, 0, cW, cH);
-        drawGrid();
-        drawConnections();
-        drawFlowArrows();
-        drawRouterNode();
-        drawSwitchNodes();
-        drawDeptNodes();
-        drawManualNodes();
+        if (needsRedraw || isAnimating()) {
+            ctx.clearRect(0, 0, cW, cH);
+            drawGrid();
+            drawConnections();
+            drawFlowArrows();
+            drawRouterNode();
+            drawSwitchNodes();
+            drawDeptNodes();
+            drawManualNodes();
+            needsRedraw = false;
+        }
     } catch (err) {
         // กันไม่ให้ error ในเฟรมเดียวทำให้ animation loop ทั้งหมดหยุดตายถาวร (จอค้าง)
         console.error('renderFrame error (ข้ามเฟรมนี้):', err);
+        needsRedraw = false;
     }
     animFrame = requestAnimationFrame(renderFrame);
 }
@@ -543,6 +593,7 @@ function handlePointerDown(x, y) {
         console.error('handlePointerDown error:', err);
         dragInfo = null;
     }
+    requestRedraw();
 }
 
 // isHover = true เฉพาะเมาส์ — นิ้วไม่มีสถานะ "ชี้ค้าง" การอัปเดต hoverInfo จาก touch จะทำให้โหนดค้างสว่างหลังยกนิ้ว
@@ -571,6 +622,7 @@ function handlePointerMove(x, y, isHover) {
 function handlePointerUp() {
     dragInfo = null;
     canvas.style.cursor = 'default';
+    requestRedraw();
 }
 
 function setupCanvasEvents() {

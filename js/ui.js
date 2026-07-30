@@ -18,6 +18,7 @@ function escapeHtml(str) {
 function selectNode(deptId, type) {
     state.selectedDeptId = deptId;
     state.selectedNodeType = type;
+    if (typeof requestRedraw === 'function') requestRedraw(); // กรอบเน้นบน Canvas เปลี่ยน
     renderDetailPanel();
     renderSidebarDepts();
     openDetailPanel();
@@ -45,17 +46,20 @@ function renderSidebarDepts() {
     el.innerHTML = state.departments.map(function(dept) {
         const calc = state.calculated.find(function(c) { return c.id === dept.id; });
         const isSel = state.selectedDeptId === dept.id;
-        const idx = state.calculated.indexOf(calc);
-        const color = calc ? DEPT_COLORS[idx % DEPT_COLORS.length] : '#555';
-        return '<div class="dept-item ' + (isSel ? 'selected' : '') + '" onclick="selectNode(' + dept.id + ',\'department\')" style="' + (isSel ? 'border-color:' + color : '') + '">' +
+        const color = calc ? getDeptColor(dept.id) : 'var(--muted)';
+        const failed = (state.failed || []).find(function(f) { return f.id === dept.id; });
+        return '<div class="dept-item ' + (isSel ? 'selected' : '') + (failed ? ' dept-failed' : '') + '" onclick="selectNode(' + dept.id + ',\'department\')" style="' + (isSel ? 'border-color:' + color : '') + '">' +
             '<div class="flex items-center justify-between mb-1">' +
-                '<span class="text-[14px] font-bold" style="color:' + color + '">' + escapeHtml(dept.name) + '</span>' +
+                '<span class="text-[14px] font-bold" style="color:' + color + '">' +
+                    (failed ? '<i class="fas fa-triangle-exclamation text-hot mr-1"></i>' : '') + escapeHtml(dept.name) + '</span>' +
                 '<button onclick="event.stopPropagation();onRemoveDept(' + dept.id + ')" class="text-subtle hover:text-hot text-[12px] transition-colors"><i class="fas fa-trash-alt"></i></button>' +
             '</div>' +
             '<div class="text-[12px] text-muted">' +
                 '<span>Hosts: ' + dept.hosts + '</span>' +
                 (calc ? '<span class="ml-2" style="color:' + color + '">' + calc.subnet.network + '/' + calc.subnet.cidr + '</span>' : '') +
             '</div>' +
+            // แผนกที่จัดสรรไม่สำเร็จเคยหายเงียบ ๆ เหลือแค่ toast 2.5 วินาที -> ค้างเหตุผลไว้ตรงนี้ถาวร
+            (failed ? '<div class="text-[11px] text-hot mt-1 leading-snug">' + escapeHtml(failed.reason) + '</div>' : '') +
         '</div>';
     }).join('');
 }
@@ -78,7 +82,7 @@ function renderTable() {
         }
         empty.classList.add('hidden');
         tbody.innerHTML = state.calculatedV6.map(function(d, i) {
-            const s = d.subnet6, color = DEPT_COLORS[i % DEPT_COLORS.length];
+            const s = d.subnet6, color = getDeptColor(d.id); // ผูกสีกับแผนก ไม่ใช่ลำดับในอาเรย์ (ดู getDeptColor ใน devices.js)
             return '<tr class="border-t border-dark-600 hover:bg-dark-700 transition-colors cursor-pointer" onclick="selectNode(' + d.id + ',\'department\')">' +
                 '<td class="py-2 pr-3" style="color:' + color + '">' + (i+1) + '</td>' +
                 '<td class="py-2 pr-3 font-bold" style="color:' + color + '">' + escapeHtml(d.name) + '</td>' +
@@ -95,14 +99,19 @@ function renderTable() {
         '<th class="pb-2 pr-3">Network</th><th class="pb-2 pr-3">Broadcast</th><th class="pb-2 pr-3">Usable Range</th>' +
         '<th class="pb-2 pr-3">Subnet Mask</th><th class="pb-2 pr-3">CIDR</th><th class="pb-2">Wildcard</th></tr>';
     if (state.calculated.length === 0) {
-        tbody.innerHTML = '';
-        empty.textContent = 'เพิ่มแผนกและกด Calculate เพื่อดูผลลัพธ์';
-        empty.classList.remove('hidden');
+        // ถ้าทุกแผนกจัดสรรไม่สำเร็จ ต้องยังเห็นแถวเหตุผล ไม่ใช่ขึ้นว่า "เพิ่มแผนกก่อน" ทั้งที่เพิ่มไปแล้ว
+        tbody.innerHTML = renderFailedRowsHTML();
+        if ((state.failed || []).length > 0) {
+            empty.classList.add('hidden');
+        } else {
+            empty.textContent = 'เพิ่มแผนกและกด Calculate เพื่อดูผลลัพธ์';
+            empty.classList.remove('hidden');
+        }
         return;
     }
     empty.classList.add('hidden');
     tbody.innerHTML = state.calculated.map(function(d, i) {
-        const s = d.subnet, color = DEPT_COLORS[i % DEPT_COLORS.length];
+        const s = d.subnet, color = getDeptColor(d.id);
         return '<tr class="border-t border-dark-600 hover:bg-dark-700 transition-colors cursor-pointer" onclick="selectNode(' + d.id + ',\'department\')">' +
             '<td class="py-2 pr-3" style="color:' + color + '">' + (i+1) + '</td>' +
             '<td class="py-2 pr-3 font-bold" style="color:' + color + '">' + escapeHtml(d.name) + '</td>' +
@@ -113,6 +122,21 @@ function renderTable() {
             '<td class="py-2 pr-3">' + s.netmask + '</td>' +
             '<td class="py-2 pr-3">/' + s.cidr + '</td>' +
             '<td class="py-2">' + s.wildcard + '</td>' +
+        '</tr>';
+    }).join('') + renderFailedRowsHTML();
+}
+
+// แถวของแผนกที่จัดสรรไม่สำเร็จ ต่อท้ายตารางเสมอ พร้อมเหตุผลที่อ่านแล้วรู้ว่าต้องแก้อะไร
+// เดิมแผนกพวกนี้หายไปจากตาราง/ผัง/CLI ทั้งหมดโดยไม่ทิ้งร่องรอย ผู้ใช้อาจส่งแผนที่ขาดแผนกไปโดยไม่รู้ตัว
+function renderFailedRowsHTML() {
+    var failed = state.failed || [];
+    if (failed.length === 0) return '';
+    return failed.map(function(f) {
+        return '<tr class="border-t border-dark-600" style="background:rgba(240,87,92,0.06)">' +
+            '<td class="py-2 pr-3 text-hot"><i class="fas fa-triangle-exclamation"></i></td>' +
+            '<td class="py-2 pr-3 font-bold text-hot">' + escapeHtml(f.name) + '</td>' +
+            '<td class="py-2 pr-3 text-hot">' + f.hosts + '</td>' +
+            '<td class="py-2 text-hot text-[12px]" colspan="6">จัดสรรไม่สำเร็จ — ' + escapeHtml(f.reason) + '</td>' +
         '</tr>';
     }).join('');
 }
@@ -383,8 +407,7 @@ function renderDetailPanelInner() {
     if (!dept) return;
     const linkedSw = topoNodes.switches.find(function(s) { return s.deptId === dept.id; });
     const vlanId = linkedSw ? linkedSw.vlanId : null;
-    const idx = state.calculated.indexOf(state.calculated.find(function(d) { return d.id === dept.id; }));
-    const color = DEPT_COLORS[idx % DEPT_COLORS.length] || '#4C8DFF';
+    const color = getDeptColor(dept.id);
 
     const deptV6 = state.calculatedV6.find(function(d) { return d.id === dept.id; });
 
@@ -551,6 +574,7 @@ function applyTheme(mode) {
         CANVAS_GRID_COLOR = mode === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(0,212,255,0.04)';
         CANVAS_LABEL_COLOR = mode === 'light' ? '#1A1D24' : '#e0e0f0';
 
+        if (typeof requestRedraw === 'function') requestRedraw();
         if (typeof recolorTopology === 'function') recolorTopology(); // ทาสีใหม่ใน node ที่มีอยู่แล้ว ไม่รื้อตำแหน่งที่ลากไว้
         updateThemeButton();
     } catch (err) {
@@ -644,11 +668,15 @@ function renderCLI() {
     var switchEl = document.getElementById('cliSwitchOutput');
     // เดิมเช็คแค่ state.calculated (IPv4) ทำให้ถ้าตั้งค่าเฉพาะ IPv6 จะไม่ได้ CLI อะไรเลยทั้งที่คำนวณสำเร็จแล้ว
     if (state.calculated.length === 0 && state.calculatedV6.length === 0) {
-        var emptyMsg = '<span class="comment">! ยังไม่มีข้อมูล — เพิ่มแผนกและกด Calculate ก่อน</span>';
+        var emptyMsg = '<span class="comment">ยังไม่มีข้อมูล — เพิ่มแผนกและกด Calculate ก่อน</span>';
         routerEl.innerHTML = emptyMsg;
         switchEl.innerHTML = emptyMsg;
+        routerEl.classList.add('cli-empty');   // เปลี่ยนจากจอดำทึบเป็นกล่องเส้นประจาง ๆ (ดู .cli-empty ใน style.css)
+        switchEl.classList.add('cli-empty');
         return;
     }
+    routerEl.classList.remove('cli-empty');
+    switchEl.classList.remove('cli-empty');
 
     // ฝั่ง Switch (VLAN/trunk/access port) ไม่ขึ้นกับเวอร์ชัน IP เลย ใช้รายชื่อแผนกจากฝั่งไหนก็ได้ที่มีข้อมูล
     var deptListForCli = state.calculated.length > 0 ? state.calculated : state.calculatedV6;
@@ -938,6 +966,7 @@ function initResizers() {
 
 function toggleArrows() {
     state.showArrows = !state.showArrows;
+    if (typeof requestRedraw === 'function') requestRedraw();
     const btn = document.getElementById('btnToggleArrows');
     if (!btn) return;
 
