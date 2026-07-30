@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NetForge — Network Planning Suite</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    // ผูกกับ CSS variable ใน style.css โดยตรง (ไม่ใช่ hex ตายตัวแบบเดิม)
+                    // เพื่อให้ text-neon/border-dark-900/ฯลฯ สลับสีเองอัตโนมัติตอน toggle Light/Dark
+                    // (เดิมมีสองแหล่งค่าจริงที่ต้องแก้พร้อมกันทุกครั้ง เสี่ยงตกหล่นเหมือนตอนแก้ contrast รอบก่อน)
+                    neon: 'var(--neon)',
+                    cyber: 'var(--cyber)',
+                    hot: 'var(--hot)',
+                    dark: { 900:'var(--bg)', 800:'var(--card)', 700:'#1d212b', 600:'var(--border)' }
+                },
+                fontFamily: {
+                    display: ['Orbitron','sans-serif'],
+                    mono: ['Share Tech Mono','monospace']
+                }
+            }
+        }
+    }
+    </script>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-dark-900 overflow-x-hidden">
+    <div class="scanlines pointer-events-none"></div>
+
+    <div id="toast-container" class="toast-container z-[100]"></div>
+
+    <!-- Onboarding Modal: แสดงอัตโนมัติครั้งแรกที่เปิดแอป (เช็คผ่าน localStorage ใน ui.js) เรียกดูซ้ำได้ทุกเมื่อผ่านปุ่ม HELP ที่ Header -->
+    <div id="onboardOverlay" class="onboard-overlay hidden" onclick="if(event.target===this) closeOnboarding()">
+        <div class="onboard-card">
+            <div class="flex items-center justify-between mb-3">
+                <div class="font-display text-[15px] tracking-[2px] text-neon"><i class="fas fa-network-wired mr-2"></i>ยินดีต้อนรับสู่ NetForge</div>
+                <button onclick="closeOnboarding()" class="text-muted hover:text-hot transition-colors p-1"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            <p class="text-[13px] text-muted mb-4">เครื่องมือคำนวณ VLSM/IPv6 พร้อมจำลอง Topology เครือข่าย ใช้งานตามลำดับนี้ได้เลย</p>
+            <div class="space-y-3 mb-5">
+                <div class="onboard-step">
+                    <div class="onboard-step-icon"><i class="fas fa-list-ul"></i></div>
+                    <div><div class="onboard-step-title">1. เพิ่มแผนก</div><div class="onboard-step-desc">กรอกชื่อ + จำนวน Host เอง หรือกด EXAMPLE เลือกชุดข้อมูลสำเร็จรูป</div></div>
+                </div>
+                <div class="onboard-step">
+                    <div class="onboard-step-icon"><i class="fas fa-calculator"></i></div>
+                    <div><div class="onboard-step-title">2. คำนวณอัตโนมัติ</div><div class="onboard-step-desc">ระบบคำนวณ VLSM (และ IPv6 ถ้าตั้งค่า) ให้ทันทีทุกครั้งที่แก้ไขข้อมูล</div></div>
+                </div>
+                <div class="onboard-step">
+                    <div class="onboard-step-icon"><i class="fas fa-diagram-project"></i></div>
+                    <div><div class="onboard-step-title">3. จัดการ Topology</div><div class="onboard-step-desc">ลากอุปกรณ์ ลากเชื่อมสายบน Canvas ฝั่งขวาได้อิสระ</div></div>
+                </div>
+                <div class="onboard-step">
+                    <div class="onboard-step-icon"><i class="fas fa-terminal"></i></div>
+                    <div><div class="onboard-step-title">4. Export คำสั่ง CLI</div><div class="onboard-step-desc">คัดลอกคำสั่ง Cisco IOS ไปวางใช้กับอุปกรณ์จริงได้ทันที</div></div>
+                </div>
+            </div>
+            <button onclick="closeOnboarding()" class="btn-neon w-full justify-center text-[13px] py-2">เริ่มใช้งาน</button>
+        </div>
+    </div>
+
+    <header class="min-h-[56px] h-auto flex flex-wrap items-center justify-between px-3 md:px-5 py-2 md:py-0 border-b border-dark-600 relative z-40 bg-dark-900/90 backdrop-blur-sm" style="background: linear-gradient(90deg, rgba(76,141,255,0.04), transparent, rgba(148,163,184,0.04));">
+        <div class="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-between md:justify-start mb-2 md:mb-0">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded flex items-center justify-center" style="background: rgba(76,141,255,0.1); border: 1px solid var(--neon);">
+                    <i class="fas fa-network-wired text-neon text-base"></i>
+                </div>
+                <h1 class="font-display text-base tracking-[3px] text-neon font-bold">NETFORGE</h1>
+            </div>
+            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v2.0</span>
+        </div>
+        <div class="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-start md:justify-end flex-wrap">
+            <div class="relative flex-1 md:flex-none" id="exampleWrapper">
+                <button onclick="toggleExampleDropdown()" class="btn-example text-[12px] w-full md:w-auto justify-center">
+                    <i class="fas fa-flask mr-1"></i>EXAMPLE <i class="fas fa-caret-down ml-1 text-[11px]"></i>
+                </button>
+                <div id="exampleDropdown" class="example-dropdown w-[250px] md:w-[300px] left-0 md:left-auto md:right-0"></div>
+            </div>
+            
+            <button id="btnTheme" onclick="toggleTheme()" class="btn-cyber text-[12px] flex-1 md:flex-none justify-center">
+                <i class="fas fa-moon mr-1"></i>DARK
+            </button>
+
+            <button onclick="showOnboarding()" class="btn-cyber text-[12px] flex-1 md:flex-none justify-center" title="วิธีใช้งาน">
+                <i class="fas fa-circle-question mr-1"></i>HELP
+            </button>
+
+            <button id="btnToggleArrows" onclick="toggleArrows()" class="btn-cyber text-[12px] flex-1 md:flex-none justify-center">
+                <i class="fas fa-location-arrow mr-1"></i>ARROWS
+            </button>
+
+            <button onclick="exportProject()" class="btn-cyber text-[12px] flex-1 md:flex-none justify-center" title="บันทึกโปรเจกต์เป็นไฟล์ .json"><i class="fas fa-download mr-1"></i>SAVE</button>
+            <input id="importFileInput" type="file" accept="application/json,.json" class="hidden" onchange="onImportFileSelected(this)" />
+            <button onclick="triggerImportProject()" class="btn-cyber text-[12px] flex-1 md:flex-none justify-center" title="โหลดโปรเจกต์จากไฟล์ .json"><i class="fas fa-upload mr-1"></i>LOAD</button>
+
+            <button onclick="clearAll()" class="btn-hot text-[12px] flex-1 md:flex-none justify-center"><i class="fas fa-trash mr-1"></i>CLEAR</button>
+            <button onclick="resetLayout()" class="btn-cyber text-[12px] flex-1 md:flex-none justify-center"><i class="fas fa-redo mr-1"></i>RESET</button>
+        </div>
+    </header>
+
+    <div class="flex flex-col md:flex-row h-[calc(100vh-100px)] md:h-[calc(100vh-56px)] overflow-y-auto md:overflow-hidden relative">
+
+        <aside id="sidebar" class="w-full md:w-[300px] flex-shrink-0 border-b md:border-b-0 md:border-r border-dark-600 flex flex-col" style="background: var(--card);">
+            <div class="p-4 border-b border-dark-600">
+                <div class="font-display text-[12px] tracking-[2px] text-neon mb-3"><i class="fas fa-project-diagram mr-1"></i>VLSM PLANNER</div>
+                <div class="flex gap-1.5 mb-3">
+                    <button id="btnModeV4" onclick="setIpMode('v4')" class="btn-neon flex-1 text-[12px] justify-center">IPv4</button>
+                    <button id="btnModeV6" onclick="setIpMode('v6')" class="btn-cyber flex-1 text-[12px] justify-center">IPv6</button>
+                </div>
+                <div id="v4Inputs">
+                    <div class="flex gap-2 mb-2">
+                        <input id="baseIpInput" type="text" value="10.0.0.0" class="input-cyber flex-1 min-w-0" placeholder="Base IP" />
+                        <input id="baseCidrInput" type="number" value="24" min="8" max="30" class="input-cyber w-16 text-center flex-shrink-0" />
+                    </div>
+                </div>
+                <div id="v6Inputs" class="hidden">
+                    <div class="flex gap-2 mb-2">
+                        <input id="baseIp6Input" type="text" class="input-cyber flex-1 min-w-0" placeholder="Base IPv6 เช่น 2001:db8::" />
+                        <input id="basePrefixInput" type="number" value="48" min="1" max="127" class="input-cyber w-16 text-center flex-shrink-0" title="Base Prefix" />
+                    </div>
+                    <div class="flex gap-2 mb-2 items-center">
+                        <label class="text-subtle text-[11px] tracking-wider flex-1">PREFIX ย่อย/แผนก</label>
+                        <input id="newPrefixInput" type="number" value="64" min="1" max="128" class="input-cyber w-16 text-center flex-shrink-0" />
+                    </div>
+                </div>
+                <button onclick="onBaseChange()" class="btn-neon w-full text-[13px]"><i class="fas fa-calculator mr-1"></i>Calculate</button>
+            </div>
+            <div class="p-4 border-b border-dark-600">
+                <div class="section-label mb-2"><i class="fas fa-plus-circle mr-1"></i>ADD DEPARTMENT</div>
+                <div class="flex gap-2 mb-2">
+                    <input id="newDeptName" type="text" class="input-cyber flex-1 min-w-0" placeholder="ชื่อแผนก" />
+                    <input id="newDeptHosts" type="number" class="input-cyber w-20 text-center flex-shrink-0" placeholder="Hosts" min="1" max="65534" />
+                </div>
+                <button onclick="onAddDept()" class="btn-neon w-full text-[13px]"><i class="fas fa-plus mr-1"></i>เพิ่มแผนก</button>
+            </div>
+            <div class="max-h-[300px] md:max-h-none flex-1 overflow-y-auto p-4 border-b md:border-b-0 border-dark-600">
+                <div class="section-label mb-2">DEPARTMENTS (<span id="deptCount">0</span>)</div>
+                <div id="deptList"></div>
+            </div>
+        </aside>
+
+        <div id="resizerX" class="resizer-x hidden md:flex" title="ลากเพื่อปรับขนาด (ดับเบิลคลิกเพื่อรีเซ็ต)"><span class="resizer-grip"></span></div>
+
+        <div class="flex-1 flex flex-col min-w-0 h-[800px] md:h-auto flex-shrink-0">
+            <div class="flex-1 relative min-h-[350px] border-b md:border-b-0 border-dark-600">
+                <canvas id="topoCanvas" class="w-full h-full block"></canvas>
+                <div class="absolute top-3 left-3 font-display text-[10px] md:text-[12px] tracking-[2px] text-cyber opacity-90 font-bold bg-dark-900/50 p-1 rounded">TOPOLOGY — TAP NODE TO EDIT — DRAG TO MOVE</div>
+                <div class="absolute top-3 right-3 flex gap-1.5 z-10">
+                    <button id="btnAddPc" onclick="togglePlacingMode('pc')" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกบน Canvas เพื่อวาง PC"><i class="fas fa-desktop mr-1"></i>PC</button>
+                    <button id="btnAddServer" onclick="togglePlacingMode('server')" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกบน Canvas เพื่อวาง Server"><i class="fas fa-server mr-1"></i>Server</button>
+                    <button id="btnConnect" onclick="toggleConnectMode()" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกอุปกรณ์ 2 ตัวเพื่อเชื่อมสาย"><i class="fas fa-link mr-1"></i>Connect</button>
+                </div>
+                <div class="canvas-legend" title="ความหมายสีบน Topology Canvas">
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--neon)"></span>Router</div>
+                    <div class="legend-item"><span class="legend-dot-multi"><span style="background:#14B8A6"></span><span style="background:#A78BFA"></span><span style="background:#F59E0B"></span></span>Switch / แผนก (สีต่างกันตาม VLAN)</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--pc-swatch)"></span>PC</div>
+                    <div class="legend-item"><span class="legend-dot" style="background:var(--server-swatch)"></span>Server</div>
+                </div>
+            </div>
+
+            <div id="resizerY" class="resizer-y hidden md:flex" title="ลากเพื่อปรับขนาด (ดับเบิลคลิกเพื่อรีเซ็ต)"><span class="resizer-grip"></span></div>
+
+            <div id="bottomPanel" class="flex-shrink-0 border-t border-dark-600 flex flex-col h-[400px] md:h-[270px] z-20" style="background: var(--card);">
+                <div class="flex border-b border-dark-600 px-2 md:px-4 pt-1 flex-shrink-0 overflow-x-auto">
+                    <button class="tab-btn active flex-shrink-0" data-tab="table" onclick="switchTab('table')"><i class="fas fa-table mr-1"></i>IP Table</button>
+                    <button class="tab-btn flex-shrink-0" data-tab="cli" onclick="switchTab('cli')"><i class="fas fa-terminal mr-1"></i>CLI Config</button>
+                    <button class="tab-btn flex-shrink-0" data-tab="tools" onclick="switchTab('tools')"><i class="fas fa-wrench mr-1"></i>Net Tools</button>
+                </div>
+                
+                <div id="tab-table" class="tab-content p-3 overflow-y-auto flex-1 min-h-0">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-[13px] min-w-[700px]">
+                            <thead id="ipTableHead">
+                                <tr class="text-neon text-left">
+                                    <th class="pb-2 pr-3">#</th><th class="pb-2 pr-3">Department</th><th class="pb-2 pr-3">Hosts</th>
+                                    <th class="pb-2 pr-3">Network</th><th class="pb-2 pr-3">Broadcast</th><th class="pb-2 pr-3">Usable Range</th>
+                                    <th class="pb-2 pr-3">Subnet Mask</th><th class="pb-2 pr-3">CIDR</th><th class="pb-2">Wildcard</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ipTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="tableEmpty" class="text-center text-muted py-8 text-[13px] hidden">เพิ่มแผนกและกด Calculate เพื่อดูผลลัพธ์</div>
+                </div>
+                
+                <div id="tab-cli" class="tab-content p-3 hidden flex-1 flex flex-col min-h-0 gap-3 md:flex-row">
+                    <div class="flex-1 flex flex-col min-h-0">
+                        <div class="flex justify-between items-center mb-2 flex-shrink-0">
+                            <span class="font-display text-[11px] tracking-[2px] text-hot"><i class="fas fa-server mr-1"></i>ROUTER CONFIG</span>
+                            <button onclick="copyCLI('router')" class="btn-hot text-[12px]"><i class="fas fa-copy mr-1"></i>Copy</button>
+                        </div>
+                        <div id="cliRouterOutput" class="cli-output flex-1 overflow-y-auto min-h-0 pb-4 pr-2 text-[12px] md:text-[14px]"></div>
+                    </div>
+                    <div class="flex-1 flex flex-col min-h-0">
+                        <div class="flex justify-between items-center mb-2 flex-shrink-0">
+                            <span class="font-display text-[11px] tracking-[2px] text-cyber"><i class="fas fa-network-wired mr-1"></i>SWITCH CONFIG</span>
+                            <button onclick="copyCLI('switch')" class="btn-cyber text-[12px]"><i class="fas fa-copy mr-1"></i>Copy</button>
+                        </div>
+                        <div id="cliSwitchOutput" class="cli-output flex-1 overflow-y-auto min-h-0 pb-4 pr-2 text-[12px] md:text-[14px]"></div>
+                    </div>
+                </div>
+                
+                <div id="tab-tools" class="tab-content p-3 hidden flex-1 min-h-0 overflow-y-auto">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 h-full min-h-0">
+                        <div class="glow-border rounded-lg p-3 flex flex-col min-h-0 h-[250px] md:h-auto">
+                            <div class="font-display text-[11px] tracking-[2px] text-neon mb-2 flex-shrink-0"><i class="fas fa-mask mr-1"></i>WILDCARD MASK</div>
+                            <div class="flex gap-2 mb-2 flex-shrink-0">
+                                <input id="wcInput" type="text" value="192.168.1.0/24" class="input-cyber flex-1 text-[14px] min-w-0" />
+                                <button onclick="calcWildcard()" class="btn-neon text-[12px]">Calc</button>
+                            </div>
+                            <div id="wcResult" class="text-[13px] space-y-1 mt-2 overflow-y-auto flex-1 min-h-0"></div>
+                        </div>
+                        <div class="glow-border rounded-lg p-3 flex flex-col min-h-0 h-[250px] md:h-auto">
+                            <div class="font-display text-[11px] tracking-[2px] text-cyber mb-2 flex-shrink-0"><i class="fas fa-compress-arrows-alt mr-1"></i>ROUTE SUMMARY</div>
+                            <div id="summaryInputs" class="space-y-1 mb-2 max-h-[90px] overflow-y-auto flex-shrink-0"></div>
+                            <div class="flex gap-2 mb-2 flex-shrink-0">
+                                <input id="summaryNew" type="text" class="input-cyber flex-1 text-[14px] min-w-0" placeholder="x.x.x.x/yy" />
+                                <button onclick="addSummaryRoute()" class="btn-cyber text-[12px]">Add</button>
+                            </div>
+                            <button onclick="calcSummary()" class="btn-neon w-full text-[12px] mb-2 flex-shrink-0">Summarize</button>
+                            <div id="summaryResult" class="text-[13px] overflow-y-auto flex-1 min-h-0"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <aside id="detailPanel" class="detail-panel fixed inset-y-0 right-0 z-50 mt-[100px] md:mt-0 w-full sm:w-[320px] md:relative flex-shrink-0 border-l border-dark-600 flex flex-col shadow-2xl md:shadow-none" style="background: var(--card);">
+            <div class="p-4 border-b border-dark-600 flex items-center justify-between bg-dark-900/90 backdrop-blur">
+                <div class="font-display text-[12px] tracking-[2px] text-neon"><i class="fas fa-edit mr-1"></i>NODE DETAILS</div>
+                <button onclick="closeDetailPanel()" class="text-muted hover:text-hot transition-colors p-2"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            <div id="detailContent" class="flex-1 overflow-y-auto p-4 pb-20"></div>
+        </aside>
+    </div>
+
+    <div class="p-2 border-t border-dark-600 text-[11px] md:text-[12px] text-muted text-center md:text-left bg-dark-900 absolute bottom-0 w-full z-30">
+        <div id="statusBar">Ready</div>
+    </div>
+
+    <script src="js/examples.js"></script>
+    <script src="js/vlsm.js"></script>
+    <script src="js/vlsm6.js"></script>
+    <script src="js/devices.js"></script>
+    <script src="js/topology.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/tools.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

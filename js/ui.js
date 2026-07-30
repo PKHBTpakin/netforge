@@ -1,0 +1,861 @@
+/* ============================================
+   2. UI — ตาราง, แผนก, Detail Panel, Sidebar
+   ============================================ */
+
+let isEditing = false;
+
+// Escape ก่อนแทรกลง innerHTML/attribute เสมอ — ชื่อแผนกเป็น free text ที่ผู้ใช้พิมพ์เอง
+// ไม่มี input ไหนกรอง ", <, & ตั้งแต่ต้นทาง ถ้าไม่ escape ตรงนี้ชื่อที่มีอักขระพวกนี้จะทำโครงสร้าง HTML พัง
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function selectNode(deptId, type) {
+    state.selectedDeptId = deptId;
+    state.selectedNodeType = type;
+    renderDetailPanel();
+    renderSidebarDepts();
+    openDetailPanel();
+}
+
+function openDetailPanel() {
+    state.detailOpen = true;
+    document.getElementById('detailPanel').classList.add('open');
+}
+
+function closeDetailPanel() {
+    state.detailOpen = false;
+    document.getElementById('detailPanel').classList.remove('open');
+}
+
+function renderSidebarDepts() {
+    const el = document.getElementById('deptList');
+    document.getElementById('deptCount').textContent = state.departments.length;
+
+    if (state.departments.length === 0) {
+        el.innerHTML = '<div class="text-muted text-center py-6 text-[13px]">ยังไม่มีแผนก<br><span class="text-subtle text-[12px]">ลองกดปุ่ม EXAMPLE ด้านบน</span></div>';
+        return;
+    }
+
+    el.innerHTML = state.departments.map(function(dept) {
+        const calc = state.calculated.find(function(c) { return c.id === dept.id; });
+        const isSel = state.selectedDeptId === dept.id;
+        const idx = state.calculated.indexOf(calc);
+        const color = calc ? DEPT_COLORS[idx % DEPT_COLORS.length] : '#555';
+        return '<div class="dept-item ' + (isSel ? 'selected' : '') + '" onclick="selectNode(' + dept.id + ',\'department\')" style="' + (isSel ? 'border-color:' + color : '') + '">' +
+            '<div class="flex items-center justify-between mb-1">' +
+                '<span class="text-[14px] font-bold" style="color:' + color + '">' + escapeHtml(dept.name) + '</span>' +
+                '<button onclick="event.stopPropagation();onRemoveDept(' + dept.id + ')" class="text-subtle hover:text-hot text-[12px] transition-colors"><i class="fas fa-trash-alt"></i></button>' +
+            '</div>' +
+            '<div class="text-[12px] text-muted">' +
+                '<span>Hosts: ' + dept.hosts + '</span>' +
+                (calc ? '<span class="ml-2" style="color:' + color + '">' + calc.subnet.network + '/' + calc.subnet.cidr + '</span>' : '') +
+            '</div>' +
+        '</div>';
+    }).join('');
+}
+
+function renderTable() {
+    const thead = document.getElementById('ipTableHead');
+    const tbody = document.getElementById('ipTableBody');
+    const empty = document.getElementById('tableEmpty');
+
+    if (state.ipMode === 'v6') {
+        thead.innerHTML = '<tr class="text-neon text-left">' +
+            '<th class="pb-2 pr-3">#</th><th class="pb-2 pr-3">Department</th>' +
+            '<th class="pb-2 pr-3">Network / Prefix</th><th class="pb-2 pr-3">Usable Range</th>' +
+            '<th class="pb-2">Total Addresses</th></tr>';
+        if (state.calculatedV6.length === 0) {
+            tbody.innerHTML = '';
+            empty.textContent = 'ตั้งค่า Base IPv6 แล้วกด Calculate เพื่อดูผลลัพธ์';
+            empty.classList.remove('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+        tbody.innerHTML = state.calculatedV6.map(function(d, i) {
+            const s = d.subnet6, color = DEPT_COLORS[i % DEPT_COLORS.length];
+            return '<tr class="border-t border-dark-600 hover:bg-dark-700 transition-colors cursor-pointer" onclick="selectNode(' + d.id + ',\'department\')">' +
+                '<td class="py-2 pr-3" style="color:' + color + '">' + (i+1) + '</td>' +
+                '<td class="py-2 pr-3 font-bold" style="color:' + color + '">' + escapeHtml(d.name) + '</td>' +
+                '<td class="py-2 pr-3 text-neon">' + s.cidrText + '</td>' +
+                '<td class="py-2 pr-3 text-cyber">' + s.firstUsable + ' – ' + s.lastUsable + '</td>' +
+                '<td class="py-2">' + s.totalAddresses + '</td>' +
+            '</tr>';
+        }).join('');
+        return;
+    }
+
+    thead.innerHTML = '<tr class="text-neon text-left">' +
+        '<th class="pb-2 pr-3">#</th><th class="pb-2 pr-3">Department</th><th class="pb-2 pr-3">Hosts</th>' +
+        '<th class="pb-2 pr-3">Network</th><th class="pb-2 pr-3">Broadcast</th><th class="pb-2 pr-3">Usable Range</th>' +
+        '<th class="pb-2 pr-3">Subnet Mask</th><th class="pb-2 pr-3">CIDR</th><th class="pb-2">Wildcard</th></tr>';
+    if (state.calculated.length === 0) {
+        tbody.innerHTML = '';
+        empty.textContent = 'เพิ่มแผนกและกด Calculate เพื่อดูผลลัพธ์';
+        empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+    tbody.innerHTML = state.calculated.map(function(d, i) {
+        const s = d.subnet, color = DEPT_COLORS[i % DEPT_COLORS.length];
+        return '<tr class="border-t border-dark-600 hover:bg-dark-700 transition-colors cursor-pointer" onclick="selectNode(' + d.id + ',\'department\')">' +
+            '<td class="py-2 pr-3" style="color:' + color + '">' + (i+1) + '</td>' +
+            '<td class="py-2 pr-3 font-bold" style="color:' + color + '">' + escapeHtml(d.name) + '</td>' +
+            '<td class="py-2 pr-3">' + d.hosts + '</td>' +
+            '<td class="py-2 pr-3 text-neon">' + s.network + '/' + s.cidr + '</td>' +
+            '<td class="py-2 pr-3 text-hot">' + s.broadcast + '</td>' +
+            '<td class="py-2 pr-3 text-cyber">' + s.firstUsable + ' — ' + s.lastUsable + '</td>' +
+            '<td class="py-2 pr-3">' + s.netmask + '</td>' +
+            '<td class="py-2 pr-3">/' + s.cidr + '</td>' +
+            '<td class="py-2">' + s.wildcard + '</td>' +
+        '</tr>';
+    }).join('');
+}
+
+function renderDetailPanel() {
+    const el = document.getElementById('detailContent');
+    if (!state.selectedDeptId && state.selectedNodeType !== 'router') {
+        el.innerHTML = '<div class="text-muted text-center py-10 text-[13px]">เลือก Node ในผังเพื่อแก้ไข</div>';
+        return;
+    }
+    if (state.selectedNodeType === 'router') {
+        el.innerHTML =
+            '<div class="mb-4"><div class="label-tag text-hot mb-2" style="background:rgba(240,87,92,0.1);border:1px solid rgba(240,87,92,0.3);">ROUTER</div>' +
+            '<div class="text-lg font-display text-hot mb-3">Router-01</div></div>' +
+            '<div class="space-y-3 text-[13px]">' +
+                '<div class="glow-border rounded p-3"><div class="text-subtle text-[11px] tracking-wider mb-1">BASE NETWORK</div><div class="text-neon text-sm">' + state.baseIp + '/' + state.baseCidr + '</div></div>' +
+                '<div class="glow-border rounded p-3"><div class="text-subtle text-[11px] tracking-wider mb-1">SUBNET MASK</div><div class="text-cyber text-sm">' + cidrToMask(state.baseCidr) + '</div></div>' +
+                '<div class="glow-border rounded p-3"><div class="text-subtle text-[11px] tracking-wider mb-1">TOTAL SUBNETS</div><div class="text-neon text-sm">' + state.calculated.length + '</div></div>' +
+                '<div class="glow-border rounded p-3"><div class="text-subtle text-[11px] tracking-wider mb-1">CONNECTED DEPARTMENTS</div>' +
+                '<div class="space-y-1 mt-1">' + state.calculated.map(function(d) { return '<div class="flex justify-between"><span>' + escapeHtml(d.name) + '</span><span class="text-neon">' + d.subnet.network + '/' + d.subnet.cidr + '</span></div>'; }).join('') + '</div></div>' +
+            '</div>';
+        return;
+    }
+
+    if (state.selectedNodeType === 'switch') {
+        const sw = topoNodes.switches.find(function(s) { return s.deptId === state.selectedDeptId; });
+        const swDept = state.calculated.find(function(d) { return d.id === state.selectedDeptId; });
+        if (!sw || !swDept) {
+            // Switch นี้หายไปแล้ว (เช่นแผนกถูกลบ/คำนวณใหม่) เคลียร์ selection กันค้างพาเนลเก่า
+            el.innerHTML = '<div class="text-muted text-center py-10 text-[13px]">Switch นี้ไม่มีอยู่แล้ว — เลือก Node อื่นจากผัง</div>';
+            state.selectedDeptId = null;
+            state.selectedNodeType = null;
+            return;
+        }
+        el.innerHTML =
+            '<div class="mb-4"><div class="label-tag mb-2" style="background:' + sw.color + '15;border:1px solid ' + sw.color + '50;color:' + sw.color + ';">SWITCH</div>' +
+            '<div class="text-lg font-display mb-3" style="color:' + sw.color + '">' + escapeHtml(sw.label) + '</div></div>' +
+            '<div class="space-y-3 text-[13px]">' +
+                '<div class="glow-border rounded p-3"><div class="text-subtle text-[11px] tracking-wider mb-1">VLAN ID</div><div class="text-sm" style="color:' + sw.color + '">' + sw.vlanId + '</div></div>' +
+                '<div class="glow-border rounded p-3"><div class="text-subtle text-[11px] tracking-wider mb-1">CONNECTED DEPARTMENT</div><div class="text-neon text-sm">' + escapeHtml(swDept.name) + '</div></div>' +
+                '<div class="glow-border rounded p-3"><div class="text-subtle text-[11px] tracking-wider mb-1">TRUNK TO</div><div class="text-hot text-sm">Router-01</div></div>' +
+            '</div>';
+        return;
+    }
+
+    if (state.selectedNodeType === 'pc' || state.selectedNodeType === 'server') {
+        const node = topoNodes.manualNodes.find(function(n) { return n.id === state.selectedDeptId; });
+        if (!node) {
+            // อุปกรณ์นี้ถูกลบไปแล้ว (เช่นกด Remove จาก Detail Panel เอง) เคลียร์ selection กันค้างพาเนลเก่า
+            el.innerHTML = '<div class="text-muted text-center py-10 text-[13px]">อุปกรณ์นี้ไม่มีอยู่แล้ว — เลือก Node อื่นจากผัง</div>';
+            state.selectedDeptId = null;
+            state.selectedNodeType = null;
+            return;
+        }
+        const linkedDept = node.linkedDeptId ? state.calculated.find(function(d) { return d.id === node.linkedDeptId; }) : null;
+        const typeLabel = node.type === 'pc' ? 'PC' : 'SERVER';
+
+        // เช็คว่า IP ที่มีอยู่ยังอยู่ในช่วง subnet ปัจจุบันไหม (subnet อาจขยับเพราะแก้ hosts แผนกอื่นทีหลัง)
+        var ipOutOfRange = false;
+        if (node.ip && linkedDept) {
+            var ipL = ipToLong(node.ip);
+            ipOutOfRange = ipL < ipToLong(linkedDept.subnet.firstUsable) || ipL > ipToLong(linkedDept.subnet.lastUsable);
+        }
+
+        el.innerHTML =
+            '<div class="mb-4"><div class="label-tag mb-2" style="background:' + node.color + '15;border:1px solid ' + node.color + '50;color:' + node.color + ';">' + typeLabel + '</div>' +
+            '<div class="text-lg font-display mb-3" style="color:' + node.color + '">' + node.label + '</div></div>' +
+            '<div class="space-y-3">' +
+                '<div><label class="text-subtle text-[11px] tracking-wider block mb-1">IP ADDRESS</label>' +
+                '<div class="flex gap-2">' +
+                    '<input id="detailManualIp" type="text" value="' + (node.ip || '') + '" placeholder="ยังไม่กำหนด" class="input-cyber flex-1 min-w-0" ' +
+                        'oninput="onManualIpInput(\'' + node.id + '\',this.value)" onchange="onManualIpChange(\'' + node.id + '\',this.value)" />' +
+                    (linkedDept ? '<button onclick="onSuggestIp(\'' + node.id + '\')" class="btn-neon text-[12px] flex-shrink-0 px-3" title="แนะนำ IP ว่างถัดไปจาก subnet ของ ' + escapeHtml(linkedDept.name) + '"><i class="fas fa-magic"></i></button>' : '') +
+                '</div>' +
+                (ipOutOfRange ? '<div class="text-hot text-[12px] mt-1"><i class="fas fa-triangle-exclamation mr-1"></i>IP นี้อยู่นอกช่วง subnet ปัจจุบันแล้ว (subnet เปลี่ยนจากการแก้ไข Host) กด Suggest IP ใหม่</div>' : '') +
+                '</div>' +
+                '<div class="glow-border rounded p-3"><div class="text-subtle text-[11px] tracking-wider mb-1">CONNECTED DEPARTMENT</div>' +
+                '<div class="text-neon text-sm">' + (linkedDept ? escapeHtml(linkedDept.name) + ' (' + linkedDept.subnet.network + '/' + linkedDept.subnet.cidr + ')' : 'ยังไม่ได้เชื่อมกับ Switch ใด — กด Connect แล้วลากมาเชื่อม') + '</div></div>' +
+                '<button onclick="onRemoveManualNode(\'' + node.id + '\')" class="btn-hot w-full text-[13px] mt-2"><i class="fas fa-trash mr-1"></i>ลบอุปกรณ์นี้</button>' +
+            '</div>';
+        return;
+    }
+
+    const dept = state.calculated.find(function(d) { return d.id === state.selectedDeptId; }) || state.departments.find(function(d) { return d.id === state.selectedDeptId; });
+    if (!dept) return;
+    const linkedSw = topoNodes.switches.find(function(s) { return s.deptId === dept.id; });
+    const vlanId = linkedSw ? linkedSw.vlanId : null;
+    const idx = state.calculated.indexOf(state.calculated.find(function(d) { return d.id === dept.id; }));
+    const color = DEPT_COLORS[idx % DEPT_COLORS.length] || '#4C8DFF';
+
+    const deptV6 = state.calculatedV6.find(function(d) { return d.id === dept.id; });
+
+    el.innerHTML =
+        '<div class="mb-4"><div class="label-tag mb-2" style="background:' + color + '15;border:1px solid ' + color + '50;color:' + color + ';">DEPARTMENT</div></div>' +
+        '<div class="space-y-3">' +
+            '<div><label class="text-subtle text-[11px] tracking-wider block mb-1">DEPARTMENT NAME</label>' +
+            '<input id="detailName" type="text" value="' + escapeHtml(dept.name) + '" class="input-cyber w-full" oninput="onDetailInput(' + dept.id + ',\'name\',this.value)" /></div>' +
+            '<div><label class="text-subtle text-[11px] tracking-wider block mb-1">REQUIRED HOSTS</label>' +
+            '<input id="detailHosts" type="number" value="' + dept.hosts + '" min="1" max="65534" class="input-cyber w-full" oninput="onDetailInput(' + dept.id + ',\'hosts\',parseInt(this.value)||1)" /></div>' +
+            '<div class="border-t border-dark-600 pt-3"><div class="section-label mb-2">SUBNET INFO (IPv4)</div>' +
+            '<div id="detailSubnetInfo">' + (dept.subnet ? renderSubnetInfoHTML(dept, vlanId, color) : '<div class="text-muted text-[13px]">ยังไม่มีข้อมูล — กด Calculate</div>') + '</div></div>' +
+            '<div class="border-t border-dark-600 pt-3"><div class="section-label mb-2">SUBNET INFO (IPv6)</div>' +
+            (deptV6 ? renderSubnetInfoV6HTML(deptV6, color) : '<div class="text-muted text-[13px]">ยังไม่มีข้อมูล — สลับโหมด IPv6 แล้วกด Calculate</div>') +
+            '</div>' +
+        '</div>';
+}
+
+function renderSubnetInfoV6HTML(deptV6, color) {
+    var s = deptV6.subnet6;
+    return '<div class="space-y-2 text-[13px]">' +
+        '<div class="glow-border rounded p-2 flex justify-between gap-2"><span class="text-muted flex-shrink-0">Network/Prefix</span><span class="text-neon text-right break-all">' + s.cidrText + '</span></div>' +
+        '<div class="glow-border rounded p-2 flex justify-between gap-2"><span class="text-muted flex-shrink-0">Usable</span><span class="text-cyber text-right break-all">' + s.firstUsable + ' – ' + s.lastUsable + '</span></div>' +
+        '<div class="glow-border rounded p-2 flex justify-between"><span class="text-muted">Total Addresses</span><span>' + s.totalAddresses + '</span></div>' +
+    '</div>';
+}
+
+function renderSubnetInfoHTML(dept, vlanId, color) {
+    var s = dept.subnet;
+    return '<div class="space-y-2 text-[13px]">' +
+        '<div class="glow-border rounded p-2 flex justify-between"><span class="text-muted">VLAN</span><span style="color:' + color + '">' + vlanId + '</span></div>' +
+        '<div class="glow-border rounded p-2 flex justify-between"><span class="text-muted">Network</span><span class="text-neon">' + s.network + '/' + s.cidr + '</span></div>' +
+        '<div class="glow-border rounded p-2 flex justify-between"><span class="text-muted">Broadcast</span><span class="text-hot">' + s.broadcast + '</span></div>' +
+        '<div class="glow-border rounded p-2 flex justify-between"><span class="text-muted">Usable</span><span class="text-cyber">' + s.firstUsable + ' — ' + s.lastUsable + '</span></div>' +
+        '<div class="glow-border rounded p-2 flex justify-between"><span class="text-muted">Mask</span><span>' + s.netmask + '</span></div>' +
+        '<div class="glow-border rounded p-2 flex justify-between"><span class="text-muted">Wildcard</span><span>' + s.wildcard + '</span></div>' +
+        '<div class="glow-border rounded p-2 flex justify-between"><span class="text-muted">Subnet Size</span><span>' + s.size + ' addresses</span></div>' +
+    '</div>';
+}
+
+function updateDetailSubnetInfo() {
+    if (!state.detailOpen) return;
+    // Panel ของ PC/Server/Department ล้วนมีข้อมูลที่โยงกับผลคำนวณ (IPv4 และ/หรือ IPv6) -> re-render ทั้งพาเนลทุกครั้งที่คำนวณใหม่
+    // (เช่น subnet ขยับตำแหน่งเพราะแก้ hosts ของแผนกอื่น หรือคำนวณ IPv6 ใหม่) กันไม่ให้ Panel ค้างข้อมูลเก่า
+    if (state.selectedNodeType === 'pc' || state.selectedNodeType === 'server' || state.selectedNodeType === 'department') {
+        renderDetailPanel();
+    }
+}
+
+function onDetailInput(deptId, field, value) {
+    if (isEditing) return;
+    isEditing = true;
+    try {
+        var dept = state.departments.find(function(d) { return d.id === deptId; });
+        if (!dept) return;
+        if (field === 'name') {
+            var trimmed = String(value).trim();
+            if (!trimmed) return; // ไม่ยอมให้ชื่อว่างเปล่า กันช่องว่างไปโผล่ในผัง/ตาราง/CLI
+            dept.name = trimmed;
+        } else if (field === 'hosts') {
+            var h = parseInt(value);
+            if (isNaN(h)) h = 1;
+            dept.hosts = Math.min(Math.max(h, 1), 65534); // กัน Host เยอะเกินจนคำนวณ CIDR พัง
+        } else {
+            dept[field] = value;
+        }
+        refreshAll();
+        updateDetailSubnetInfo();
+    } catch (err) {
+        console.error('onDetailInput error:', err);
+        if (typeof showToast === 'function') showToast('แก้ไขไม่สำเร็จ ลองใหม่อีกครั้ง', 'error');
+    } finally {
+        isEditing = false;
+    }
+}
+
+function onBaseChange() {
+    if (state.ipMode === 'v6') { onBaseChangeV6(); return; }
+    var ip = document.getElementById('baseIpInput').value.trim();
+    var cidr = parseInt(document.getElementById('baseCidrInput').value);
+    if (!isValidIp(ip)) { showToast('IP ไม่ถูกต้อง', 'error'); return; }
+    if (isNaN(cidr) || cidr < 8 || cidr > 30) { showToast('CIDR ต้อง 8-30', 'error'); return; }
+    state.baseIp = ip;
+    state.baseCidr = cidr;
+    try {
+        refreshAll();
+        document.getElementById('statusBar').textContent = 'Base: ' + ip + '/' + cidr + ' | ' + state.calculated.length + ' subnets allocated';
+        showToast('VLSM Calculated', 'success');
+    } catch (err) {
+        console.error('onBaseChange error:', err);
+        showToast('คำนวณไม่สำเร็จ ตรวจสอบข้อมูลแผนกอีกครั้ง', 'error');
+    }
+}
+
+function onBaseChangeV6() {
+    var ip = document.getElementById('baseIp6Input').value.trim();
+    var prefix = parseInt(document.getElementById('basePrefixInput').value);
+    var newPrefix = parseInt(document.getElementById('newPrefixInput').value);
+    if (!isValidIpv6(ip)) { showToast('IPv6 ไม่ถูกต้อง', 'error'); return; }
+    if (isNaN(prefix) || prefix < 1 || prefix > 127) { showToast('Base Prefix ต้อง 1-127', 'error'); return; }
+    if (isNaN(newPrefix) || newPrefix <= prefix || newPrefix > 128) { showToast('Prefix ย่อยต้องมากกว่า Base Prefix และไม่เกิน 128', 'error'); return; }
+    state.baseIp6 = ip;
+    state.basePrefixLen6 = prefix;
+    state.newPrefixLen6 = newPrefix;
+    try {
+        refreshAll();
+        document.getElementById('statusBar').textContent = 'IPv6 Base: ' + ip + '/' + prefix + ' → /' + newPrefix + ' | ' + state.calculatedV6.length + ' subnets allocated';
+        showToast('IPv6 Calculated', 'success');
+    } catch (err) {
+        console.error('onBaseChangeV6 error:', err);
+        showToast('คำนวณ IPv6 ไม่สำเร็จ ตรวจสอบข้อมูลอีกครั้ง', 'error');
+    }
+}
+
+function setIpMode(mode, silent) {
+    try {
+        state.ipMode = mode;
+        var v4El = document.getElementById('v4Inputs');
+        var v6El = document.getElementById('v6Inputs');
+        var btnV4 = document.getElementById('btnModeV4');
+        var btnV6 = document.getElementById('btnModeV6');
+        if (v4El) v4El.classList.toggle('hidden', mode !== 'v4');
+        if (v6El) v6El.classList.toggle('hidden', mode !== 'v6');
+        if (btnV4) { btnV4.classList.toggle('btn-neon', mode === 'v4'); btnV4.classList.toggle('btn-cyber', mode !== 'v4'); }
+        if (btnV6) { btnV6.classList.toggle('btn-neon', mode === 'v6'); btnV6.classList.toggle('btn-cyber', mode !== 'v6'); }
+        renderTable();
+        layoutTopology(); // รีเฟรช label บน canvas ให้ตรงกับโหมดที่เพิ่งสลับ
+        // silent = true ตอนเรียกจาก applyProjectData() (โหลดโปรเจกต์) — ไม่ใช่ผู้ใช้กดสลับเอง ไม่ควร toast ซ้อนกับ toast โหลดสำเร็จ
+        if (!silent) showToast('สลับไปโหมด ' + (mode === 'v6' ? 'IPv6' : 'IPv4'), 'info');
+    } catch (err) {
+        console.error('setIpMode error:', err);
+        showToast('สลับโหมดไม่สำเร็จ', 'error');
+    }
+}
+
+/* ============================================
+   Light/Dark Mode
+   CSS variable (--bg, --card, --text, ...) คุมสี HTML/CSS ได้เองผ่าน [data-theme="light"]
+   แต่ Canvas (topology.js) กับสีอุปกรณ์ (devices.js) วาดด้วยค่าตรงๆ ไม่ใช่ CSS
+   เลยต้องสลับตัวแปร JS คู่ขนาน (DEPT_COLORS, ROUTER_COLOR, CANVAS_BOX_BG, ...) เองตรงนี้ด้วย
+   ============================================ */
+function applyTheme(mode) {
+    try {
+        state.theme = mode;
+        document.documentElement.setAttribute('data-theme', mode === 'light' ? 'light' : '');
+        try { localStorage.setItem('netforge_theme', mode); } catch (e) { /* localStorage อาจใช้ไม่ได้ (private mode, file://, ฯลฯ) — แค่จำข้ามเซสชันไม่ได้ ไม่ใช่เหตุให้สลับธีมล้มเหลว */ }
+
+        DEPT_COLORS = mode === 'light' ? DEPT_COLORS_LIGHT : DEPT_COLORS_DARK;
+        ROUTER_COLOR = mode === 'light' ? ROUTER_COLOR_LIGHT : ROUTER_COLOR_DARK;
+        PC_COLOR = mode === 'light' ? PC_COLOR_LIGHT : PC_COLOR_DARK;
+        SERVER_COLOR = mode === 'light' ? SERVER_COLOR_LIGHT : SERVER_COLOR_DARK;
+        CANVAS_BOX_BG = mode === 'light' ? 'rgba(225,233,250,0.95)' : 'rgba(15,17,21,0.95)'; // ตรงกับ --card เข้มขึ้นรอบล่าสุด (#E1E9FA)
+        CANVAS_GRID_COLOR = mode === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(0,212,255,0.04)';
+        CANVAS_LABEL_COLOR = mode === 'light' ? '#1A1D24' : '#e0e0f0';
+
+        if (typeof recolorTopology === 'function') recolorTopology(); // ทาสีใหม่ใน node ที่มีอยู่แล้ว ไม่รื้อตำแหน่งที่ลากไว้
+        updateThemeButton();
+    } catch (err) {
+        console.error('applyTheme error:', err);
+    }
+}
+
+function toggleTheme() {
+    applyTheme(state.theme === 'light' ? 'dark' : 'light');
+    showToast('สลับเป็น ' + (state.theme === 'light' ? 'Light Mode' : 'Dark Mode'), 'info');
+}
+
+function updateThemeButton() {
+    var btn = document.getElementById('btnTheme');
+    if (!btn) return;
+    btn.innerHTML = state.theme === 'light'
+        ? '<i class="fas fa-moon mr-1"></i>DARK'
+        : '<i class="fas fa-sun mr-1"></i>LIGHT';
+}
+
+// ----- Onboarding Modal: อธิบาย 4 ขั้นตอนการใช้งานหลัก เรียกดูซ้ำได้ทุกเมื่อผ่านปุ่ม HELP -----
+function showOnboarding() {
+    var el = document.getElementById('onboardOverlay');
+    if (el) el.classList.remove('hidden');
+}
+
+function closeOnboarding() {
+    var el = document.getElementById('onboardOverlay');
+    if (el) el.classList.add('hidden');
+    // บันทึกว่าเคยเห็นแล้ว กันไม่ให้เด้งอัตโนมัติอีกครั้งหน้า — บันทึกไม่ได้ก็ปล่อยผ่าน ไม่ block การใช้งาน
+    try { localStorage.setItem('netforge_onboarded', '1'); } catch (e) { /* เงียบๆ */ }
+}
+
+// เรียกจาก init() เท่านั้น — เช็คว่าเคยปิด Modal นี้ไปแล้วหรือยัง ถ้ายังไม่เคยให้โชว์อัตโนมัติ
+function maybeShowOnboardingOnFirstVisit() {
+    var seen = false;
+    try { seen = localStorage.getItem('netforge_onboarded') === '1'; } catch (e) { /* อ่านไม่ได้ ถือว่ายังไม่เคยเห็น แสดงให้ดูไว้ก่อน */ }
+    if (!seen) showOnboarding();
+}
+
+function onAddDept() {
+    if (isEditing) return;
+    var nameEl = document.getElementById('newDeptName');
+    var hostsEl = document.getElementById('newDeptHosts');
+    var name = nameEl.value.trim();
+    var hosts = parseInt(hostsEl.value);
+    if (!name) { showToast('ระบุชื่อแผนก', 'error'); return; }
+    if (isNaN(hosts) || hosts < 1) { showToast('Hosts >= 1', 'error'); return; }
+    if (hosts > 65534) { showToast('Hosts สูงสุด 65534 (เทียบเท่า /16)', 'error'); return; }
+    if (state.departments.length >= 8) { showToast('สูงสุด 8 แผนก', 'error'); return; }
+    isEditing = true;
+    try {
+        state.departments.push({ id: state.nextId++, name: name, hosts: hosts });
+        nameEl.value = '';
+        hostsEl.value = '';
+        refreshAll();
+        document.getElementById('statusBar').textContent = 'Added: ' + name + ' (' + hosts + ' hosts)';
+        showToast('เพิ่ม ' + name + ' สำเร็จ', 'success');
+    } catch (err) {
+        console.error('onAddDept error:', err);
+        showToast('เพิ่มแผนกไม่สำเร็จ', 'error');
+    } finally {
+        isEditing = false;
+    }
+}
+
+function onRemoveDept(id) {
+    if (isEditing) return;
+    isEditing = true;
+    try {
+        var dept = state.departments.find(function(d) { return d.id === id; });
+        state.departments = state.departments.filter(function(d) { return d.id !== id; });
+        if (state.selectedDeptId === id) {
+            state.selectedDeptId = null;
+            state.selectedNodeType = null;
+            closeDetailPanel();
+        }
+        refreshAll();
+        if (typeof detachManualNodesFromDept === 'function') detachManualNodesFromDept(id);
+        showToast('ลบ ' + (dept ? dept.name : 'dept') + ' แล้ว', 'info');
+    } catch (err) {
+        console.error('onRemoveDept error:', err);
+        showToast('ลบแผนกไม่สำเร็จ', 'error');
+    } finally {
+        isEditing = false;
+    }
+}
+
+function renderCLI() {
+    var routerEl = document.getElementById('cliRouterOutput');
+    var switchEl = document.getElementById('cliSwitchOutput');
+    if (state.calculated.length === 0) {
+        var emptyMsg = '<span class="comment">! ยังไม่มีข้อมูล — เพิ่มแผนกและกด Calculate ก่อน</span>';
+        routerEl.innerHTML = emptyMsg;
+        switchEl.innerHTML = emptyMsg;
+        return;
+    }
+
+    // ----- Router Config (คัดลอกไปวางบน Router ได้ทันที ไม่ปนกับ Switch -----
+    var cliRouter = '<span class="comment">! ============================================</span>\n' +
+        '<span class="comment">! NetForge — Auto-generated Cisco IOS Config (ROUTER)</span>\n' +
+        '<span class="comment">! Base: ' + state.baseIp + '/' + state.baseCidr + '</span>\n' +
+        '<span class="comment">! ============================================</span>\n\n' +
+        '<span class="cmd">hostname</span> <span class="value">Router-01</span>\n' +
+        '<span class="cmd">enable secret</span> <span class="value">cisco</span>\n\n';
+
+    // มี IPv6 คำนวณไว้ด้วย -> เปิด global command ที่จำเป็นเสมอแต่มักลืมใส่
+    if (state.calculatedV6.length > 0) {
+        cliRouter += '<span class="comment">! เปิดใช้งาน IPv6 Routing (คำสั่งนี้จำเป็นเสมอถ้าจะใช้ IPv6 มักถูกลืม)</span>\n' +
+            '<span class="cmd">ipv6 unicast-routing</span>\n\n';
+    }
+
+    cliRouter += '<span class="cmd">interface</span> <span class="value">GigabitEthernet0/0</span>\n' +
+        ' <span class="cmd">description</span> <span class="value">Trunk to Switch-01</span>\n' +
+        ' <span class="cmd">no shutdown</span>\n\n';
+
+    // Dual-Stack: ถ้าแผนกไหนมีทั้ง IPv4 (state.calculated) และ IPv6 (state.calculatedV6) คำนวณไว้แล้ว
+    // จะรวม ip address + ipv6 address ไว้ใน Sub-Interface เดียวกัน ตรงกับวิธีตั้งค่า Dual-Stack จริงบน Cisco IOS
+    state.calculated.forEach(function(d) {
+        var s = d.subnet;
+        var sw = topoNodes.switches.find(function(x) { return x.deptId === d.id; });
+        var vlanId = sw ? sw.vlanId : 0;
+        var v6 = state.calculatedV6.find(function(x) { return x.id === d.id; });
+
+        cliRouter += '<span class="cmd">interface</span> <span class="value">GigabitEthernet0/0.' + vlanId + '</span>\n' +
+            ' <span class="cmd">encapsulation</span> <span class="value">dot1Q ' + vlanId + '</span>\n' +
+            ' <span class="cmd">ip address</span> <span class="value">' + s.firstUsable + ' ' + s.netmask + '</span>\n';
+        if (v6) {
+            cliRouter += ' <span class="cmd">ipv6 address</span> <span class="value">' + v6.subnet6.network + '/' + v6.subnet6.prefixLen + '</span>\n' +
+                ' <span class="comment">! Link-Local (fe80::/10) จะถูกสร้างอัตโนมัติบน Interface นี้เสมอ ใช้สำหรับ NDP (ไม่ต้องตั้งเอง)</span>\n';
+        }
+        cliRouter += ' <span class="cmd">description</span> <span class="value">' + escapeHtml(d.name) + ' VLAN</span>\n\n';
+    });
+
+    if (state.calculatedV6.length > 0) {
+        cliRouter += '<span class="comment">! --- IPv6: อุปกรณ์ปลายทางจะได้ Address อัตโนมัติผ่าน SLAAC (Router Advertisement) ---</span>\n' +
+            '<span class="comment">! ไม่ต้องตั้ง DHCPv6 Pool เพิ่มถ้าใช้ SLAAC เฉยๆ พอ</span>\n\n';
+    }
+
+    cliRouter += '<span class="comment">! --- DHCP Pools (IPv4) ---</span>\n' +
+        '<span class="cmd">ip dhcp excluded-address</span> <span class="value">' + state.calculated.map(function(d) { return d.subnet.firstUsable; }).join(' ') + '</span>\n\n';
+    state.calculated.forEach(function(d) {
+        var s = d.subnet;
+        cliRouter += '<span class="cmd">ip dhcp pool</span> <span class="value">' + escapeHtml(d.name) + '</span>\n' +
+            ' <span class="cmd">network</span> <span class="value">' + s.network + ' ' + s.netmask + '</span>\n' +
+            ' <span class="cmd">default-router</span> <span class="value">' + s.firstUsable + '</span>\n' +
+            ' <span class="cmd">dns-server</span> <span class="value">8.8.8.8</span>\n\n';
+    });
+    cliRouter += '<span class="cmd">end</span>\n';
+
+    // ----- Switch Config (คัดลอกไปวางบน Switch ได้ทันที ไม่ปนกับ Router) -----
+    var cliSwitch = '<span class="comment">! ============================================</span>\n' +
+        '<span class="comment">! NetForge — Auto-generated Cisco IOS Config (SWITCH)</span>\n' +
+        '<span class="comment">! ============================================</span>\n\n' +
+        '<span class="cmd">hostname</span> <span class="value">Switch-01</span>\n\n';
+    state.calculated.forEach(function(d) {
+        var sw = topoNodes.switches.find(function(x) { return x.deptId === d.id; });
+        var v = sw ? sw.vlanId : 0;
+        cliSwitch += '<span class="cmd">vlan</span> <span class="value">' + v + '</span>\n <span class="cmd">name</span> <span class="value">' + escapeHtml(d.name) + '</span>\n';
+    });
+    cliSwitch += '\n<span class="cmd">interface</span> <span class="value">GigabitEthernet0/1</span>\n' +
+        ' <span class="cmd">description</span> <span class="value">Trunk to Router-01</span>\n' +
+        ' <span class="cmd">switchport mode trunk</span>\n\n';
+    state.calculated.forEach(function(d, i) {
+        var sw = topoNodes.switches.find(function(x) { return x.deptId === d.id; });
+        var v = sw ? sw.vlanId : 0, p = i + 2;
+        cliSwitch += '<span class="cmd">interface</span> <span class="value">FastEthernet0/' + p + '</span>\n' +
+            ' <span class="cmd">description</span> <span class="value">' + escapeHtml(d.name) + ' Access Port</span>\n' +
+            ' <span class="cmd">switchport mode access</span>\n' +
+            ' <span class="cmd">switchport access vlan</span> <span class="value">' + v + '</span>\n\n';
+    });
+    cliSwitch += '<span class="cmd">end</span>\n';
+
+    routerEl.innerHTML = cliRouter;
+    switchEl.innerHTML = cliSwitch;
+}
+
+// คัดลอกข้อความ พร้อม fallback เผื่อ Clipboard API ใช้ไม่ได้
+// (เช่นเปิดผ่าน file:// โดยตรง บาง browser จะ block navigator.clipboard)
+function copyToClipboard(text, successMsg) {
+    function fallbackCopy() {
+        try {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            var ok = document.execCommand('copy');
+            document.body.removeChild(ta);
+            if (ok) showToast(successMsg, 'success');
+            else showToast('คัดลอกอัตโนมัติไม่สำเร็จ กรุณาเลือกข้อความแล้วกด Ctrl+C เอง', 'error');
+        } catch (err) {
+            console.error('fallbackCopy error:', err);
+            showToast('คัดลอกอัตโนมัติไม่สำเร็จ กรุณาเลือกข้อความแล้วกด Ctrl+C เอง', 'error');
+        }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            showToast(successMsg, 'success');
+        }).catch(fallbackCopy);
+    } else {
+        fallbackCopy();
+    }
+}
+
+function copyCLI(target) {
+    var elId = target === 'switch' ? 'cliSwitchOutput' : 'cliRouterOutput';
+    var label = target === 'switch' ? 'Switch' : 'Router';
+    var el = document.getElementById(elId);
+    if (!el) return;
+    copyToClipboard(el.innerText, 'Copied ' + label + ' Config to clipboard');
+}
+
+function switchTab(tab) {
+    state.activeTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    document.querySelectorAll('.tab-content').forEach(function(c) {
+        c.classList.toggle('hidden', c.id !== 'tab-' + tab);
+    });
+    if (tab === 'cli') renderCLI();
+    if (tab === 'tools') { 
+        if (typeof renderSummaryInputs === 'function') renderSummaryInputs(); 
+        if (typeof calcWildcard === 'function') calcWildcard(); 
+    }
+}
+
+function resetLayout() {
+    layoutTopology();
+    showToast('Layout reset', 'info');
+}
+
+function initResizers() {
+    const sidebar = document.getElementById('sidebar');
+    const resizerX = document.getElementById('resizerX');
+    const bottomPanel = document.getElementById('bottomPanel');
+    const resizerY = document.getElementById('resizerY');
+    const DEFAULT_SIDEBAR_W = 300;
+    const DEFAULT_BOTTOM_H = 270;
+
+    function setSidebarWidth(w) {
+        sidebar.style.width = w + 'px';
+        sidebar.style.minWidth = w + 'px';
+        sidebar.style.maxWidth = w + 'px';
+    }
+    function setBottomHeight(h) {
+        bottomPanel.style.height = h + 'px';
+        bottomPanel.style.minHeight = h + 'px';
+        bottomPanel.style.maxHeight = h + 'px';
+    }
+
+    // ----- Resizer ฝั่งซ้าย (Sidebar / Control Pane) -----
+    if (resizerX && sidebar) {
+        let dragging = false, rafPending = false, pendingX = 0;
+
+        function applyX() {
+            rafPending = false;
+            const maxW = Math.min(560, window.innerWidth - 380); // เผื่อพื้นที่ Canvas อย่างน้อย ~380px เสมอ
+            const newW = Math.max(200, Math.min(maxW, pendingX));
+            setSidebarWidth(newW);
+            if (typeof resizeCanvas === 'function') resizeCanvas();
+        }
+        function onMove(e) {
+            pendingX = e.clientX;
+            if (!rafPending) { rafPending = true; requestAnimationFrame(applyX); } // throttle ด้วย rAF ให้ลื่นขึ้น
+        }
+        function stop() {
+            if (!dragging) return;
+            dragging = false;
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            resizerX.classList.remove('resizing');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', stop);
+            window.removeEventListener('blur', stop);
+        }
+        resizerX.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            dragging = true;
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none'; // กันเลือกข้อความเวลาลากเร็วๆ
+            resizerX.classList.add('resizing');
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', stop);
+            window.addEventListener('blur', stop); // กันเมาส์หลุดจอแล้ว resize ค้าง
+        });
+        resizerX.addEventListener('dblclick', function() {
+            setSidebarWidth(DEFAULT_SIDEBAR_W);
+            if (typeof resizeCanvas === 'function') resizeCanvas();
+            if (typeof showToast === 'function') showToast('รีเซ็ตขนาด Sidebar แล้ว', 'info');
+        });
+    }
+
+    // ----- Resizer ด้านล่าง (Bottom Panel: IP Table / CLI / Tools) -----
+    if (resizerY && bottomPanel) {
+        let dragging = false, rafPending = false, pendingY = 0;
+
+        function applyY() {
+            rafPending = false;
+            const maxH = Math.min(window.innerHeight * 0.7, window.innerHeight - 200); // เผื่อพื้นที่ Canvas ด้านบนเสมอ
+            const newH = Math.max(120, Math.min(maxH, window.innerHeight - pendingY));
+            setBottomHeight(newH);
+            if (typeof resizeCanvas === 'function') resizeCanvas();
+        }
+        function onMove(e) {
+            pendingY = e.clientY;
+            if (!rafPending) { rafPending = true; requestAnimationFrame(applyY); }
+        }
+        function stop() {
+            if (!dragging) return;
+            dragging = false;
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+            resizerY.classList.remove('resizing');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', stop);
+            window.removeEventListener('blur', stop);
+        }
+        resizerY.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            dragging = true;
+            document.body.style.cursor = 'row-resize';
+            document.body.style.userSelect = 'none';
+            resizerY.classList.add('resizing');
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', stop);
+            window.addEventListener('blur', stop);
+        });
+        resizerY.addEventListener('dblclick', function() {
+            setBottomHeight(DEFAULT_BOTTOM_H);
+            if (typeof resizeCanvas === 'function') resizeCanvas();
+            if (typeof showToast === 'function') showToast('รีเซ็ตขนาด Bottom Panel แล้ว', 'info');
+        });
+    }
+}
+
+function toggleArrows() {
+    state.showArrows = !state.showArrows;
+    const btn = document.getElementById('btnToggleArrows');
+    if (!btn) return;
+
+    if (state.showArrows) {
+        btn.innerHTML = '<i class="fas fa-location-arrow mr-1"></i>ARROWS: ON';
+        btn.classList.remove('text-muted');
+        btn.classList.add('btn-cyber');
+    } else {
+        btn.innerHTML = '<i class="fas fa-location-arrow mr-1"></i>ARROWS: OFF';
+        btn.classList.remove('btn-cyber');
+        btn.classList.add('text-muted');
+    }
+}
+
+/* ============================================
+   2b. PC/Server — โหมดวาง/เชื่อมสายบน Canvas (ปุ่มมุมขวาบน)
+   ============================================ */
+
+function updateModeButtons() {
+    var pc = document.getElementById('btnAddPc');
+    var srv = document.getElementById('btnAddServer');
+    var conn = document.getElementById('btnConnect');
+    [[pc, 'pc'], [srv, 'server']].forEach(function(pair) {
+        var btn = pair[0], type = pair[1];
+        if (!btn) return;
+        var active = state.placingType === type;
+        btn.classList.toggle('btn-neon', active);
+        btn.classList.toggle('btn-cyber', !active);
+    });
+    if (conn) {
+        conn.classList.toggle('btn-neon', state.connectMode);
+        conn.classList.toggle('btn-cyber', !state.connectMode);
+    }
+}
+
+function togglePlacingMode(type) {
+    try {
+        // ปิดโหมด Connect ไว้ก่อน กันสถานะซ้อนกันจนสับสนว่ากำลังอยู่โหมดไหน
+        if (state.connectMode) { state.connectMode = false; state.linkFromId = null; }
+
+        state.placingType = (state.placingType === type) ? null : type; // กดปุ่มเดิมซ้ำ = ยกเลิกโหมด
+        updateModeButtons();
+        document.getElementById('statusBar').textContent = state.placingType
+            ? 'คลิกตำแหน่งบน Canvas เพื่อวาง ' + (type === 'pc' ? 'PC' : 'Server')
+            : 'Ready';
+    } catch (err) {
+        console.error('togglePlacingMode error:', err);
+        showToast('สลับโหมดวางอุปกรณ์ไม่สำเร็จ', 'error');
+    }
+}
+
+function toggleConnectMode() {
+    try {
+        state.placingType = null; // กันสถานะซ้อนกับโหมดวางอุปกรณ์
+        state.connectMode = !state.connectMode;
+        state.linkFromId = null;
+        updateModeButtons();
+        document.getElementById('statusBar').textContent = state.connectMode
+            ? 'โหมดเชื่อมสาย: คลิกอุปกรณ์ตัวแรก'
+            : 'Ready';
+    } catch (err) {
+        console.error('toggleConnectMode error:', err);
+        showToast('สลับโหมดเชื่อมสายไม่สำเร็จ', 'error');
+    }
+}
+
+// เรียกทุกครั้งที่พิมพ์ (oninput) — อัปเดตแบบเงียบๆ เฉพาะตอนที่พิมพ์ครบเป็น IP ที่ถูกรูปแบบแล้วเท่านั้น
+// ไม่ toast error ตรงนี้ เพราะระหว่างพิมพ์ IP ทีละตัวอักษร ค่าที่ยังพิมพ์ไม่จบ (เช่น "192.168.1.") จะไม่ผ่าน isValidIp เสมอ
+// ถ้า toast ทุกครั้งจะขึ้นถี่เกินไปจนรำคาญ — ปล่อยให้ onManualIpChange (ตอนพิมพ์เสร็จ/ออกจากช่อง) เป็นคนฟันธง+แจ้งเตือนแทน
+function onManualIpInput(id, value) {
+    if (isEditing) return;
+    isEditing = true;
+    try {
+        var node = topoNodes.manualNodes.find(function(n) { return n.id === id; });
+        if (!node) return;
+        var trimmed = String(value).trim();
+        if (trimmed && isValidIp(trimmed)) node.ip = trimmed;
+        else if (!trimmed) node.ip = null;
+    } catch (err) {
+        console.error('onManualIpInput error:', err);
+    } finally {
+        isEditing = false;
+    }
+}
+
+// เรียกตอนพิมพ์เสร็จ/ออกจากช่อง (onchange) — ตรวจแบบเต็มรูปแบบและแจ้งเตือนถ้าไม่ผ่าน
+// ครอบคลุม: รูปแบบ IP, อยู่ในช่วง subnet ของแผนกที่เชื่อมอยู่ไหม, ชนกับ Gateway (firstUsable) ไหม, ซ้ำกับอุปกรณ์อื่นไหม
+function onManualIpChange(id, value) {
+    try {
+        var node = topoNodes.manualNodes.find(function(n) { return n.id === id; });
+        if (!node) return;
+        var trimmed = String(value).trim();
+        if (!trimmed) { node.ip = null; return; } // เคลียร์ IP ได้ปกติ ไม่ถือเป็นข้อผิดพลาด
+
+        if (!isValidIp(trimmed)) {
+            showToast('รูปแบบ IP ไม่ถูกต้อง — ยังไม่บันทึกค่านี้', 'error');
+            renderDetailPanel(); // รีเซ็ตช่องกลับไปเป็นค่าล่าสุดที่ถูกต้อง (node.ip เดิม)
+            return;
+        }
+
+        if (node.linkedDeptId) {
+            var dept = state.calculated.find(function(d) { return d.id === node.linkedDeptId; });
+            if (dept) {
+                var ipLong = ipToLong(trimmed);
+                var s = dept.subnet;
+                if (ipLong === ipToLong(s.firstUsable)) {
+                    showToast('IP นี้เป็น Gateway ของ Router (VLAN ' + dept.name + ') อยู่แล้ว กรุณาเลือก IP อื่น', 'error');
+                    renderDetailPanel();
+                    return;
+                }
+                if (ipLong < ipToLong(s.firstUsable) || ipLong > ipToLong(s.lastUsable)) {
+                    showToast('IP นี้อยู่นอกช่วงของ subnet แผนก ' + dept.name + ' (' + s.firstUsable + ' – ' + s.lastUsable + ')', 'error');
+                    renderDetailPanel();
+                    return;
+                }
+            }
+        }
+
+        var dup = topoNodes.manualNodes.some(function(n) { return n.id !== id && n.ip === trimmed; });
+        if (dup) {
+            showToast('IP นี้ถูกใช้กับอุปกรณ์อื่นในผังอยู่แล้ว', 'error');
+            renderDetailPanel();
+            return;
+        }
+
+        node.ip = trimmed;
+        showToast('บันทึก IP แล้ว', 'success');
+    } catch (err) {
+        console.error('onManualIpChange error:', err);
+        showToast('แก้ไข IP ไม่สำเร็จ', 'error');
+    }
+}
+
+function onSuggestIp(id) {
+    try {
+        var node = topoNodes.manualNodes.find(function(n) { return n.id === id; });
+        if (!node || !node.linkedDeptId) { showToast('ต้องเชื่อมกับ Switch ก่อนถึงจะแนะนำ IP ได้', 'error'); return; }
+        var ip = suggestNextIp(node.linkedDeptId);
+        if (!ip) { showToast('Subnet เต็มแล้ว ไม่เหลือ IP ให้แนะนำ', 'error'); return; }
+        node.ip = ip;
+        renderDetailPanel();
+        showToast('แนะนำ IP: ' + ip, 'success');
+    } catch (err) {
+        console.error('onSuggestIp error:', err);
+        showToast('แนะนำ IP ไม่สำเร็จ', 'error');
+    }
+}
+
+function onRemoveManualNode(id) {
+    try {
+        removeManualNode(id);
+        state.selectedDeptId = null;
+        state.selectedNodeType = null;
+        closeDetailPanel();
+        showToast('ลบอุปกรณ์แล้ว', 'info');
+    } catch (err) {
+        console.error('onRemoveManualNode error:', err);
+        showToast('ลบอุปกรณ์ไม่สำเร็จ', 'error');
+    }
+}

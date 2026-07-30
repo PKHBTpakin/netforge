@@ -1,0 +1,297 @@
+/* ============================================
+   NetForge — Style Sheet (Dark Professional)
+   ============================================ */
+
+/* --- ตัวแปรสี --- */
+:root {
+    --neon: #4C8DFF;   /* สีเน้นหลัก (primary) — น้ำเงิน ใช้กับปุ่มหลัก/สถานะ active/Router */
+    --cyber: #94A3B8;  /* สีรอง (secondary/neutral) — เทาอมฟ้า ใช้กับปุ่ม/ข้อความรอง */
+    --hot: #F0575C;    /* สีอันตราย (danger) — ใช้เฉพาะ action ทำลายข้อมูล/error เท่านั้น */
+    --bg: #0f1115;
+    --card: #171a21;
+    --border: #262a35;
+    --text: #d8dae0;
+
+    --muted: #9BA4B8;
+    --label: #a8afc0;
+    --subtle: #8790A8;
+
+    --input-bg: rgba(0,0,0,0.25);
+    --item-bg: rgba(0,0,0,0.2);
+
+    /* สำหรับ Canvas Legend เท่านั้น — ต้องตรงกับ PC_COLOR_DARK/SERVER_COLOR_DARK ใน devices.js เป๊ะ
+       (Router ใช้ --neon ที่มีอยู่แล้วได้เลยเพราะ ROUTER_COLOR_DARK ค่าตรงกันพอดี) แก้สีฝั่ง JS แล้วต้องมาแก้ตรงนี้คู่กันด้วย */
+    --pc-swatch: #22C55E;
+    --server-swatch: #EC4899;
+}
+
+/* --- Light Mode: ชุดสีที่สอง สลับด้วย document.documentElement.setAttribute('data-theme','light') --- */
+/* ทุกค่าวัด WCAG contrast จริงแล้ว (>=4.5:1 บนทั้ง --bg และ --card) เหมือน Dark Mode ทุกตัว ไม่เดา */
+[data-theme="light"] {
+    --neon: #1841B8;
+    --cyber: #475569;
+    --hot: #A81D1B;
+    --bg: #C9D6F2;
+    --card: #E1E9FA;
+    --border: #9DB2E3;
+    --text: #1A1D24;
+
+    --muted: #4E5765;
+    --label: #333B47;
+    --subtle: #4C5563;
+
+    /* เดิม input-cyber/dept-item ใช้ rgba(0,0,0,...) ตายตัว ซึ่งบนพื้นขาว (--card) จะกลายเป็นสีเทาหม่นๆ ดูไม่เข้ากับโหมด Light
+       (ปัญหาเดียวกับที่เจอใน Canvas/Tailwind รอบก่อน — ค่าตรงๆ ไม่ตามธีม) เลยต้องลดสัดส่วนความเข้มลงมากสำหรับพื้นขาวโดยเฉพาะ */
+    --input-bg: rgba(0,0,0,0.04);
+    --item-bg: rgba(0,0,0,0.03);
+
+    --pc-swatch: #0C5C2C;
+    --server-swatch: #9E144D;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    margin: 0;
+    overflow: hidden;
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--neon); }
+
+/* --- เอฟเฟกต์ scanline แบบ CRT (ปิดไว้ตามธีม Dark Professional) --- */
+.scanlines { display: none; }
+
+/* --- กล่องข้อมูล (ตัด glow ออก เหลือแค่เส้นขอบ) --- */
+.glow-border {
+    border: 1px solid var(--border);
+}
+.glow-border:hover {
+    border-color: var(--neon);
+}
+
+/* --- Input --- */
+.input-cyber {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.2s;
+}
+.input-cyber:focus {
+    border-color: var(--neon);
+}
+.input-cyber::placeholder { color: var(--subtle); }
+
+/* --- ปุ่มต่างๆ --- */
+.btn-neon {
+    background: rgba(76,141,255,0.12); border: 1px solid var(--neon); color: var(--neon);
+    padding: 6px 14px; border-radius: 4px; cursor: pointer;
+    font-family: 'Share Tech Mono', monospace; font-size: 14px;
+    transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px;
+}
+.btn-neon:hover { background: rgba(76,141,255,0.22); }
+
+.btn-hot {
+    background: rgba(240,87,92,0.1); border: 1px solid var(--hot); color: var(--hot);
+    padding: 4px 10px; border-radius: 4px; cursor: pointer;
+    font-family: 'Share Tech Mono', monospace; font-size: 13px; transition: all 0.2s;
+}
+.btn-hot:hover { background: rgba(240,87,92,0.2); }
+
+.btn-cyber {
+    background: rgba(148,163,184,0.15); border: 1px solid var(--cyber); color: var(--cyber);
+    padding: 4px 10px; border-radius: 4px; cursor: pointer;
+    font-family: 'Share Tech Mono', monospace; font-size: 13px; transition: all 0.2s;
+}
+.btn-cyber:hover { background: rgba(148,163,184,0.28); }
+
+.btn-example {
+    background: rgba(76,141,255,0.12); border: 1px solid var(--neon); color: var(--neon);
+    padding: 4px 12px; border-radius: 4px; cursor: pointer;
+    font-family: 'Share Tech Mono', monospace; font-size: 13px;
+    transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px; position: relative;
+}
+.btn-example:hover { background: rgba(76,141,255,0.22); }
+
+/* --- หัวข้อส่วน --- */
+.section-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--label);
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(168,175,192,0.12);
+}
+
+/* --- คลาสสีฟ้อนต์สำหรับใช้ใน HTML --- */
+.text-muted { color: var(--muted); }
+.text-label { color: var(--label); }
+.text-subtle { color: var(--subtle); }
+
+/* --- Tab --- */
+.tab-btn {
+    padding: 8px 18px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;
+    border: 1px solid transparent; border-bottom: none; border-radius: 4px 4px 0 0;
+    cursor: pointer; transition: all 0.2s; color: var(--muted);
+    background: transparent; font-family: 'Orbitron', sans-serif;
+}
+.tab-btn.active { color: var(--neon); border-color: var(--border); background: var(--card); }
+.tab-btn:hover:not(.active) { color: var(--label); }
+
+/* --- รายการแผนก --- */
+.dept-item {
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
+    cursor: pointer; transition: all 0.2s; margin-bottom: 6px; background: var(--item-bg);
+}
+.dept-item:hover { border-color: rgba(76,141,255,0.35); }
+.dept-item.selected {
+    border-color: var(--neon); background: rgba(76,141,255,0.08);
+}
+
+/* --- Detail Panel ซ่อน/แสดง --- */
+.detail-panel {
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.detail-panel.open { transform: translateX(0); }
+
+/* --- Toast --- */
+.toast-container {
+    position: fixed; top: 70px; right: 20px; z-index: 10000;
+    display: flex; flex-direction: column; gap: 8px;
+}
+.toast {
+    padding: 10px 18px; border-radius: 6px; font-size: 14px;
+    opacity: 0; transform: translateX(30px); transition: all 0.3s; border: 1px solid;
+}
+.toast.show { opacity: 1; transform: translateX(0); }
+.toast-success { background: rgba(76,141,255,0.1); border-color: var(--neon); color: var(--neon); }
+.toast-error { background: rgba(240,87,92,0.1); border-color: var(--hot); color: var(--hot); }
+.toast-info { background: rgba(148,163,184,0.15); border-color: var(--cyber); color: var(--cyber); }
+
+/* --- CLI Output --- */
+.cli-output {
+    background: #000; border: 1px solid var(--border); border-radius: 6px;
+    padding: 14px; font-size: 14px; line-height: 1.7;
+    overflow: auto; white-space: pre-wrap; word-break: break-all;
+}
+/* หมายเหตุ: CLI panel ตั้งใจให้เป็นจอ terminal สีเข้มเสมอ ไม่ตามธีม Light/Dark ของทั้งแอป
+   (เหมือน terminal ใน editor ทั่วไปที่มักคงโทนเข้มไว้) เลยใช้ค่าตายตัวแทน var() ตรงนี้
+   ถ้าใช้ var(--neon) ฯลฯ พอสลับ Light Mode ตัวอักษรจะกลายเป็นสีเข้มบนพื้นดำ อ่านไม่ออก */
+.cli-output .cmd { color: #4C8DFF; }
+.cli-output .comment { color: #9BA4B8; }
+.cli-output .value { color: #94A3B8; }
+
+/* --- Example Dropdown --- */
+.example-dropdown {
+    position: absolute; top: 100%; right: 0; margin-top: 6px; min-width: 280px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.6); z-index: 9998; overflow: hidden;
+    opacity: 0; transform: translateY(-8px); pointer-events: none; transition: all 0.2s;
+}
+.example-dropdown.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.ex-item {
+    padding: 10px 14px; cursor: pointer; transition: all 0.15s;
+    border-bottom: 1px solid rgba(38,42,53,0.6); display: flex; align-items: flex-start; gap: 10px;
+}
+.ex-item:last-child { border-bottom: none; }
+.ex-item:hover { background: rgba(76,141,255,0.08); }
+.ex-icon {
+    width: 30px; height: 30px; border-radius: 6px; display: flex;
+    align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; margin-top: 2px;
+}
+.ex-title { font-size: 14px; color: var(--text); font-weight: bold; }
+.ex-desc { font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
+/* --- Resizer (แถบลากปรับขนาด Split-Pane) --- */
+.resizer-x, .resizer-y {
+    flex-shrink: 0;
+    z-index: 10;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+.resizer-x { width: 9px; cursor: col-resize; }
+.resizer-y { height: 9px; cursor: row-resize; }
+
+.resizer-x::before, .resizer-y::before {
+    content: '';
+    position: absolute;
+    background: var(--border);
+    transition: background 0.15s, width 0.15s, height 0.15s;
+}
+.resizer-x::before { top: 0; bottom: 0; left: 50%; width: 1px; transform: translateX(-50%); }
+.resizer-y::before { left: 0; right: 0; top: 50%; height: 1px; transform: translateY(-50%); }
+
+.resizer-x:hover::before, .resizer-x.resizing::before { background: var(--neon); width: 2px; }
+.resizer-y:hover::before, .resizer-y.resizing::before { background: var(--neon); height: 2px; }
+
+.resizer-grip {
+    width: 3px; height: 22px; border-radius: 2px;
+    background: var(--subtle);
+    opacity: 0; transition: opacity 0.15s, background 0.15s;
+    position: relative; z-index: 1;
+}
+.resizer-y .resizer-grip { width: 22px; height: 3px; }
+.resizer-x:hover .resizer-grip, .resizer-x.resizing .resizer-grip,
+.resizer-y:hover .resizer-grip, .resizer-y.resizing .resizer-grip { opacity: 1; background: var(--neon); }
+
+/* --- Label Tag --- */
+.label-tag { font-size: 12px; padding: 1px 6px; border-radius: 3px; display: inline-block; }
+
+/* --- Animation --- */
+@keyframes dept-flash { 0% { background: rgba(76,141,255,0.15); } 100% { background: transparent; } }
+.dept-flash { animation: dept-flash 0.8s ease-out; }
+
+/* --- Onboarding Modal: แสดงครั้งแรกที่เปิดแอป (ดูเหตุผลใน ui.js) --- */
+.onboard-overlay {
+    position: fixed; inset: 0; z-index: 10001;
+    background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+}
+.onboard-overlay.hidden { display: none; }
+.onboard-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    max-width: 440px; width: 100%; padding: 20px 22px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+}
+.onboard-step { display: flex; gap: 12px; align-items: flex-start; }
+.onboard-step-icon {
+    width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(76,141,255,0.12); color: var(--neon); font-size: 14px;
+}
+.onboard-step-title { font-size: 13px; font-weight: bold; color: var(--text); margin-bottom: 2px; }
+.onboard-step-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+/* --- Canvas Legend: อธิบายความหมายสี/ไอคอนบน Topology Canvas (ดูเหตุผลใน ui.js ใกล้ showOnboarding) --- */
+.canvas-legend {
+    position: absolute; bottom: 10px; left: 10px; z-index: 10;
+    display: flex; flex-wrap: wrap; gap: 4px 12px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; max-width: calc(100% - 20px);
+}
+.legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10px; color: var(--muted); white-space: nowrap;
+}
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+.legend-dot-multi { display: inline-flex; gap: 1.5px; flex-shrink: 0; }
+.legend-dot-multi span { width: 4px; height: 8px; border-radius: 1px; display: inline-block; }
+
+@media (min-width: 768px) {
+    .legend-item { font-size: 12px; }
+}
