@@ -147,6 +147,13 @@ button:focus-visible,
 }
 .btn-cyber:hover { background: rgba(148,163,184,0.28); }
 
+/* ปุ่มที่ยังกดไม่ได้ (เช่น Undo ตอนไม่มีประวัติ) — ต้องเห็นว่ามีอยู่ แต่ชัดว่ายังใช้ไม่ได้ */
+button.is-disabled, button:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+}
+button.is-disabled:hover, button:disabled:hover { background: transparent; }
+
 .btn-example {
     background: rgba(76,141,255,0.12); border: 1px solid var(--neon); color: var(--neon);
     padding: 4px 12px; border-radius: 4px; cursor: pointer;
@@ -187,6 +194,11 @@ button:focus-visible,
     cursor: pointer; transition: all 0.2s; margin-bottom: 6px; background: var(--item-bg);
 }
 .dept-item:hover { border-color: rgba(76,141,255,0.35); }
+/* ปุ่มจัดการแผนก — ซ่อนไว้จนกว่าจะชี้ เพื่อไม่ให้รายการดูรก แต่ยังเข้าถึงด้วยคีย์บอร์ดได้เสมอ */
+.dept-actions { display: flex; gap: 8px; opacity: 0; transition: opacity 0.15s; }
+.dept-item:hover .dept-actions,
+.dept-item:focus-within .dept-actions { opacity: 1; }
+@media (hover: none) { .dept-actions { opacity: 1; } }
 .dept-item.selected {
     border-color: var(--neon); background: rgba(76,141,255,0.08);
 }
@@ -332,7 +344,16 @@ button:focus-visible,
     background: rgba(76,141,255,0.12); color: var(--neon); font-size: 14px;
 }
 .onboard-step-title { font-size: 13px; font-weight: bold; color: var(--text); margin-bottom: 2px; }
-.onboard-step-desc { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.onboard-step-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+/* แท็บในหน้าคู่มือ + ปุ่มคีย์ลัด */
+.help-tab { padding: 5px 12px; font-size: 11px; border-radius: 4px; border: 1px solid transparent; }
+.help-tab.active { color: var(--neon); border-color: var(--border); background: var(--item-bg); }
+kbd {
+    font-family: 'Share Tech Mono', monospace; font-size: 12px;
+    background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 2px 8px; color: var(--label); white-space: nowrap;
+}
 
 /* --- Canvas Legend: อธิบายความหมายสี/ไอคอนบน Topology Canvas (ดูเหตุผลใน ui.js ใกล้ showOnboarding) --- */
 /* แถบควบคุมมุมมองของ Canvas (ย่อ/ขยาย/จัดพอดี/รีเซ็ต) */

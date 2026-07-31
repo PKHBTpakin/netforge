@@ -107,6 +107,7 @@ function openFromLibrary(id) {
         if (!entry) { showToast('ไม่พบโปรเจกต์นี้ในคลัง', 'error'); return; }
         closeLibrary();
         applyProjectData(entry.data); // ทางเดียวกับ import ไฟล์ ผ่าน validation ชุดเดิมทั้งหมด
+        if (typeof clearHistory === 'function') clearHistory(); // คนละโปรเจกต์แล้ว ประวัติเดิมไม่มีความหมาย
         document.getElementById('statusBar').textContent = 'เปิดจากคลัง: ' + entry.name;
     } catch (err) {
         console.error('openFromLibrary error:', err);
@@ -232,6 +233,7 @@ function tryLoadFromUrl() {
         }
 
         applyProjectData(data);
+        if (typeof clearHistory === 'function') clearHistory();
         showToast('เปิดโปรเจกต์จากลิงก์แล้ว — กด LIBRARY เพื่อบันทึกเก็บไว้', 'info');
         return true;
     } catch (err) {

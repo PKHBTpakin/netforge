@@ -44,33 +44,82 @@
          (เดิมมี z-[100] ซ้อนอยู่ ทำให้มีสองแหล่งค่าจริงที่ขัดกันเอง) -->
     <div id="toast-container" class="toast-container"></div>
 
-    <!-- Onboarding Modal: แสดงอัตโนมัติครั้งแรกที่เปิดแอป (เช็คผ่าน localStorage ใน ui.js) เรียกดูซ้ำได้ทุกเมื่อผ่านปุ่ม HELP ที่ Header -->
+    <!-- หน้าช่วยเหลือ: แสดงอัตโนมัติครั้งแรกที่เปิดแอป และเรียกดูซ้ำได้ทุกเมื่อผ่านปุ่ม HELP หรือกด ?
+         เนื้อหาต้องครอบคลุมฟีเจอร์ "ที่มีอยู่จริงตอนนี้" — ของที่หาไม่เจอเท่ากับของที่ไม่มี -->
     <div id="onboardOverlay" class="onboard-overlay hidden" onclick="if(event.target===this) closeOnboarding()">
-        <div class="onboard-card">
+        <div class="onboard-card" style="max-width:640px;">
             <div class="flex items-center justify-between mb-3">
-                <div class="font-display text-[15px] tracking-[2px] text-neon"><i class="fas fa-network-wired mr-2"></i>ยินดีต้อนรับสู่ NetForge</div>
+                <div class="font-display text-[15px] tracking-[2px] text-neon"><i class="fas fa-network-wired mr-2"></i>คู่มือใช้งาน NetForge</div>
                 <button onclick="closeOnboarding()" class="text-muted hover:text-hot transition-colors p-1"><i class="fas fa-times fa-lg"></i></button>
             </div>
-            <p class="text-[13px] text-muted mb-4">เครื่องมือคำนวณ VLSM/IPv6 พร้อมจำลอง Topology เครือข่าย ใช้งานตามลำดับนี้ได้เลย</p>
-            <div class="space-y-3 mb-5">
-                <div class="onboard-step">
-                    <div class="onboard-step-icon"><i class="fas fa-list-ul"></i></div>
-                    <div><div class="onboard-step-title">1. เพิ่มแผนก</div><div class="onboard-step-desc">กรอกชื่อ + จำนวน Host เอง หรือกด EXAMPLE เลือกชุดข้อมูลสำเร็จรูป</div></div>
+
+            <div class="flex gap-1 mb-3 flex-wrap">
+                <button class="tab-btn help-tab active" data-help="start" onclick="switchHelpTab('start')">เริ่มต้น</button>
+                <button class="tab-btn help-tab" data-help="wan" onclick="switchHelpTab('wan')">หลายสาขา</button>
+                <button class="tab-btn help-tab" data-help="save" onclick="switchHelpTab('save')">บันทึก/แชร์</button>
+                <button class="tab-btn help-tab" data-help="keys" onclick="switchHelpTab('keys')">คีย์ลัด</button>
+            </div>
+
+            <div class="max-h-[52vh] overflow-y-auto pr-1">
+                <div class="help-pane" id="help-start">
+                    <div class="space-y-3">
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-list-ul"></i></div>
+                            <div><div class="onboard-step-title">1. ใส่แผนก</div><div class="onboard-step-desc">กรอกชื่อ + จำนวนเครื่องเอง หรือกด <b>EXAMPLE</b> เลือกชุดสำเร็จรูป 6 แบบ<br>ระบบคำนวณ VLSM ให้ทันทีทุกครั้งที่แก้ ไม่ต้องกดคำนวณซ้ำ</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-wand-magic-sparkles"></i></div>
+                            <div><div class="onboard-step-title">2. ปุ่มไม้กายสิทธิ์ ข้าง Calculate</div><div class="onboard-step-desc">หา Base ที่พอดีที่สุดให้อัตโนมัติ — ลดพื้นที่เหลือทิ้งได้มาก<br>ในโหมด IPv6 จะเติมค่ามาตรฐานและแก้ prefix ที่ตั้งผิดให้เอง</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-chart-pie"></i></div>
+                            <div><div class="onboard-step-title">3. อ่านแผงสรุปใต้ตาราง</div><div class="onboard-step-desc">แยกให้เห็น <b>ใช้จริง / เสียจากการปัด / สำรองเผื่อโต</b><br>พร้อมบอกว่าแต่ละแผนกเพิ่มเครื่องได้อีกกี่ตัวโดยไม่เสีย IP เพิ่ม</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-diagram-project"></i></div>
+                            <div><div class="onboard-step-title">4. จัดผังบน Canvas</div><div class="onboard-step-desc">ลากอุปกรณ์ได้อิสระ วาง PC/Server เพิ่มเอง คลิกโหนดเพื่อแก้รายละเอียด<br><b>ล้อเมาส์</b> = ย่อ/ขยาย · <b>ลากที่ว่าง</b> = เลื่อนผัง · ปุ่ม ⛶ = เห็นครบพอดีกรอบ</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-screwdriver-wrench"></i></div>
+                            <div><div class="onboard-step-title">5. แท็บล่างมี 3 อย่าง</div><div class="onboard-step-desc"><b>IP TABLE</b> ผลคำนวณ · <b>CLI CONFIG</b> คำสั่ง Cisco พร้อมคัดลอก · <b>NET TOOLS</b> Wildcard Mask และ Route Summary</div></div></div>
+                    </div>
                 </div>
-                <div class="onboard-step">
-                    <div class="onboard-step-icon"><i class="fas fa-calculator"></i></div>
-                    <div><div class="onboard-step-title">2. คำนวณอัตโนมัติ</div><div class="onboard-step-desc">ระบบคำนวณ VLSM (และ IPv6 ถ้าตั้งค่า) ให้ทันทีทุกครั้งที่แก้ไขข้อมูล</div></div>
+
+                <div class="help-pane hidden" id="help-wan">
+                    <div class="space-y-3">
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-network-wired"></i></div>
+                            <div><div class="onboard-step-title">วาง Router สาขา</div><div class="onboard-step-desc">กดปุ่ม <b>Router</b> มุมขวาบนของ Canvas แล้วคลิกตำแหน่งที่ต้องการ</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-link"></i></div>
+                            <div><div class="onboard-step-title">เชื่อมเป็นลิงก์ WAN</div><div class="onboard-step-desc">กด <b>Connect</b> แล้วคลิก Router สองตัว — ระบบจอง <b>/30</b> ให้อัตโนมัติ<br>ดูเลข IP ทั้งสองฝั่งได้ที่ตาราง WAN ใต้แท็บ IP TABLE</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-arrows-turn-right"></i></div>
+                            <div><div class="onboard-step-title">ย้ายแผนกไปอยู่สาขา</div><div class="onboard-step-desc">ลาก Router สาขาไปเชื่อมกับ <b>Switch</b> ของแผนกใด แผนกนั้นจะย้ายไปอยู่หลังสาขานั้น<br>สายจาก Router หลักถูกตัดออกเองอัตโนมัติ</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-terminal"></i></div>
+                            <div><div class="onboard-step-title">config แยกต่อ Router</div><div class="onboard-step-desc">แท็บ CLI จะมีปุ่มเลือกดูทีละตัว<br>สำนักงานใหญ่ได้ <b>static route</b> ไปแต่ละสาขา · สาขาได้ <b>default route</b> กลับต้นทาง</div></div></div>
+                    </div>
                 </div>
-                <div class="onboard-step">
-                    <div class="onboard-step-icon"><i class="fas fa-diagram-project"></i></div>
-                    <div><div class="onboard-step-title">3. จัดการ Topology</div><div class="onboard-step-desc">ลากอุปกรณ์ ลากเชื่อมสายบน Canvas ฝั่งขวาได้อิสระ</div></div>
+
+                <div class="help-pane hidden" id="help-save">
+                    <div class="space-y-3">
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-box-archive"></i></div>
+                            <div><div class="onboard-step-title">คลังโปรเจกต์ (ปุ่ม LIBRARY)</div><div class="onboard-step-desc">เก็บงานหลายชิ้นไว้ในเบราว์เซอร์ เปิดกลับมาได้ทันที ไม่ต้องสมัครสมาชิก<br>ข้อมูลอยู่ในเครื่องคุณเท่านั้น ไม่ถูกส่งออกไปไหน</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-link"></i></div>
+                            <div><div class="onboard-step-title">ลิงก์แชร์</div><div class="onboard-step-desc">ฝังทั้งโปรเจกต์ไว้ในตัว URL — ส่งลิงก์เดียวให้คนอื่นเปิดงานได้เลย ไม่ต้องแนบไฟล์</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-file-export"></i></div>
+                            <div><div class="onboard-step-title">ปุ่ม EXPORT</div><div class="onboard-step-desc"><b>.png</b> รูปผังความละเอียดสูงสำหรับรายงาน/สไลด์<br><b>.csv</b> ตาราง IP เปิดด้วย Excel · <b>.txt</b> คำสั่ง CLI ทุกอุปกรณ์ · <b>.json</b> ไฟล์โปรเจกต์</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-clock-rotate-left"></i></div>
+                            <div><div class="onboard-step-title">บันทึกอัตโนมัติ + ย้อนกลับได้</div><div class="onboard-step-desc">งานถูกเก็บอัตโนมัติทุกครั้งที่แก้ ปิดหน้าเว็บแล้วเปิดใหม่ยังอยู่<br>ลบผิดกด <b>Ctrl+Z</b> ย้อนได้ถึง 40 ขั้น</div></div></div>
+                    </div>
                 </div>
-                <div class="onboard-step">
-                    <div class="onboard-step-icon"><i class="fas fa-terminal"></i></div>
-                    <div><div class="onboard-step-title">4. Export คำสั่ง CLI</div><div class="onboard-step-desc">คัดลอกคำสั่ง Cisco IOS ไปวางใช้กับอุปกรณ์จริงได้ทันที</div></div>
+
+                <div class="help-pane hidden" id="help-keys">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[13px]">
+                        <div class="flex justify-between py-1"><span class="text-muted">ย้อนกลับ</span><kbd>Ctrl + Z</kbd></div>
+                        <div class="flex justify-between py-1"><span class="text-muted">ทำซ้ำ</span><kbd>Ctrl + Y</kbd></div>
+                        <div class="flex justify-between py-1"><span class="text-muted">เปิดคลังโปรเจกต์</span><kbd>Ctrl + S</kbd></div>
+                        <div class="flex justify-between py-1"><span class="text-muted">บันทึกรูปผัง</span><kbd>Ctrl + E</kbd></div>
+                        <div class="flex justify-between py-1"><span class="text-muted">จัดผังพอดีกรอบ</span><kbd>Ctrl + F</kbd></div>
+                        <div class="flex justify-between py-1"><span class="text-muted">ลบสิ่งที่เลือก</span><kbd>Delete</kbd></div>
+                        <div class="flex justify-between py-1"><span class="text-muted">ปิดหน้าต่าง / ยกเลิกโหมด</span><kbd>Esc</kbd></div>
+                        <div class="flex justify-between py-1"><span class="text-muted">เปิดคู่มือนี้</span><kbd>?</kbd></div>
+                        <div class="flex justify-between py-1"><span class="text-muted">ย่อ / ขยายผัง</span><kbd>ล้อเมาส์</kbd></div>
+                        <div class="flex justify-between py-1"><span class="text-muted">เลื่อนผัง</span><kbd>ลากที่ว่าง</kbd></div>
+                    </div>
+                    <p class="text-[12px] text-subtle mt-3">คีย์ลัดที่ใช้ Ctrl ใช้ได้แม้ขณะพิมพ์อยู่ในช่องกรอก ส่วน Delete และ ? จะทำงานเฉพาะตอนไม่ได้พิมพ์อยู่</p>
                 </div>
             </div>
-            <button onclick="closeOnboarding()" class="btn-neon w-full justify-center text-[13px] py-2">เริ่มใช้งาน</button>
+
+            <button onclick="closeOnboarding()" class="btn-neon w-full justify-center text-[13px] py-2 mt-4">เริ่มใช้งาน</button>
         </div>
     </div>
 
@@ -127,13 +176,40 @@
                 <i class="fas fa-location-arrow mr-1"></i>ARROWS
             </button>
 
+            <button id="btnUndo" onclick="undo()" class="btn-cyber text-[12px] px-2" title="ย้อนกลับ (Ctrl+Z)"><i class="fas fa-rotate-left"></i></button>
+            <button id="btnRedo" onclick="redo()" class="btn-cyber text-[12px] px-2" title="ทำซ้ำ (Ctrl+Y)"><i class="fas fa-rotate-right"></i></button>
+
+            <div class="relative flex-1 md:flex-none" id="exportWrapper">
+                <button onclick="toggleExportMenu()" class="btn-cyber text-[12px] w-full md:w-auto justify-center" title="บันทึกงานออกไปใช้ต่อ">
+                    <i class="fas fa-file-export mr-1"></i>EXPORT <i class="fas fa-caret-down ml-1 text-[11px]"></i>
+                </button>
+                <div id="exportDropdown" class="example-dropdown w-[280px] left-0 md:left-auto md:right-0">
+                    <div class="ex-item" onclick="closeExportMenu();exportTopologyPNG()">
+                        <div class="ex-icon" style="background:rgba(76,141,255,0.1);border:1px solid rgba(76,141,255,0.3);color:#4C8DFF;"><i class="fas fa-image"></i></div>
+                        <div><div class="ex-title">รูปผัง (.png)</div><div class="ex-desc">ความละเอียด 2 เท่า ครอบเฉพาะอุปกรณ์<br>แปะลงรายงาน/สไลด์ได้ทันที</div></div>
+                    </div>
+                    <div class="ex-item" onclick="closeExportMenu();exportTableCSV()">
+                        <div class="ex-icon" style="background:rgba(76,141,255,0.1);border:1px solid rgba(76,141,255,0.3);color:#4C8DFF;"><i class="fas fa-table"></i></div>
+                        <div><div class="ex-title">ตาราง IP (.csv)</div><div class="ex-desc">IPv4 + IPv6 + ลิงก์ WAN + Static IP<br>เปิดด้วย Excel ได้เลย</div></div>
+                    </div>
+                    <div class="ex-item" onclick="closeExportMenu();exportCliTxt()">
+                        <div class="ex-icon" style="background:rgba(76,141,255,0.1);border:1px solid rgba(76,141,255,0.3);color:#4C8DFF;"><i class="fas fa-file-lines"></i></div>
+                        <div><div class="ex-title">คำสั่ง CLI (.txt)</div><div class="ex-desc">รวมทุก Router และ Switch ในไฟล์เดียว</div></div>
+                    </div>
+                    <div class="ex-item" onclick="closeExportMenu();exportProject()">
+                        <div class="ex-icon" style="background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.3);color:#94A3B8;"><i class="fas fa-code"></i></div>
+                        <div><div class="ex-title">ไฟล์โปรเจกต์ (.json)</div><div class="ex-desc">สำหรับเปิดกลับมาแก้ต่อในภายหลัง</div></div>
+                    </div>
+                </div>
+            </div>
+
             <button onclick="openLibrary()" class="btn-neon text-[12px] flex-1 md:flex-none justify-center" title="คลังโปรเจกต์ในเบราว์เซอร์ + ลิงก์แชร์"><i class="fas fa-box-archive mr-1"></i>LIBRARY</button>
 
             <button onclick="exportProject()" class="btn-cyber text-[12px] flex-1 md:flex-none justify-center" title="บันทึกโปรเจกต์เป็นไฟล์ .json"><i class="fas fa-download mr-1"></i>SAVE</button>
             <input id="importFileInput" type="file" accept="application/json,.json" class="hidden" onchange="onImportFileSelected(this)" />
             <button onclick="triggerImportProject()" class="btn-cyber text-[12px] flex-1 md:flex-none justify-center" title="โหลดโปรเจกต์จากไฟล์ .json"><i class="fas fa-upload mr-1"></i>LOAD</button>
 
-            <button onclick="clearAll()" class="btn-hot text-[12px] flex-1 md:flex-none justify-center"><i class="fas fa-trash mr-1"></i>CLEAR</button>
+            <button onclick="confirmClearAll()" class="btn-hot text-[12px] flex-1 md:flex-none justify-center"><i class="fas fa-trash mr-1"></i>CLEAR</button>
             <button onclick="resetLayout()" class="btn-cyber text-[12px] flex-1 md:flex-none justify-center"><i class="fas fa-redo mr-1"></i>RESET</button>
         </div>
     </header>
@@ -306,6 +382,8 @@
     <script src="js/wan.js"></script>
     <script src="js/tools.js"></script>
     <script src="js/library.js"></script>
+    <script src="js/history.js"></script>
+    <script src="js/export.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

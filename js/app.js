@@ -81,6 +81,7 @@ function toggleExampleDropdown() {
 function loadExample(key) {
     var ex = EXAMPLES[key];
     if (!ex) return;
+    if (typeof pushHistory === 'function') pushHistory('โหลดตัวอย่าง');
     document.getElementById('exampleDropdown').classList.remove('open');
 
     try {
@@ -118,6 +119,7 @@ function loadExample(key) {
 }
 
 function clearAll() {
+    if (typeof pushHistory === 'function') pushHistory('ล้างข้อมูลทั้งหมด');
     try {
         state.departments = [];
         state.calculated = [];
@@ -145,6 +147,10 @@ function clearAll() {
    ============================================ */
 var PROJECT_SCHEMA_VERSION = 1;
 
+// เพดานจำนวนแผนก — ผูกกับจำนวนสีใน DEPT_COLORS (12 สี) เพื่อไม่ให้มีสองแผนกได้สีซ้ำกัน
+// เดิมตั้งไว้ 8 แบบไม่มีเหตุผลรองรับ และเป็นข้อจำกัดที่ผู้ใช้ชนบ่อยเวลาวางแผนองค์กรจริง
+var MAX_DEPARTMENTS = 12;
+
 function buildProjectSnapshot() {
     return {
         schemaVersion: PROJECT_SCHEMA_VERSION,
@@ -152,7 +158,11 @@ function buildProjectSnapshot() {
         baseIp: state.baseIp,
         baseCidr: state.baseCidr,
         nextId: state.nextId,
-        departments: state.departments,
+        // ต้องสำเนาเป็น object ใหม่ ไม่ใช่ส่ง state.departments ตรง ๆ
+        // เดิมเป็น reference ตัวเดียวกับของจริง ซึ่งไม่มีปัญหาตอน export/บันทึกลงคลัง
+        // เพราะถูก JSON.stringify ทันที แต่ระบบ Undo เก็บ snapshot ค้างไว้ในหน่วยความจำ
+        // -> สภาพที่ "เก็บไว้" กลายพันธุ์ตามการแก้ไขครั้งถัดไป ทำให้ย้อนกลับแล้วไม่มีอะไรเปลี่ยน
+        departments: state.departments.map(function(d) { return { id: d.id, name: d.name, hosts: d.hosts }; }),
         ipMode: state.ipMode,
         baseIp6: state.baseIp6,
         basePrefixLen6: state.basePrefixLen6,
@@ -230,6 +240,8 @@ function onImportFileSelected(inputEl) {
             return;
         }
         applyProjectData(data);
+        // เปลี่ยนโปรเจกต์คนละชิ้นแล้ว การย้อนกลับไปหาของเก่าไม่มีความหมายและทำให้สับสน
+        if (typeof clearHistory === 'function') clearHistory();
     };
     reader.onerror = function() {
         showToast('อ่านไฟล์ไม่สำเร็จ', 'error');
@@ -270,9 +282,9 @@ function applyProjectData(data) {
         state.departments = data.departments.map(function(d) {
             return { id: d.id, name: String(d.name).trim() || ('Dept-' + d.id), hosts: Math.min(Math.max(parseInt(d.hosts) || 1, 1), 65534) };
         });
-        if (state.departments.length > 8) {
-            state.departments = state.departments.slice(0, 8);
-            showToast('ไฟล์มีมากกว่า 8 แผนก — ใช้แค่ 8 แผนกแรก', 'info');
+        if (state.departments.length > MAX_DEPARTMENTS) {
+            state.departments = state.departments.slice(0, MAX_DEPARTMENTS);
+            showToast('ไฟล์มีมากกว่า ' + MAX_DEPARTMENTS + ' แผนก — ใช้แค่ ' + MAX_DEPARTMENTS + ' แผนกแรก', 'info');
         }
 
         var maxDeptId = state.departments.reduce(function(m, d) { return Math.max(m, d.id); }, 0);
@@ -434,12 +446,21 @@ function showToast(msg, type) {
     }, 2500);
 }
 
+function toggleExportMenu() {
+    document.getElementById('exportDropdown').classList.toggle('open');
+}
+function closeExportMenu() {
+    document.getElementById('exportDropdown').classList.remove('open');
+}
+
 // ปิด dropdown เมื่อคลิกข้างนอก
 document.addEventListener('click', function(e) {
     var wrapper = document.getElementById('exampleWrapper');
     if (wrapper && !wrapper.contains(e.target)) {
         document.getElementById('exampleDropdown').classList.remove('open');
     }
+    var exWrap = document.getElementById('exportWrapper');
+    if (exWrap && !exWrap.contains(e.target)) closeExportMenu();
 });
 
 // ปุ่ม Escape — ทางออกมาตรฐานที่ผู้ใช้คาดหวังจากทุกแอป แต่เดิมไม่มีเลย
@@ -447,6 +468,36 @@ document.addEventListener('click', function(e) {
 // เพื่อให้กด Esc ซ้ำ ๆ แล้วถอยออกทีละขั้นได้ตามสัญชาตญาณ
 function setupGlobalKeys() {
     document.addEventListener('keydown', function (e) {
+        // ----- คีย์ลัดที่ใช้ร่วมกับ Ctrl/Cmd -----
+        // ข้ามเมื่อกำลังพิมพ์อยู่ในช่องกรอก ยกเว้น Ctrl+Z/Y ที่ควรใช้ได้ทุกที่
+        var el = document.activeElement;
+        var typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+        var mod = e.ctrlKey || e.metaKey;
+
+        if (mod) {
+            var k = String(e.key).toLowerCase();
+            if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+            if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; }
+            if (k === 's') { e.preventDefault(); openLibrary(); return; }          // บันทึกลงคลัง
+            if (k === 'e') { e.preventDefault(); exportTopologyPNG(); return; }    // ออกเป็นรูป
+            if (k === 'f' && !typing) { e.preventDefault(); zoomToFit(); return; } // จัดผังพอดีกรอบ
+            return;
+        }
+
+        // ----- คีย์เดี่ยว (เฉพาะตอนไม่ได้พิมพ์อยู่ในช่องกรอก) -----
+        if (!typing) {
+            if (e.key === '?' || (e.key === '/' && e.shiftKey)) { e.preventDefault(); showOnboarding(); return; }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                // ลบสิ่งที่เลือกอยู่บนผัง — ทางลัดที่ผู้ใช้คาดหวังจากทุกโปรแกรมวาด
+                if (state.selectedNodeType === 'pc' || state.selectedNodeType === 'server' || state.selectedNodeType === 'router-branch') {
+                    e.preventDefault(); onRemoveManualNode(state.selectedDeptId); return;
+                }
+                if (state.selectedNodeType === 'department' && state.selectedDeptId) {
+                    e.preventDefault(); onRemoveDept(state.selectedDeptId); return;
+                }
+            }
+        }
+
         if (e.key !== 'Escape') return;
         try {
             var lib = document.getElementById('libraryOverlay');

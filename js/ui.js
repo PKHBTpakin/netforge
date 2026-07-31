@@ -52,7 +52,12 @@ function renderSidebarDepts() {
             '<div class="flex items-center justify-between mb-1">' +
                 '<span class="text-[14px] font-bold" style="color:' + color + '">' +
                     (failed ? '<i class="fas fa-triangle-exclamation text-hot mr-1"></i>' : '') + escapeHtml(dept.name) + '</span>' +
-                '<button onclick="event.stopPropagation();onRemoveDept(' + dept.id + ')" class="text-subtle hover:text-hot text-[12px] transition-colors"><i class="fas fa-trash-alt"></i></button>' +
+                '<span class="dept-actions">' +
+                    '<button onclick="event.stopPropagation();onMoveDept(' + dept.id + ',-1)" class="text-subtle hover:text-neon text-[12px] transition-colors" title="เลื่อนขึ้น"><i class="fas fa-chevron-up"></i></button>' +
+                    '<button onclick="event.stopPropagation();onMoveDept(' + dept.id + ',1)" class="text-subtle hover:text-neon text-[12px] transition-colors" title="เลื่อนลง"><i class="fas fa-chevron-down"></i></button>' +
+                    '<button onclick="event.stopPropagation();onDuplicateDept(' + dept.id + ')" class="text-subtle hover:text-neon text-[12px] transition-colors" title="ทำซ้ำแผนกนี้"><i class="fas fa-copy"></i></button>' +
+                    '<button onclick="event.stopPropagation();onRemoveDept(' + dept.id + ')" class="text-subtle hover:text-hot text-[12px] transition-colors" title="ลบแผนกนี้"><i class="fas fa-trash-alt"></i></button>' +
+                '</span>' +
             '</div>' +
             '<div class="text-[12px] text-muted">' +
                 '<span>Hosts: ' + dept.hosts + '</span>' +
@@ -327,6 +332,7 @@ function renderHeadroomHTML() {
    ตอนนี้แยกทางตามโหมดตั้งแต่บรรทัดแรก ไม่ให้ข้ามฝั่งกันอีก */
 // เปลี่ยนชื่อ Router สาขา — ชื่อนี้ถูกใช้เป็น hostname ใน CLI และในคำอธิบายลิงก์ WAN ของอีกฝั่งด้วย
 function onBranchRouterRename(id, value) {
+    if (typeof pushHistory === 'function') pushHistory('เปลี่ยนชื่อ Router');
     try {
         var node = topoNodes.manualNodes.find(function(n) { return n.id === id; });
         if (!node) return;
@@ -650,6 +656,7 @@ function updateDetailSubnetInfo() {
 
 function onDetailInput(deptId, field, value) {
     if (isEditing) return;
+    if (typeof pushHistory === 'function') pushHistory(field === 'name' ? 'เปลี่ยนชื่อแผนก' : 'แก้จำนวน Host');
     isEditing = true;
     try {
         var dept = state.departments.find(function(d) { return d.id === deptId; });
@@ -681,6 +688,7 @@ function onBaseChange() {
     var cidr = parseInt(document.getElementById('baseCidrInput').value);
     if (!isValidIp(ip)) { showToast('IP ไม่ถูกต้อง', 'error'); return; }
     if (isNaN(cidr) || cidr < 8 || cidr > 30) { showToast('CIDR ต้อง 8-30', 'error'); return; }
+    if (typeof pushHistory === 'function') pushHistory('เปลี่ยน Base Network');
 
     // ปัดลงหาขอบ block ก่อนเสมอ — ใส่ 10.0.0.5/24 ต้องได้ 10.0.0.0/24 ไม่ใช่เริ่มแจกจาก .5
     var normalized = normalizeNetwork(ip, cidr);
@@ -720,6 +728,7 @@ function onBaseChangeV6() {
         document.getElementById('baseIp6Input').value = ip; // สะท้อนกลับให้ผู้ใช้เห็นว่าระบบใช้ค่าไหนจริง
     }
 
+    if (typeof pushHistory === 'function') pushHistory('เปลี่ยน Base IPv6');
     state.baseIp6 = ip;
     state.basePrefixLen6 = prefix;
     state.newPrefixLen6 = newPrefix;
@@ -799,7 +808,17 @@ function updateThemeButton() {
         : '<i class="fas fa-sun mr-1"></i>LIGHT';
 }
 
-// ----- Onboarding Modal: อธิบาย 4 ขั้นตอนการใช้งานหลัก เรียกดูซ้ำได้ทุกเมื่อผ่านปุ่ม HELP -----
+// สลับแท็บในหน้าคู่มือ — เนื้อหายาวเกินกว่าจะยัดหน้าเดียวหลังเพิ่มฟีเจอร์หลายรอบ
+function switchHelpTab(name) {
+    document.querySelectorAll('.help-tab').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.help === name);
+    });
+    document.querySelectorAll('.help-pane').forEach(function(p) {
+        p.classList.toggle('hidden', p.id !== 'help-' + name);
+    });
+}
+
+// ----- หน้าคู่มือ: เรียกดูซ้ำได้ทุกเมื่อผ่านปุ่ม HELP หรือกด ? -----
 function showOnboarding() {
     var el = document.getElementById('onboardOverlay');
     if (el) el.classList.remove('hidden');
@@ -821,6 +840,7 @@ function maybeShowOnboardingOnFirstVisit() {
 
 function onAddDept() {
     if (isEditing) return;
+    if (typeof pushHistory === 'function') pushHistory('เพิ่มแผนก');
     var nameEl = document.getElementById('newDeptName');
     var hostsEl = document.getElementById('newDeptHosts');
     var name = nameEl.value.trim();
@@ -828,7 +848,7 @@ function onAddDept() {
     if (!name) { showToast('ระบุชื่อแผนก', 'error'); return; }
     if (isNaN(hosts) || hosts < 1) { showToast('Hosts >= 1', 'error'); return; }
     if (hosts > 65534) { showToast('Hosts สูงสุด 65534 (เทียบเท่า /16)', 'error'); return; }
-    if (state.departments.length >= 8) { showToast('สูงสุด 8 แผนก', 'error'); return; }
+    if (state.departments.length >= MAX_DEPARTMENTS) { showToast('สูงสุด ' + MAX_DEPARTMENTS + ' แผนก', 'error'); return; }
     isEditing = true;
     try {
         state.departments.push({ id: state.nextId++, name: name, hosts: hosts });
@@ -845,8 +865,55 @@ function onAddDept() {
     }
 }
 
+/* ทำซ้ำแผนก — เวลาวางแผนจริงมักมีหลายแผนกขนาดใกล้กัน (เช่น Classroom-A/B/C)
+   เดิมต้องพิมพ์ชื่อและจำนวนเครื่องใหม่ทุกครั้ง */
+function onDuplicateDept(id) {
+    if (isEditing) return;
+    var src = state.departments.find(function(d) { return d.id === id; });
+    if (!src) return;
+    if (state.departments.length >= MAX_DEPARTMENTS) { showToast('สูงสุด ' + MAX_DEPARTMENTS + ' แผนก', 'error'); return; }
+    if (typeof pushHistory === 'function') pushHistory('ทำซ้ำแผนก');
+    isEditing = true;
+    try {
+        // แทรกต่อท้ายตัวต้นฉบับทันที ไม่ใช่ท้ายรายการ เพื่อให้อ่านง่ายว่าคู่ไหนคู่กัน
+        var idx = state.departments.indexOf(src);
+        var copy = { id: state.nextId++, name: src.name + '-copy', hosts: src.hosts };
+        state.departments.splice(idx + 1, 0, copy);
+        refreshAll();
+        showToast('ทำซ้ำ ' + src.name + ' แล้ว', 'success');
+    } catch (err) {
+        console.error('onDuplicateDept error:', err);
+        showToast('ทำซ้ำไม่สำเร็จ', 'error');
+    } finally {
+        isEditing = false;
+    }
+}
+
+/* เลื่อนลำดับแผนก — ลำดับนี้ไม่กระทบการคำนวณ VLSM (ซึ่งเรียงตามขนาดเสมอ)
+   แต่กระทบลำดับที่แสดงใน sidebar และการแบ่ง subnet ฝั่ง IPv6 ซึ่งเรียงตามลำดับที่เพิ่ม
+   ใช้ปุ่มขึ้น/ลงแทนการลากวาง เพราะทำงานได้ทั้งเมาส์ คีย์บอร์ด และการสัมผัส โดยไม่ต้องเขียน drag-and-drop */
+function onMoveDept(id, delta) {
+    if (isEditing) return;
+    var idx = state.departments.findIndex(function(d) { return d.id === id; });
+    var target = idx + delta;
+    if (idx < 0 || target < 0 || target >= state.departments.length) return;
+    if (typeof pushHistory === 'function') pushHistory('สลับลำดับแผนก');
+    isEditing = true;
+    try {
+        var tmp = state.departments[idx];
+        state.departments[idx] = state.departments[target];
+        state.departments[target] = tmp;
+        refreshAll();
+    } catch (err) {
+        console.error('onMoveDept error:', err);
+    } finally {
+        isEditing = false;
+    }
+}
+
 function onRemoveDept(id) {
     if (isEditing) return;
+    if (typeof pushHistory === 'function') pushHistory('ลบแผนก');
     isEditing = true;
     try {
         var dept = state.departments.find(function(d) { return d.id === id; });
@@ -858,7 +925,7 @@ function onRemoveDept(id) {
         }
         refreshAll();
         if (typeof detachManualNodesFromDept === 'function') detachManualNodesFromDept(id);
-        showToast('ลบ ' + (dept ? dept.name : 'dept') + ' แล้ว', 'info');
+        showToast('ลบ ' + (dept ? dept.name : 'dept') + ' แล้ว — กด Ctrl+Z เพื่อย้อนกลับ', 'info');
     } catch (err) {
         console.error('onRemoveDept error:', err);
         showToast('ลบแผนกไม่สำเร็จ', 'error');
@@ -1346,6 +1413,7 @@ function onManualIpInput(id, value) {
 // เรียกตอนพิมพ์เสร็จ/ออกจากช่อง (onchange) — ตรวจแบบเต็มรูปแบบและแจ้งเตือนถ้าไม่ผ่าน
 // ครอบคลุม: รูปแบบ IP, อยู่ในช่วง subnet ของแผนกที่เชื่อมอยู่ไหม, ชนกับ Gateway (firstUsable) ไหม, ซ้ำกับอุปกรณ์อื่นไหม
 function onManualIpChange(id, value) {
+    if (typeof pushHistory === 'function') pushHistory('แก้ IP อุปกรณ์');
     try {
         var node = topoNodes.manualNodes.find(function(n) { return n.id === id; });
         if (!node) return;
@@ -1392,6 +1460,7 @@ function onManualIpChange(id, value) {
 }
 
 function onSuggestIp(id) {
+    if (typeof pushHistory === 'function') pushHistory('แนะนำ IP');
     try {
         var node = topoNodes.manualNodes.find(function(n) { return n.id === id; });
         if (!node || !node.linkedDeptId) { showToast('ต้องเชื่อมกับ Switch ก่อนถึงจะแนะนำ IP ได้', 'error'); return; }
@@ -1408,6 +1477,7 @@ function onSuggestIp(id) {
 
 // ลบสายเชื่อมทีละเส้น
 function onRemoveLink(linkId) {
+    if (typeof pushHistory === 'function') pushHistory('ลบสายเชื่อม');
     try {
         removeLink(linkId);
         renderDetailPanel();
@@ -1419,12 +1489,13 @@ function onRemoveLink(linkId) {
 }
 
 function onRemoveManualNode(id) {
+    if (typeof pushHistory === 'function') pushHistory('ลบอุปกรณ์');
     try {
         removeManualNode(id);
         state.selectedDeptId = null;
         state.selectedNodeType = null;
         closeDetailPanel();
-        showToast('ลบอุปกรณ์แล้ว', 'info');
+        showToast('ลบอุปกรณ์แล้ว — กด Ctrl+Z เพื่อย้อนกลับ', 'info');
     } catch (err) {
         console.error('onRemoveManualNode error:', err);
         showToast('ลบอุปกรณ์ไม่สำเร็จ', 'error');

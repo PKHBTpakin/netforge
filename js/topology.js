@@ -22,8 +22,15 @@ let viewPanX = 0, viewPanY = 0;
 let panInfo = null; // { startX, startY, panX, panY } ระหว่างลากพื้นที่ว่างเพื่อเลื่อนผัง
 const ZOOM_MIN = 0.35, ZOOM_MAX = 2.5;
 
-const DEPT_COLORS_DARK = ['#14B8A6','#A78BFA','#F59E0B','#22C55E','#EC4899','#818CF8','#F97316','#0EA5E9'];
-const DEPT_COLORS_LIGHT = ['#096459','#6D28D9','#7A4405','#0C5C2C','#9E144D','#4338CA','#8F3408','#025580'];
+/* ชุดสีประจำแผนก — ขยายจาก 8 เป็น 12 สีตอนปลดเพดานจำนวนแผนก
+   ไม่ได้เลือกด้วยสายตา แต่คัดด้วยการคำนวณ: เริ่มจากชุดผู้สมัครหลายสิบสี แล้วเลือกชุดที่
+   "ระยะห่างต่ำสุดระหว่างสีคู่ใด ๆ ในปริภูมิ CIE Lab" มากที่สุด ภายใต้เงื่อนไข
+     1. contrast >= 4.5:1 บนทั้งพื้นหลังและการ์ดของธีมตัวเอง (WCAG AA)
+     2. ต้องห่างจากสีอุปกรณ์คงที่ (Router/PC/Server/Router สาขา) พอสมควร ไม่งั้นบนผังจะแยกไม่ออก
+   ผลที่ได้ Dark ระยะคู่ใกล้สุดดีขึ้นจาก 11.3 เป็น 27.6 (ชุดเดิมมีม่วงสองเฉดที่ใกล้กันจนแทบแยกไม่ออก)
+   Light ได้ 17.6 ซึ่งยังดีกว่าชุดเดิมที่ 17.2 (สีเข้มบนพื้นขาวเบียดกันเองในปริภูมิสีโดยธรรมชาติ) */
+const DEPT_COLORS_DARK = ['#FDE047','#E879F9','#67E8F9','#F87171','#A5B4FC','#86EFAC','#F97316','#D4A574','#A3E635','#F9A8D4','#CBD5E1','#14B8A6'];
+const DEPT_COLORS_LIGHT = ['#025580','#B91C1C','#6D28D9','#701A75','#0F766E','#A21CAF','#7F1D1D','#312E81','#334155','#6B21A8','#9A3412','#134E4A'];
 let DEPT_COLORS = DEPT_COLORS_DARK; // applyTheme() ใน ui.js สลับให้เมื่อ toggle โหมด
 
 // สี "chrome" ของ Canvas เอง (ไม่ใช่สีอุปกรณ์) — กล่อง Node / เส้น grid / ตัวหนังสือ label หลัก
@@ -676,6 +683,7 @@ function handlePointerDown(x, y) {
     try {
         // โหมดวางอุปกรณ์ใหม่ (ปุ่ม PC/Server ที่มุมขวาบน) มีสิทธิ์ก่อนเสมอ
         if (state.placingType) {
+            if (typeof pushHistory === 'function') pushHistory('วางอุปกรณ์');
             const DeviceClass = state.placingType === 'pc' ? PCDevice
                               : state.placingType === 'router-branch' ? BranchRouterDevice
                               : ServerDevice;
@@ -698,6 +706,7 @@ function handlePointerDown(x, y) {
                 return;
             }
             if (state.linkFromId === hit.node.id) { state.linkFromId = null; return; } // คลิกตัวเดิมซ้ำ = ยกเลิก
+            if (typeof pushHistory === 'function') pushHistory('เชื่อมสาย');
             const link = addLink(state.linkFromId, hit.node.id);
             state.linkFromId = null;
             // ต้องคำนวณใหม่ทันที ไม่งั้นลิงก์ WAN ที่เพิ่งสร้างจะยังไม่ได้ /30 จนกว่าผู้ใช้จะไปแก้อย่างอื่น

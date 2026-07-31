@@ -21,7 +21,7 @@ const vm = require('vm');
 const path = require('path');
 
 const PROJECT_ROOT = path.join(__dirname, '..');
-const JS_FILES = ['js/examples.js', 'js/vlsm.js', 'js/vlsm6.js', 'js/devices.js', 'js/topology.js', 'js/ui.js', 'js/wan.js', 'js/tools.js', 'js/library.js', 'js/app.js'];
+const JS_FILES = ['js/examples.js', 'js/vlsm.js', 'js/vlsm6.js', 'js/devices.js', 'js/topology.js', 'js/ui.js', 'js/wan.js', 'js/tools.js', 'js/library.js', 'js/history.js', 'js/export.js', 'js/app.js'];
 
 let capturedToasts = [];
 let clipboardText = null;

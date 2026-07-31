@@ -32,7 +32,7 @@ const vm = require('vm');
 const path = require('path');
 
 const PROJECT_ROOT = path.join(__dirname, '..');
-const JS_FILES = ['js/examples.js', 'js/vlsm.js', 'js/vlsm6.js', 'js/devices.js', 'js/topology.js', 'js/ui.js', 'js/wan.js', 'js/tools.js', 'js/library.js', 'js/app.js'];
+const JS_FILES = ['js/examples.js', 'js/vlsm.js', 'js/vlsm6.js', 'js/devices.js', 'js/topology.js', 'js/ui.js', 'js/wan.js', 'js/tools.js', 'js/library.js', 'js/history.js', 'js/export.js', 'js/app.js'];
 
 let capturedToasts = [];
 let capturedBlob = null;
@@ -181,18 +181,18 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     // ===== ส่วนที่ 4: ไฟล์ผิดปกติ — เกิน 8 แผนก / link ค้าง / ไม่มี next-counter =====
     const corrupted = {
         schemaVersion: 1, baseIp: '10.0.0.0', baseCidr: 24,
-        departments: Array.from({ length: 9 }, (_, i) => ({ id: i + 1, name: 'D' + (i + 1), hosts: 10 })), // 9 แผนก ไม่มี nextId
+        departments: Array.from({ length: 13 }, (_, i) => ({ id: i + 1, name: 'D' + (i + 1), hosts: 10 })), // เกินเพดาน MAX_DEPARTMENTS (12) ไม่มี nextId
         ipMode: 'v4',
         manualNodes: [{ id: 'm-5', type: 'pc', x: 10, y: 10, ip: null, linkedDeptId: null }],
         links: [{ id: 'link-9', fromId: 'm-5', toId: 'm-does-not-exist' }] // ลิงก์ค้าง ปลายทางไม่มีจริง
     };
     capturedToasts = [];
     vm.runInContext('applyProjectData(__corrupted)', Object.assign(context, { __corrupted: corrupted }));
-    check('corrupt: truncated to 8 departments', vm.runInContext('state.departments.length', context) === 8, vm.runInContext('state.departments.length', context));
+    check('corrupt: ตัดเหลือ MAX_DEPARTMENTS (12) แผนก', vm.runInContext('state.departments.length', context) === vm.runInContext('MAX_DEPARTMENTS', context), vm.runInContext('state.departments.length', context));
     check('corrupt: dangling link dropped', vm.runInContext('topoNodes.links.length', context) === 0, vm.runInContext('topoNodes.links.length', context));
-    check('corrupt: nextId fallback > max dept id', vm.runInContext('state.nextId', context) > 8, vm.runInContext('state.nextId', context));
+    check('corrupt: nextId fallback > max dept id', vm.runInContext('state.nextId', context) > 12, vm.runInContext('state.nextId', context));
     check('corrupt: nextManualNodeId fallback > 5', vm.runInContext('nextManualNodeId', context) > 5, vm.runInContext('nextManualNodeId', context));
-    check('corrupt: truncation warning toast shown', capturedToasts.some(t => /8 แผนกแรก/.test(t.msg)), JSON.stringify(capturedToasts));
+    check('corrupt: truncation warning toast shown', capturedToasts.some(t => /แผนกแรก/.test(t.msg)), JSON.stringify(capturedToasts));
 
     // ===== ส่วนที่ 5: Autosave — debounce เขียน localStorage + กู้คืนตอน init() + Clear ล้าง key =====
     vm.runInContext("loadExample('company')", context); // Corporate Network — 6 แผนก
