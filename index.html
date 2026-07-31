@@ -37,7 +37,8 @@
     <!-- favicon เป็น SVG ฝังในไฟล์ตรงนี้เลย (data URI) — ไม่เพิ่ม request และไม่พึ่ง CDN
          ถ้าไม่ใส่ เบราว์เซอร์จะยิงหา /favicon.ico แล้วได้ 404 ทุกครั้งที่เปิดหน้า -->
     <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iIzBmMTExNSIvPjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzRDOERGRiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxwYXRoIGQ9Ik0xNiAxMy41djQuMk0xNSAxOC42IDkuNCAyMU0xNyAxOC42IDIyLjYgMjEiLz48L2c+PGcgZmlsbD0iIzRDOERGRiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxMC41IiByPSIzLjMiLz48Y2lyY2xlIGN4PSI3LjYiIGN5PSIyMi40IiByPSIzLjMiLz48Y2lyY2xlIGN4PSIyNC40IiBjeT0iMjIuNCIgcj0iMy4zIi8+PC9nPjwvc3ZnPg==">
-    <link rel="apple-touch-icon" href="og-image.png">
+    <!-- iOS ไม่รองรับ favicon แบบ SVG จึงต้องมี PNG สี่เหลี่ยมจัตุรัสแยกให้ (180x180 คือขนาดที่ Apple แนะนำ) -->
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 
     <!-- ========== หมายเหตุเรื่อง SRI (Subresource Integrity) ==========
          ตั้งใจ "ไม่ใส่" integrity= ให้สามตัวข้างล่าง และนี่คือการตัดสินใจ ไม่ใช่การลืม
@@ -50,12 +51,20 @@
          2) fonts.googleapis.com — ตอบ CSS ไม่เหมือนกันตาม User-Agent (woff2 / woff / ttf)
             hash ที่ถูกกับเบราว์เซอร์เรา จะผิดกับเบราว์เซอร์อื่นเสมอ ใส่ไม่ได้โดยธรรมชาติของมัน
          3) cdnjs (Font Awesome 6.5.0) — ปักเวอร์ชันแล้ว ไฟล์นิ่ง ใส่ SRI ได้จริงตัวเดียวในสามตัวนี้
-            ค่า hash ต้องคำนวณจากไฟล์จริง ห้ามเดา เอามาจาก cdnjs.com/libraries/font-awesome
-            (ปุ่ม copy จะให้แท็กพร้อม integrity มาเลย) หรือรันเอง:
-              curl -s https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css \
-                | openssl dgst -sha384 -binary | openssl base64 -A
-            แล้วเติม integrity="sha384-<ค่าที่ได้>" crossorigin="anonymous" ลงในแท็กที่ 3
-            ทดสอบว่าไอคอนยังขึ้นครบก่อน commit ทุกครั้ง -->
+
+         ถ้าจะใส่ให้ตัวที่ 3 — ทางที่ไม่มีโอกาสพิมพ์ผิดเลย:
+           เข้า cdnjs.com/libraries/font-awesome -> เลือกเวอร์ชัน 6.5.0 -> กดปุ่ม copy
+           มันให้แท็ก <link> พร้อม integrity มาครบ **วางทับแท็กที่ 3 ทั้งบรรทัด**
+           แล้วเปิดเว็บเช็คว่าไอคอนยังขึ้นครบก่อน push
+
+         กับดัก: ห้าม copy มาแค่ค่า integrity แล้วแปะใส่แท็กเดิม
+           SRI บนไฟล์ข้ามโดเมนบังคับต้องมี crossorigin="anonymous" คู่กันด้วย
+           ถ้าขาดไป เบราว์เซอร์ได้ response แบบ opaque -> ตรวจ hash ไม่ได้ -> บล็อกไฟล์ทิ้ง
+           อาการที่เห็นจะเหมือน hash ผิดเป๊ะ ๆ ทั้งที่ค่า hash ถูก จึงหลงทางได้ง่ายมาก
+           แท็กที่ปุ่ม copy ให้มามี crossorigin ติดมาแล้ว วางทับทั้งบรรทัดจึงปลอดภัยกว่า
+
+         (ถ้าอยากตรวจค่าซ้ำด้วยตัวเอง: curl ไฟล์นั้นมาแล้วส่งเข้า
+          openssl dgst -sha384 -binary | openssl base64 -A) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -182,7 +191,7 @@
             <p class="text-[12px] text-muted mb-3">เก็บงานไว้ในเบราว์เซอร์ เปิดได้ทันทีโดยไม่ต้องโหลดไฟล์ — ไม่ต้องสมัครสมาชิก ข้อมูลอยู่ในเครื่องคุณเท่านั้น</p>
 
             <div class="flex gap-2 mb-3">
-                <input id="libraryNewName" type="text" class="input-cyber flex-1 min-w-0" placeholder="ตั้งชื่องานปัจจุบัน" maxlength="60" />
+                <input id="libraryNewName" aria-label="ชื่อที่จะใช้บันทึกงานปัจจุบันลงคลัง" type="text" class="input-cyber flex-1 min-w-0" placeholder="ตั้งชื่องานปัจจุบัน" maxlength="60" />
                 <button onclick="onSaveToLibrary()" class="btn-neon text-[13px] flex-shrink-0"><i class="fas fa-plus mr-1"></i>บันทึก</button>
             </div>
 
@@ -258,7 +267,11 @@
             <button onclick="openLibrary()" class="btn-neon text-[12px] flex-1 md:flex-none justify-center" title="คลังโปรเจกต์ในเบราว์เซอร์ + ลิงก์แชร์"><i class="fas fa-box-archive mr-1"></i>LIBRARY</button>
 
             <button onclick="exportProject()" class="btn-cyber text-[12px] flex-1 md:flex-none justify-center" title="บันทึกโปรเจกต์เป็นไฟล์ .json"><i class="fas fa-download mr-1"></i>SAVE</button>
-            <input id="importFileInput" type="file" accept="application/json,.json" class="hidden" onchange="onImportFileSelected(this)" />
+            <!-- ช่องนี้ซ่อนไว้ (class="hidden") ปุ่ม LOAD ด้านล่างเป็นตัวสั่งเปิดหน้าต่างเลือกไฟล์แทน
+                 โปรแกรมอ่านหน้าจอจึงเข้าไม่ถึงอยู่แล้ว แต่ใส่ aria-label ไว้กันกรณีที่วันหน้ามีคนเอา
+                 class="hidden" ออก แล้วมันจะกลายเป็นช่องไร้ชื่อทันทีโดยไม่มีใครสังเกต -->
+            <input id="importFileInput" type="file" accept="application/json,.json" class="hidden"
+                   aria-label="เลือกไฟล์โปรเจกต์ .json ที่จะโหลด" tabindex="-1" onchange="onImportFileSelected(this)" />
             <button onclick="triggerImportProject()" class="btn-cyber text-[12px] flex-1 md:flex-none justify-center" title="โหลดโปรเจกต์จากไฟล์ .json"><i class="fas fa-upload mr-1"></i>LOAD</button>
 
             <button onclick="confirmClearAll()" class="btn-hot text-[12px] flex-1 md:flex-none justify-center"><i class="fas fa-trash mr-1"></i>CLEAR</button>
@@ -277,18 +290,18 @@
                 </div>
                 <div id="v4Inputs">
                     <div class="flex gap-2 mb-2">
-                        <input id="baseIpInput" type="text" value="10.0.0.0" class="input-cyber flex-1 min-w-0" placeholder="Base IP" />
-                        <input id="baseCidrInput" type="number" value="24" min="8" max="30" class="input-cyber w-16 text-center flex-shrink-0" />
+                        <input id="baseIpInput" aria-label="Base IP ของเครือข่าย (IPv4)" type="text" value="10.0.0.0" class="input-cyber flex-1 min-w-0" placeholder="Base IP" />
+                        <input id="baseCidrInput" aria-label="จำนวนบิต CIDR ของ Base IPv4 ใส่ได้ 8 ถึง 30" type="number" value="24" min="8" max="30" class="input-cyber w-16 text-center flex-shrink-0" />
                     </div>
                 </div>
                 <div id="v6Inputs" class="hidden">
                     <div class="flex gap-2 mb-2">
-                        <input id="baseIp6Input" type="text" class="input-cyber flex-1 min-w-0" placeholder="Base IPv6 เช่น 2001:db8::" />
-                        <input id="basePrefixInput" type="number" value="48" min="1" max="127" class="input-cyber w-16 text-center flex-shrink-0" title="Base Prefix" />
+                        <input id="baseIp6Input" aria-label="Base IPv6 เช่น 2001:db8 ซีเมิคโคลอนคู่" type="text" class="input-cyber flex-1 min-w-0" placeholder="Base IPv6 เช่น 2001:db8::" />
+                        <input id="basePrefixInput" aria-label="ความยาว Prefix ของ Base IPv6" type="number" value="48" min="1" max="127" class="input-cyber w-16 text-center flex-shrink-0" title="Base Prefix" />
                     </div>
                     <div class="flex gap-2 mb-2 items-center">
                         <label class="text-subtle text-[11px] tracking-wider flex-1">PREFIX ย่อย/แผนก</label>
-                        <input id="newPrefixInput" type="number" value="64" min="1" max="128" class="input-cyber w-16 text-center flex-shrink-0" />
+                        <input id="newPrefixInput" aria-label="ความยาว Prefix ย่อยต่อแผนก" type="number" value="64" min="1" max="128" class="input-cyber w-16 text-center flex-shrink-0" />
                     </div>
                 </div>
                 <div class="flex gap-1.5">
@@ -299,8 +312,8 @@
             <div class="p-4 border-b border-dark-600">
                 <div class="section-label mb-2"><i class="fas fa-plus-circle mr-1"></i>ADD DEPARTMENT</div>
                 <div class="flex gap-2 mb-2">
-                    <input id="newDeptName" type="text" class="input-cyber flex-1 min-w-0" placeholder="ชื่อแผนก" />
-                    <input id="newDeptHosts" type="number" class="input-cyber w-20 text-center flex-shrink-0" placeholder="Hosts" min="1" max="65534" />
+                    <input id="newDeptName" aria-label="ชื่อแผนกที่จะเพิ่ม" type="text" class="input-cyber flex-1 min-w-0" placeholder="ชื่อแผนก" />
+                    <input id="newDeptHosts" aria-label="จำนวนเครื่องที่แผนกนี้ต้องใช้" type="number" class="input-cyber w-20 text-center flex-shrink-0" placeholder="Hosts" min="1" max="65534" />
                 </div>
                 <button onclick="onAddDept()" class="btn-neon w-full text-[13px]"><i class="fas fa-plus mr-1"></i>เพิ่มแผนก</button>
             </div>
@@ -395,7 +408,7 @@
                         <div class="glow-border rounded-lg p-3 flex flex-col min-h-0 h-[250px] md:h-auto">
                             <div class="font-display text-[11px] tracking-[2px] text-neon mb-2 flex-shrink-0"><i class="fas fa-mask mr-1"></i>WILDCARD MASK</div>
                             <div class="flex gap-2 mb-2 flex-shrink-0">
-                                <input id="wcInput" type="text" value="192.168.1.0/24" class="input-cyber flex-1 text-[14px] min-w-0" />
+                                <input id="wcInput" aria-label="IP หรือ CIDR ที่ต้องการหา Wildcard Mask" type="text" value="192.168.1.0/24" class="input-cyber flex-1 text-[14px] min-w-0" />
                                 <button onclick="calcWildcard()" class="btn-neon text-[12px]">Calc</button>
                             </div>
                             <div id="wcResult" class="text-[13px] space-y-1 mt-2 overflow-y-auto flex-1 min-h-0"></div>
@@ -404,7 +417,7 @@
                             <div class="font-display text-[11px] tracking-[2px] text-cyber mb-2 flex-shrink-0"><i class="fas fa-compress-arrows-alt mr-1"></i>ROUTE SUMMARY</div>
                             <div id="summaryInputs" class="space-y-1 mb-2 max-h-[90px] overflow-y-auto flex-shrink-0"></div>
                             <div class="flex gap-2 mb-2 flex-shrink-0">
-                                <input id="summaryNew" type="text" class="input-cyber flex-1 text-[14px] min-w-0" placeholder="x.x.x.x/yy" />
+                                <input id="summaryNew" aria-label="เส้นทางที่จะเพิ่มเข้าไปสรุป รูปแบบ x.x.x.x ทับ yy" type="text" class="input-cyber flex-1 text-[14px] min-w-0" placeholder="x.x.x.x/yy" />
                                 <button onclick="addSummaryRoute()" class="btn-cyber text-[12px]">Add</button>
                             </div>
                             <button onclick="calcSummary()" class="btn-neon w-full text-[12px] mb-2 flex-shrink-0">Summarize</button>
