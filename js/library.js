@@ -303,7 +303,8 @@ function renderLibrary() {
             '<div class="flex gap-1.5 flex-wrap">' +
                 '<button onclick="openFromLibrary(\'' + p.id + '\')" class="btn-neon text-[12px]"><i class="fas fa-folder-open mr-1"></i>เปิด</button>' +
                 '<button onclick="overwriteInLibrary(\'' + p.id + '\')" class="btn-cyber text-[12px]" title="บันทึกสถานะปัจจุบันทับโปรเจกต์นี้"><i class="fas fa-arrows-rotate mr-1"></i>บันทึกทับ</button>' +
-                '<button onclick="deleteFromLibrary(\'' + p.id + '\')" class="btn-hot text-[12px] ml-auto"><i class="fas fa-trash-alt"></i></button>' +
+                // ปุ่มถังขยะมีทุกการ์ดในคลัง ต้องระบุชื่อโปรเจกต์ใน aria-label ไม่งั้นแยกไม่ออกว่าจะลบอันไหน
+                '<button onclick="deleteFromLibrary(\'' + p.id + '\')" class="btn-hot text-[12px] ml-auto" title="ลบโปรเจกต์นี้" aria-label="ลบโปรเจกต์ ' + escapeHtml(p.name) + '"><i class="fas fa-trash-alt" aria-hidden="true"></i></button>' +
             '</div>' +
         '</div>';
     }).join('');

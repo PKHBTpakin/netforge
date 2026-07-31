@@ -1,7 +1,12 @@
 # NetForge — Network Planning Suite
 
+[![tests](https://github.com/PKHBTpakin/netforge/actions/workflows/tests.yml/badge.svg)](https://github.com/PKHBTpakin/netforge/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 เครื่องมือวางแผนเครือข่าย คำนวณ VLSM (IPv4) และการแบ่ง Subnet แบบ IPv6 พร้อมจำลอง Topology
 บน Canvas และสร้างคำสั่ง Cisco IOS ให้อัตโนมัติ ทำงานทั้งหมดในเบราว์เซอร์ ไม่ต้องติดตั้งอะไร
+
+**เปิดใช้งานจริงได้ที่** https://pkhbtpakin.github.io/netforge/
 
 ---
 
@@ -188,6 +193,13 @@ node tests/run-all.js
 เทสยิงผ่านทางเข้าจริงที่ผู้ใช้กด (เช่นยิง event ผ่าน listener ที่ `setupCanvasEvents()` ลงทะเบียนไว้)
 ไม่ใช่เรียกฟังก์ชันภายในตรง ๆ
 
+ชุดนี้รันอัตโนมัติทุกครั้งที่ push หรือเปิด pull request เข้า `main` ผ่าน GitHub Actions
+(ดู `.github/workflows/tests.yml`) — สถานะล่าสุดอยู่ที่ badge ด้านบนสุดของหน้านี้
+
+บางเทสจงใจทำให้ `localStorage` พังเพื่อตรวจทางกู้สถานการณ์ `console.error` ที่โค้ดแอปพ่นออกมา
+ตอนนั้นคือพฤติกรรมที่ถูกต้อง จึงถูกเก็บไว้เงียบ ๆ ไม่ให้รก stderr แต่**จะถูกพ่นออกมาทั้งหมด
+ทันทีที่มี assertion ใด fail** เพื่อให้ยังดีบั๊กได้ปกติ
+
 ---
 
 ## ข้อจำกัดที่รู้อยู่
@@ -197,4 +209,14 @@ node tests/run-all.js
 - ลิงก์ WAN ใช้ static route / default route เท่านั้น ยังไม่รองรับ routing protocol (OSPF, EIGRP)
 - ยังไม่รองรับลิงก์สำรอง (redundancy) หรือ HSRP
 - โหลด Tailwind, Google Fonts และ Font Awesome จาก CDN — ต้องต่ออินเทอร์เน็ตตอนเปิดครั้งแรก
+  และยังไม่ได้ใส่ SRI (เหตุผลรายตัวอยู่ในคอมเมนต์เหนือแท็กทั้งสามใน `index.html`)
 - pinch zoom สองนิ้วบนมือถือยังเป็นการซูมทั้งหน้าเว็บ ไม่ใช่ซูมเฉพาะผัง
+- `js/ui.js` ยาว 1,502 บรรทัดและทำหลายหน้าที่ในไฟล์เดียว ควรผ่าออกในรอบถัดไป
+- สคริปต์ทุกไฟล์แชร์ global scope เดียวกันและ **ลำดับใน `index.html` ห้ามสลับ** — ยังไม่ได้ย้ายไป ES Modules
+- `aria-label` ใส่ครบแล้วเฉพาะปุ่มที่มีแต่ไอคอน ส่วนการใช้งานด้วยคีย์บอร์ดล้วนบน Canvas ยังทำไม่ได้
+
+---
+
+## สัญญาอนุญาต
+
+เผยแพร่ภายใต้ [MIT License](LICENSE) — นำไปใช้ แก้ไข และเผยแพร่ต่อได้ ขอแค่คงประกาศลิขสิทธิ์ไว้

@@ -1,0 +1,24 @@
+name: tests
+
+# รันชุดทดสอบทุกครั้งที่ push หรือเปิด pull request เข้า main
+# เทสไม่มี dependency ภายนอกเลย จึงไม่ต้อง npm install และไม่ต้อง cache อะไร
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # กดรันเองได้จากแท็บ Actions
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # run-all.js คืน exit code 1 เมื่อมีไฟล์ไหน fail — GitHub Actions จะขึ้นกากบาทเอง
+      - name: Run test suite
+        run: node tests/run-all.js

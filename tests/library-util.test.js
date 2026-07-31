@@ -75,6 +75,30 @@ const localStorageStub = {
     removeItem: k => { if (!storageWorks) throw new Error('SecurityError'); delete store[k]; }
 };
 
+// console สำหรับ sandbox ที่กลืน error "ที่ตั้งใจให้เกิด" ไว้
+// -----------------------------------------------------------------
+// ช่วงที่ storageWorks === false เราจงใจทำให้ localStorage พังเพื่อดูว่าโค้ดกู้สถานการณ์ถูกไหม
+// โค้ดแอปตอบสนองถูกต้องแล้วด้วยการ console.error แต่ปลายทางคือ stderr จริง
+// ผลคือเวลารัน `node tests/run-all.js` จะมี stack trace โผล่มา 33 บรรทัดคั่นกลางผลเทสที่ผ่าน
+// ทำให้คนอ่านนึกว่าพัง — จึงเก็บไว้เงียบ ๆ แทน
+// สำคัญ: ไม่ได้ทิ้ง แต่เก็บใส่ mutedErrors แล้วพ่นออกมาให้ครบถ้ามี assertion ไหน fail
+// (ถ้าเทสพังจริงจะยังดีบั๊กได้เหมือนเดิม ไม่ได้ปิดตาตัวเอง)
+const mutedErrors = [];
+const testConsole = {};
+for (const k of Object.keys(console)) {
+    testConsole[k] = typeof console[k] === 'function' ? console[k].bind(console) : console[k];
+}
+testConsole.error = function () {
+    const line = Array.from(arguments).map(String).join(' ');
+    if (!storageWorks) { mutedErrors.push(line); return; } // อยู่ในช่วงที่จงใจทำให้พัง -> คาดไว้แล้ว
+    console.error.apply(console, arguments);               // นอกช่วงนั้น = error จริง ต้องเห็น
+};
+function dumpMutedErrors() {
+    if (!mutedErrors.length) return;
+    console.error('\n--- error ที่ถูกกลืนไว้ระหว่างเทสจำลอง storage พัง (' + mutedErrors.length + ') ---');
+    mutedErrors.forEach(l => console.error(l));
+}
+
 const documentStub = {
     documentElement: makeElement('html'), body: makeElement('body'), activeElement: null,
     getElementById, createElement: (tag) => makeElement(tag),
@@ -85,7 +109,7 @@ const documentStub = {
 const locationStub = { href: 'https://sento.github.io/netforge/', hash: '', protocol: 'https:' };
 
 const sandbox = {
-    console, setTimeout, clearTimeout,
+    console: testConsole, setTimeout, clearTimeout,
     document: documentStub,
     window: { addEventListener() {}, devicePixelRatio: 1, innerWidth: 1024, innerHeight: 768 },
     location: locationStub,
@@ -755,6 +779,7 @@ results.forEach(r => {
     console.log((r.pass ? 'PASS' : 'FAIL') + ' — ' + r.label + (r.detail ? '  [' + r.detail + ']' : ''));
 });
 console.log('\n' + pass + '/' + results.length + ' passed — ' + new Date().toISOString());
+if (pass !== results.length) dumpMutedErrors(); // มีอะไรพัง -> คืน error ที่กลืนไว้ให้ครบเพื่อดีบั๊ก
 process.exit(pass === results.length ? 0 : 1);
 
 })();

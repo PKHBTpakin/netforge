@@ -48,15 +48,18 @@ function renderSidebarDepts() {
         const isSel = state.selectedDeptId === dept.id;
         const color = calc ? getDeptColor(dept.id) : 'var(--muted)';
         const failed = (state.failed || []).find(function(f) { return f.id === dept.id; });
+        const safeName = escapeHtml(dept.name); // ใช้ทั้งในเนื้อหาและใน aria-label ด้านล่าง
         return '<div class="dept-item ' + (isSel ? 'selected' : '') + (failed ? ' dept-failed' : '') + '" onclick="selectNode(' + dept.id + ',\'department\')" style="' + (isSel ? 'border-color:' + color : '') + '">' +
             '<div class="flex items-center justify-between mb-1">' +
                 '<span class="text-[14px] font-bold" style="color:' + color + '">' +
                     (failed ? '<i class="fas fa-triangle-exclamation text-hot mr-1"></i>' : '') + escapeHtml(dept.name) + '</span>' +
                 '<span class="dept-actions">' +
-                    '<button onclick="event.stopPropagation();onMoveDept(' + dept.id + ',-1)" class="text-subtle hover:text-neon text-[12px] transition-colors" title="เลื่อนขึ้น"><i class="fas fa-chevron-up"></i></button>' +
-                    '<button onclick="event.stopPropagation();onMoveDept(' + dept.id + ',1)" class="text-subtle hover:text-neon text-[12px] transition-colors" title="เลื่อนลง"><i class="fas fa-chevron-down"></i></button>' +
-                    '<button onclick="event.stopPropagation();onDuplicateDept(' + dept.id + ')" class="text-subtle hover:text-neon text-[12px] transition-colors" title="ทำซ้ำแผนกนี้"><i class="fas fa-copy"></i></button>' +
-                    '<button onclick="event.stopPropagation();onRemoveDept(' + dept.id + ')" class="text-subtle hover:text-hot text-[12px] transition-colors" title="ลบแผนกนี้"><i class="fas fa-trash-alt"></i></button>' +
+                    // aria-label ต้องมีชื่อแผนกด้วย — ในรายการมีปุ่มถังขยะซ้ำกันทุกแถว
+                    // ถ้าเขียนแค่ "ลบแผนกนี้" โปรแกรมอ่านหน้าจอจะอ่านเหมือนกันหมดจนแยกไม่ออกว่ากำลังจะลบอันไหน
+                    '<button onclick="event.stopPropagation();onMoveDept(' + dept.id + ',-1)" class="text-subtle hover:text-neon text-[12px] transition-colors" title="เลื่อนขึ้น" aria-label="เลื่อนแผนก ' + safeName + ' ขึ้น"><i class="fas fa-chevron-up" aria-hidden="true"></i></button>' +
+                    '<button onclick="event.stopPropagation();onMoveDept(' + dept.id + ',1)" class="text-subtle hover:text-neon text-[12px] transition-colors" title="เลื่อนลง" aria-label="เลื่อนแผนก ' + safeName + ' ลง"><i class="fas fa-chevron-down" aria-hidden="true"></i></button>' +
+                    '<button onclick="event.stopPropagation();onDuplicateDept(' + dept.id + ')" class="text-subtle hover:text-neon text-[12px] transition-colors" title="ทำซ้ำแผนกนี้" aria-label="ทำซ้ำแผนก ' + safeName + '"><i class="fas fa-copy" aria-hidden="true"></i></button>' +
+                    '<button onclick="event.stopPropagation();onRemoveDept(' + dept.id + ')" class="text-subtle hover:text-hot text-[12px] transition-colors" title="ลบแผนกนี้" aria-label="ลบแผนก ' + safeName + '"><i class="fas fa-trash-alt" aria-hidden="true"></i></button>' +
                 '</span>' +
             '</div>' +
             '<div class="text-[12px] text-muted">' +
@@ -543,7 +546,7 @@ function renderDetailPanelInner() {
                         return '<div class="text-[13px] mt-1 flex items-start justify-between gap-2">' +
                             '<div><div class="text-neon">' + w.myIp + '/30</div>' +
                             '<div class="text-muted text-[12px]">ไปยัง ' + escapeHtml(w.peerLabel) + ' (' + w.peerIp + ') • subnet ' + w.link.network + '/30</div></div>' +
-                            '<button onclick="onRemoveLink(\'' + w.link.linkId + '\')" class="text-subtle hover:text-hot flex-shrink-0" title="ลบสายเส้นนี้"><i class="fas fa-unlink"></i></button>' +
+                            '<button onclick="onRemoveLink(\'' + w.link.linkId + '\')" class="text-subtle hover:text-hot flex-shrink-0" title="ลบสายเส้นนี้" aria-label="ลบลิงก์ WAN ที่ไปยัง ' + escapeHtml(w.peerLabel) + '"><i class="fas fa-unlink" aria-hidden="true"></i></button>' +
                         '</div>';
                     }).join('')) +
                 '</div>' +
@@ -589,7 +592,7 @@ function renderDetailPanelInner() {
                 '<div class="flex gap-2">' +
                     '<input id="detailManualIp" type="text" value="' + (node.ip || '') + '" placeholder="ยังไม่กำหนด" class="input-cyber flex-1 min-w-0" ' +
                         'oninput="onManualIpInput(\'' + node.id + '\',this.value)" onchange="onManualIpChange(\'' + node.id + '\',this.value)" />' +
-                    (linkedDept ? '<button onclick="onSuggestIp(\'' + node.id + '\')" class="btn-neon text-[12px] flex-shrink-0 px-3" title="แนะนำ IP ว่างถัดไปจาก subnet ของ ' + escapeHtml(linkedDept.name) + '"><i class="fas fa-magic"></i></button>' : '') +
+                    (linkedDept ? '<button onclick="onSuggestIp(\'' + node.id + '\')" class="btn-neon text-[12px] flex-shrink-0 px-3" title="แนะนำ IP ว่างถัดไปจาก subnet ของ ' + escapeHtml(linkedDept.name) + '" aria-label="แนะนำ IP ว่างถัดไปจาก subnet ของ ' + escapeHtml(linkedDept.name) + '"><i class="fas fa-magic" aria-hidden="true"></i></button>' : '') +
                 '</div>' +
                 (ipOutOfRange ? '<div class="text-hot text-[12px] mt-1"><i class="fas fa-triangle-exclamation mr-1"></i>IP นี้อยู่นอกช่วง subnet ปัจจุบันแล้ว (subnet เปลี่ยนจากการแก้ไข Host) กด Suggest IP ใหม่</div>' : '') +
                 '</div>' +

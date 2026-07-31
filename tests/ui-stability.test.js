@@ -83,8 +83,28 @@ const localStorageStub = {
     removeItem: k => { delete localStorageStore[k]; }
 };
 
+// console ที่กลืน error "ที่ตั้งใจให้เกิด" ไว้ — เหตุผลเดียวกับใน library-util.test.js
+// ช่วง localStorageBroken === true คือช่วงที่เราจงใจให้ storage พังเพื่อทดสอบทางกู้สถานการณ์
+// error ที่โค้ดแอปพ่นตอนนั้นคือพฤติกรรมที่ถูกต้อง ไม่ใช่ปัญหา จึงไม่ควรรก stderr
+// แต่ยังเก็บไว้และพ่นคืนทั้งหมดถ้ามี assertion ไหน fail
+const mutedErrors = [];
+const testConsole = {};
+for (const k of Object.keys(console)) {
+    testConsole[k] = typeof console[k] === 'function' ? console[k].bind(console) : console[k];
+}
+testConsole.error = function () {
+    const line = Array.from(arguments).map(String).join(' ');
+    if (localStorageBroken) { mutedErrors.push(line); return; }
+    console.error.apply(console, arguments);
+};
+function dumpMutedErrors() {
+    if (!mutedErrors.length) return;
+    console.error('\n--- error ที่ถูกกลืนไว้ระหว่างเทสจำลอง storage พัง (' + mutedErrors.length + ') ---');
+    mutedErrors.forEach(l => console.error(l));
+}
+
 const sandbox = {
-    console, setTimeout, clearTimeout,
+    console: testConsole, setTimeout, clearTimeout,
     document: documentStub,
     window: { addEventListener() {}, devicePixelRatio: 1, innerWidth: 1024, innerHeight: 768 },
     localStorage: localStorageStub,
@@ -239,5 +259,6 @@ function check(label, cond, detail) { results.push({ label, pass: !!cond, detail
         if (r.pass) pass++;
     }
     console.log('\n' + pass + '/' + results.length + ' passed — ' + new Date().toISOString());
+    if (!results.every(r => r.pass)) dumpMutedErrors(); // มีอะไรพัง -> คืน error ที่กลืนไว้ให้ครบ
     process.exit(results.every(r => r.pass) ? 0 : 1);
 })();

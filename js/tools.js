@@ -86,7 +86,7 @@ function renderSummaryInputs() {
         return '<div class="flex items-center justify-between gap-2 text-[13px] py-0.5">' +
             '<span class="text-neon break-all">' + escapeHtml(route) + '</span>' +
             '<button onclick="removeSummaryRoute(' + i + ')" class="text-subtle hover:text-hot transition-colors flex-shrink-0" ' +
-            'title="ลบเส้นทางนี้"><i class="fas fa-times"></i></button>' +
+            'title="ลบเส้นทางนี้" aria-label="ลบเส้นทาง ' + escapeHtml(route) + '"><i class="fas fa-times" aria-hidden="true"></i></button>' +
         '</div>';
     }).join('');
 }

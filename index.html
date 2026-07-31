@@ -9,6 +9,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NetForge — Network Planning Suite</title>
 
+    <!-- ========== ข้อมูลสำหรับเครื่องมือค้นหาและการแชร์ลิงก์ ==========
+         "ลิงก์แชร์" เป็นฟีเจอร์หลักของโปรเจกต์ (ฝังทั้งงานลงใน URL) แต่ถ้าไม่มีแท็กชุดนี้
+         เวลาวางลิงก์ลง LINE / Discord / Messenger / X จะขึ้นเป็นข้อความเปล่า ๆ ไม่มีการ์ดพรีวิว
+         og:image ต้องเป็น URL เต็ม (absolute) เสมอ — ทุกแพลตฟอร์มดึงรูปจากเซิร์ฟเวอร์ตัวเอง
+         ไม่ได้ดูจากเบราว์เซอร์ผู้ใช้ จึงใช้ path แบบ relative ไม่ได้ -->
+    <meta name="description" content="เครื่องมือวางแผนเครือข่ายในเบราว์เซอร์ คำนวณ VLSM (IPv4) และ Subnet IPv6 วาดผัง Topology ลากวางได้ พร้อมสร้างคำสั่ง Cisco IOS ให้อัตโนมัติ ไม่ต้องติดตั้ง ไม่ต้องสมัครสมาชิก">
+    <link rel="canonical" href="https://pkhbtpakin.github.io/netforge/">
+    <meta name="theme-color" content="#0f1115">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="NetForge">
+    <meta property="og:locale" content="th_TH">
+    <meta property="og:url" content="https://pkhbtpakin.github.io/netforge/">
+    <meta property="og:title" content="NetForge — Network Planning Suite">
+    <meta property="og:description" content="คำนวณ VLSM และ IPv6 วาดผัง Topology และสร้างคำสั่ง Cisco IOS ให้อัตโนมัติ ทำงานทั้งหมดในเบราว์เซอร์">
+    <meta property="og:image" content="https://pkhbtpakin.github.io/netforge/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="NetForge — Network Planning Suite: VLSM, IPv6, Topology, Cisco IOS">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="NetForge — Network Planning Suite">
+    <meta name="twitter:description" content="คำนวณ VLSM และ IPv6 วาดผัง Topology และสร้างคำสั่ง Cisco IOS ให้อัตโนมัติ ทำงานทั้งหมดในเบราว์เซอร์">
+    <meta name="twitter:image" content="https://pkhbtpakin.github.io/netforge/og-image.png">
+
+    <!-- favicon เป็น SVG ฝังในไฟล์ตรงนี้เลย (data URI) — ไม่เพิ่ม request และไม่พึ่ง CDN
+         ถ้าไม่ใส่ เบราว์เซอร์จะยิงหา /favicon.ico แล้วได้ 404 ทุกครั้งที่เปิดหน้า -->
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iIzBmMTExNSIvPjxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzRDOERGRiIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiPjxwYXRoIGQ9Ik0xNiAxMy41djQuMk0xNSAxOC42IDkuNCAyMU0xNyAxOC42IDIyLjYgMjEiLz48L2c+PGcgZmlsbD0iIzRDOERGRiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxMC41IiByPSIzLjMiLz48Y2lyY2xlIGN4PSI3LjYiIGN5PSIyMi40IiByPSIzLjMiLz48Y2lyY2xlIGN4PSIyNC40IiBjeT0iMjIuNCIgcj0iMy4zIi8+PC9nPjwvc3ZnPg==">
+    <link rel="apple-touch-icon" href="og-image.png">
+
+    <!-- ========== หมายเหตุเรื่อง SRI (Subresource Integrity) ==========
+         ตั้งใจ "ไม่ใส่" integrity= ให้สามตัวข้างล่าง และนี่คือการตัดสินใจ ไม่ใช่การลืม
+         SRI ทำงานแบบ all-or-nothing: ถ้า hash ไม่ตรงกับไฟล์ที่ได้แม้แต่ไบต์เดียว
+         เบราว์เซอร์จะ "ทิ้งไฟล์ทั้งก้อน" เงียบ ๆ — หน้าเว็บจะโหลดแต่ไม่มีสไตล์เลย
+
+         1) cdn.tailwindcss.com — URL ไม่ระบุเวอร์ชัน เนื้อไฟล์เปลี่ยนได้ทุกครั้งที่ Tailwind ออกรุ่นใหม่
+            ใส่ hash = เว็บพังเองวันไหนก็ได้โดยที่เราไม่ได้แก้อะไรเลย
+            ถ้าจะใส่จริงต้องเปลี่ยนไปใช้ URL ที่ปักเวอร์ชันก่อน
+         2) fonts.googleapis.com — ตอบ CSS ไม่เหมือนกันตาม User-Agent (woff2 / woff / ttf)
+            hash ที่ถูกกับเบราว์เซอร์เรา จะผิดกับเบราว์เซอร์อื่นเสมอ ใส่ไม่ได้โดยธรรมชาติของมัน
+         3) cdnjs (Font Awesome 6.5.0) — ปักเวอร์ชันแล้ว ไฟล์นิ่ง ใส่ SRI ได้จริงตัวเดียวในสามตัวนี้
+            ค่า hash ต้องคำนวณจากไฟล์จริง ห้ามเดา เอามาจาก cdnjs.com/libraries/font-awesome
+            (ปุ่ม copy จะให้แท็กพร้อม integrity มาเลย) หรือรันเอง:
+              curl -s https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css \
+                | openssl dgst -sha384 -binary | openssl base64 -A
+            แล้วเติม integrity="sha384-<ค่าที่ได้>" crossorigin="anonymous" ลงในแท็กที่ 3
+            ทดสอบว่าไอคอนยังขึ้นครบก่อน commit ทุกครั้ง -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
@@ -42,7 +89,9 @@
 
     <!-- ไม่ใส่คลาส z-* ของ Tailwind ตรงนี้ — z-index คุมจาก .toast-container ใน style.css ที่เดียว
          (เดิมมี z-[100] ซ้อนอยู่ ทำให้มีสองแหล่งค่าจริงที่ขัดกันเอง) -->
-    <div id="toast-container" class="toast-container"></div>
+    <!-- aria-live ทำให้โปรแกรมอ่านหน้าจออ่าน toast ให้ฟังตอนมันโผล่ขึ้นมา
+         ถ้าไม่มี ผู้ใช้ที่มองไม่เห็นจะไม่รู้เลยว่าบันทึกสำเร็จหรือพลาด -->
+    <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
 
     <!-- หน้าช่วยเหลือ: แสดงอัตโนมัติครั้งแรกที่เปิดแอป และเรียกดูซ้ำได้ทุกเมื่อผ่านปุ่ม HELP หรือกด ?
          เนื้อหาต้องครอบคลุมฟีเจอร์ "ที่มีอยู่จริงตอนนี้" — ของที่หาไม่เจอเท่ากับของที่ไม่มี -->
@@ -50,7 +99,7 @@
         <div class="onboard-card" style="max-width:640px;">
             <div class="flex items-center justify-between mb-3">
                 <div class="font-display text-[15px] tracking-[2px] text-neon"><i class="fas fa-network-wired mr-2"></i>คู่มือใช้งาน NetForge</div>
-                <button onclick="closeOnboarding()" class="text-muted hover:text-hot transition-colors p-1"><i class="fas fa-times fa-lg"></i></button>
+                <button onclick="closeOnboarding()" class="text-muted hover:text-hot transition-colors p-1" aria-label="ปิดคู่มือใช้งาน"><i class="fas fa-times fa-lg" aria-hidden="true"></i></button>
             </div>
 
             <div class="flex gap-1 mb-3 flex-wrap">
@@ -128,7 +177,7 @@
         <div class="onboard-card" style="max-width:520px;">
             <div class="flex items-center justify-between mb-3">
                 <div class="font-display text-[15px] tracking-[2px] text-neon"><i class="fas fa-box-archive mr-2"></i>คลังโปรเจกต์</div>
-                <button onclick="closeLibrary()" class="text-muted hover:text-hot transition-colors p-1"><i class="fas fa-times fa-lg"></i></button>
+                <button onclick="closeLibrary()" class="text-muted hover:text-hot transition-colors p-1" aria-label="ปิดคลังโปรเจกต์"><i class="fas fa-times fa-lg" aria-hidden="true"></i></button>
             </div>
             <p class="text-[12px] text-muted mb-3">เก็บงานไว้ในเบราว์เซอร์ เปิดได้ทันทีโดยไม่ต้องโหลดไฟล์ — ไม่ต้องสมัครสมาชิก ข้อมูลอยู่ในเครื่องคุณเท่านั้น</p>
 
@@ -176,8 +225,11 @@
                 <i class="fas fa-location-arrow mr-1"></i>ARROWS
             </button>
 
-            <button id="btnUndo" onclick="undo()" class="btn-cyber text-[12px] px-2" title="ย้อนกลับ (Ctrl+Z)"><i class="fas fa-rotate-left"></i></button>
-            <button id="btnRedo" onclick="redo()" class="btn-cyber text-[12px] px-2" title="ทำซ้ำ (Ctrl+Y)"><i class="fas fa-rotate-right"></i></button>
+            <!-- ปุ่มที่มีแต่ไอคอนต้องมี aria-label เสมอ — title ใช้แทนไม่ได้จริง
+                 (โปรแกรมอ่านหน้าจอบางตัวไม่อ่าน title และบนมือถือไม่มี hover ให้เห็นเลย)
+                 ถ้าไม่มี ผู้ใช้ที่ใช้ screen reader จะได้ยินแค่คำว่า "button" ไม่รู้ว่าปุ่มอะไร -->
+            <button id="btnUndo" onclick="undo()" class="btn-cyber text-[12px] px-2" title="ย้อนกลับ (Ctrl+Z)" aria-label="ย้อนกลับ"><i class="fas fa-rotate-left" aria-hidden="true"></i></button>
+            <button id="btnRedo" onclick="redo()" class="btn-cyber text-[12px] px-2" title="ทำซ้ำ (Ctrl+Y)" aria-label="ทำซ้ำ"><i class="fas fa-rotate-right" aria-hidden="true"></i></button>
 
             <div class="relative flex-1 md:flex-none" id="exportWrapper">
                 <button onclick="toggleExportMenu()" class="btn-cyber text-[12px] w-full md:w-auto justify-center" title="บันทึกงานออกไปใช้ต่อ">
@@ -241,7 +293,7 @@
                 </div>
                 <div class="flex gap-1.5">
                     <button onclick="onBaseChange()" class="btn-neon flex-1 text-[13px] justify-center"><i class="fas fa-calculator mr-1"></i>Calculate</button>
-                    <button onclick="onSuggestBase()" class="btn-cyber text-[13px] px-3 flex-shrink-0" title="หา Base CIDR ที่เล็กที่สุดที่ยังจองครบทุกแผนก"><i class="fas fa-wand-magic-sparkles"></i></button>
+                    <button onclick="onSuggestBase()" class="btn-cyber text-[13px] px-3 flex-shrink-0" title="หา Base CIDR ที่เล็กที่สุดที่ยังจองครบทุกแผนก" aria-label="แนะนำ Base CIDR ที่เล็กที่สุดที่ยังจองครบทุกแผนก"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i></button>
                 </div>
             </div>
             <div class="p-4 border-b border-dark-600">
@@ -262,7 +314,10 @@
 
         <div class="flex-1 flex flex-col min-w-0 h-[800px] md:h-auto flex-shrink-0">
             <div class="flex-1 relative min-h-[350px] border-b md:border-b-0 border-dark-600">
-                <canvas id="topoCanvas" class="w-full h-full block"></canvas>
+                <!-- เนื้อหาบน canvas เป็นพิกเซลล้วน โปรแกรมอ่านหน้าจอมองไม่เห็นอะไรเลย
+                     จึงต้องบอกด้วย aria-label ว่านี่คืออะไร และชี้ทางไปยังตาราง IP ที่อ่านได้จริง -->
+                <canvas id="topoCanvas" class="w-full h-full block" role="img"
+                        aria-label="ผัง Topology ของเครือข่าย แสดง Router สวิตช์ของแต่ละแผนก และอุปกรณ์ที่เชื่อมอยู่ ข้อมูลเดียวกันนี้อ่านเป็นข้อความได้ที่ตาราง IP Table ด้านล่าง"></canvas>
                 <div class="absolute top-3 left-3 font-display text-[10px] md:text-[12px] tracking-[2px] text-cyber opacity-90 font-bold bg-dark-900/50 p-1 rounded">TOPOLOGY — TAP NODE TO EDIT — DRAG TO MOVE</div>
                 <div class="absolute top-3 right-3 flex gap-1.5 z-10">
                     <button id="btnAddPc" onclick="togglePlacingMode('pc')" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกบน Canvas เพื่อวาง PC"><i class="fas fa-desktop mr-1"></i>PC</button>
@@ -271,12 +326,12 @@
                     <button id="btnConnect" onclick="toggleConnectMode()" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกอุปกรณ์ 2 ตัวเพื่อเชื่อมสาย"><i class="fas fa-link mr-1"></i>Connect</button>
                 </div>
                 <!-- แถบควบคุมมุมมอง — ผังกว้างเกินกรอบเมื่อมี Router หลายตัว จึงต้องย่อ/ขยาย/เลื่อนได้ -->
-                <div class="canvas-zoom">
-                    <button onclick="zoomBy(1/1.2)" title="ย่อ (หรือหมุนล้อเมาส์ลง)"><i class="fas fa-minus"></i></button>
-                    <span id="zoomLabel" title="ระดับการซูม">100%</span>
-                    <button onclick="zoomBy(1.2)" title="ขยาย (หรือหมุนล้อเมาส์ขึ้น)"><i class="fas fa-plus"></i></button>
-                    <button onclick="zoomToFit()" title="จัดให้เห็นทุกอุปกรณ์พอดีกรอบ"><i class="fas fa-expand"></i></button>
-                    <button onclick="resetView()" title="กลับไปขนาด 100% ตำแหน่งเริ่มต้น"><i class="fas fa-rotate-left"></i></button>
+                <div class="canvas-zoom" role="group" aria-label="ควบคุมมุมมองผัง">
+                    <button onclick="zoomBy(1/1.2)" title="ย่อ (หรือหมุนล้อเมาส์ลง)" aria-label="ย่อผัง"><i class="fas fa-minus" aria-hidden="true"></i></button>
+                    <span id="zoomLabel" title="ระดับการซูม" role="status" aria-live="polite" aria-label="ระดับการซูม">100%</span>
+                    <button onclick="zoomBy(1.2)" title="ขยาย (หรือหมุนล้อเมาส์ขึ้น)" aria-label="ขยายผัง"><i class="fas fa-plus" aria-hidden="true"></i></button>
+                    <button onclick="zoomToFit()" title="จัดให้เห็นทุกอุปกรณ์พอดีกรอบ" aria-label="จัดผังให้เห็นทุกอุปกรณ์พอดีกรอบ"><i class="fas fa-expand" aria-hidden="true"></i></button>
+                    <button onclick="resetView()" title="กลับไปขนาด 100% ตำแหน่งเริ่มต้น" aria-label="รีเซ็ตมุมมองกลับ 100 เปอร์เซ็นต์"><i class="fas fa-rotate-left" aria-hidden="true"></i></button>
                 </div>
 
                 <div class="canvas-legend" title="ความหมายสีบน Topology Canvas">
@@ -363,7 +418,7 @@
         <aside id="detailPanel" class="detail-panel fixed inset-y-0 right-0 z-50 mt-[100px] md:mt-0 w-full sm:w-[320px] md:relative flex-shrink-0 border-l border-dark-600 flex flex-col shadow-2xl md:shadow-none" style="background: var(--card);">
             <div class="p-4 border-b border-dark-600 flex items-center justify-between bg-dark-900/90 backdrop-blur">
                 <div class="font-display text-[12px] tracking-[2px] text-neon"><i class="fas fa-edit mr-1"></i>NODE DETAILS</div>
-                <button onclick="closeDetailPanel()" class="text-muted hover:text-hot transition-colors p-2"><i class="fas fa-times fa-lg"></i></button>
+                <button onclick="closeDetailPanel()" class="text-muted hover:text-hot transition-colors p-2" aria-label="ปิดแผงรายละเอียด"><i class="fas fa-times fa-lg" aria-hidden="true"></i></button>
             </div>
             <div id="detailContent" class="flex-1 overflow-y-auto p-4 pb-20"></div>
         </aside>
