@@ -332,6 +332,51 @@ const FIXED_LIGHT = [run('ROUTER_COLOR_LIGHT'), run('PC_COLOR_LIGHT'), run('SERV
     check('palette: ' + name + ' สีแผนกไม่ชนกับสีอุปกรณ์คงที่', worst >= 20, worst.toFixed(1) + ' (' + pair + ')');
 });
 
+/* ===== ความสูงของแผงล่าง =====
+   ปัญหาที่เจอจากการใช้จริง: แผงล่างสูงคงที่ 270px ทำให้ตารางยาว ๆ ถูกตัดจนอ่านไม่ครบ
+   ทั้งสี่แท็บ และทางแก้เดียวคือลากเส้นแบ่งกลางจอ ซึ่งแทบไม่มีใครสังเกตเห็นว่าลากได้
+   จึงเพิ่มปุ่มขยายไว้ที่แถบแท็บ และให้แท็บฝึกทำโจทย์ขยายเองอัตโนมัติเพราะเนื้อหายาวที่สุด */
+
+check('panel: เริ่มต้นยังไม่ได้ขยาย', run('isBottomPanelMaximized()') === false);
+
+run('switchTab("table"); toggleBottomPanelMax();');
+check('panel: กดปุ่มขยายแล้วสูงขึ้นจริง',
+    run('isBottomPanelMaximized()') === true && run('getBottomPanelHeight()') > 400,
+    run('getBottomPanelHeight()'));
+check('panel: ปุ่มเปลี่ยนข้อความเป็น "ย่อลง" หลังขยาย',
+    getElementById('btnPanelMax').innerHTML.indexOf('ย่อลง') !== -1);
+
+// ผู้ใช้กดขยายเอง แล้วสลับแท็บ ต้องคาไว้ อย่าไปย่อให้
+run('switchTab("cli");');
+check('panel: ผู้ใช้กดขยายเอง สลับแท็บแล้วต้องยังขยายอยู่',
+    run('isBottomPanelMaximized()') === true);
+
+run('toggleBottomPanelMax();');
+check('panel: กดย่อแล้วกลับเป็นความสูงเดิม',
+    run('isBottomPanelMaximized()') === false);
+check('panel: ปุ่มกลับไปเขียนว่า "ขยาย"',
+    getElementById('btnPanelMax').innerHTML.indexOf('ขยาย') !== -1);
+
+// แท็บฝึกทำโจทย์ต้องขยายให้เอง เพราะเนื้อหายาวสุด
+run('switchTab("practice");');
+check('panel: เข้าแท็บฝึกทำโจทย์แล้วขยายให้อัตโนมัติ',
+    run('isBottomPanelMaximized()') === true);
+run('switchTab("table");');
+check('panel: ออกจากแท็บฝึกแล้วย่อกลับให้เอง',
+    run('isBottomPanelMaximized()') === false);
+
+// ขยายเองอัตโนมัติ แล้วผู้ใช้กดปุ่มย่อระหว่างอยู่ในแท็บฝึก จากนั้นออกไปแท็บอื่น
+run('switchTab("practice"); toggleBottomPanelMax();');
+check('panel: อยู่แท็บฝึกแล้วกดย่อเอง ต้องย่อได้จริง',
+    run('isBottomPanelMaximized()') === false);
+run('switchTab("tools");');
+check('panel: ออกจากแท็บฝึกทีหลังต้องไม่ไปย่อซ้ำจนเพี้ยน',
+    run('isBottomPanelMaximized()') === false);
+
+check('panel: ความสูงตอนขยายเผื่อที่ให้เห็นผังไว้เสมอ',
+    run('maxBottomPanelHeight()') < run('window.innerHeight'),
+    run('maxBottomPanelHeight()') + ' < ' + run('window.innerHeight'));
+
 /* ---------- สรุปผล ---------- */
 let pass = 0;
 results.forEach(r => {

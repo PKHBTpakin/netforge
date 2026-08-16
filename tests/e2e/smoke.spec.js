@@ -335,6 +335,66 @@ test.describe('รูปแปลนอาคาร', () => {
     });
 });
 
+test.describe('แผงล่างต้องอ่านข้อมูลได้ครบ', () => {
+
+    // ปัญหาที่เจอจากการใช้จริง: แผงล่างสูงคงที่ ทำให้ตารางยาว ๆ ถูกตัดจนอ่านไม่ครบ
+    // เทสนี้วัด "แถวสุดท้ายของตารางอยู่ในกรอบที่มองเห็นจริงไหม" ซึ่ง stub ใน Node ทำไม่ได้
+    test('ตาราง IP ยาว ๆ อ่านครบได้หลังกดปุ่มขยาย', async ({ page }) => {
+        await page.goto('/index.html');
+        await dismissOnboarding(page);
+        await page.evaluate(() => { loadExample('enterprise'); });   // 8 แผนก ตารางยาวสุด
+
+        const lastRow = page.locator('#ipTableBody tr').last();
+        await expect(lastRow).toBeVisible();
+
+        // ก่อนขยาย: แถวสุดท้ายควรอยู่นอกกรอบที่มองเห็น (ต้องเลื่อนถึงจะเห็น)
+        const panel = page.locator('#bottomPanel');
+        const before = await panel.evaluate(el => el.getBoundingClientRect().height);
+
+        await page.locator('#btnPanelMax').click();
+        const after = await panel.evaluate(el => el.getBoundingClientRect().height);
+        expect(after, 'กดขยายแล้วแผงต้องสูงขึ้นจริง').toBeGreaterThan(before);
+
+        // แถวสุดท้ายต้องอยู่ในกรอบของแผงจริง ๆ ไม่ใช่แค่มีอยู่ใน DOM
+        const fits = await page.evaluate(() => {
+            const rows = document.querySelectorAll('#ipTableBody tr');
+            const last = rows[rows.length - 1].getBoundingClientRect();
+            const box = document.getElementById('tab-table').getBoundingClientRect();
+            return last.bottom <= box.bottom + 1;
+        });
+        expect(fits, 'หลังขยายแล้วแถวสุดท้ายต้องอยู่ในกรอบที่มองเห็น').toBe(true);
+    });
+
+    test('แท็บฝึกทำโจทย์ขยายแผงให้เองและอ่านเฉลยได้ครบ', async ({ page }) => {
+        await page.goto('/index.html');
+        await dismissOnboarding(page);
+
+        const h0 = await page.locator('#bottomPanel').evaluate(el => el.getBoundingClientRect().height);
+        await page.locator('.tab-btn[data-tab="practice"]').click();
+        const h1 = await page.locator('#bottomPanel').evaluate(el => el.getBoundingClientRect().height);
+        expect(h1, 'เข้าแท็บฝึกแล้วแผงต้องขยายให้เอง').toBeGreaterThan(h0);
+
+        // ระดับยากสุด (7 แผนก) แล้วกดดูเฉลย ซึ่งเป็นเนื้อหาที่ยาวที่สุดในแอป
+        await page.getByRole('button', { name: 'เริ่มทำโจทย์' }).click();
+        await page.getByRole('button', { name: 'ยาก', exact: true }).click();
+        await page.getByRole('button', { name: /ดูเฉลย/ }).click();
+
+        // ตารางวิธีคิดทีละขั้นต้องมีครบ 7 แถว และเลื่อนไปอ่านแถวสุดท้ายได้
+        await expect(page.locator('#practiceBody')).toContainText('วิธีคิดทีละขั้น');
+        const stepRows = await page.evaluate(() => practiceState.problem.answer.length);
+        expect(stepRows).toBe(7);
+
+        const lastStep = page.locator('#practiceBody table').last().locator('tbody tr').last();
+        await lastStep.scrollIntoViewIfNeeded();
+        await expect(lastStep).toBeVisible();
+
+        // ออกจากแท็บแล้วต้องย่อกลับให้เอง
+        await page.locator('.tab-btn[data-tab="table"]').click();
+        const h2 = await page.locator('#bottomPanel').evaluate(el => el.getBoundingClientRect().height);
+        expect(Math.abs(h2 - h0), 'ออกจากแท็บฝึกแล้วต้องกลับความสูงเดิม').toBeLessThan(5);
+    });
+});
+
 test.describe('โหมดฝึกทำโจทย์', () => {
 
     test('ออกโจทย์ กรอกถูกทุกช่อง แล้วได้คะแนนเต็ม', async ({ page }) => {

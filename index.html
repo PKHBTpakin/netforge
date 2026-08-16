@@ -249,7 +249,7 @@
                 </div>
                 <h1 class="font-display text-base tracking-[3px] text-neon font-bold">NETFORGE</h1>
             </div>
-            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v2.3</span>
+            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v2.4</span>
         </div>
         <div class="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-start md:justify-end flex-wrap">
             <div class="relative flex-1 md:flex-none" id="exampleWrapper">
@@ -417,6 +417,13 @@
                     <button class="tab-btn flex-shrink-0" data-tab="cli" onclick="switchTab('cli')"><i class="fas fa-terminal mr-1"></i>CLI Config</button>
                     <button class="tab-btn flex-shrink-0" data-tab="tools" onclick="switchTab('tools')"><i class="fas fa-wrench mr-1"></i>Net Tools</button>
                     <button class="tab-btn flex-shrink-0" data-tab="practice" onclick="switchTab('practice')"><i class="fas fa-graduation-cap mr-1"></i>ฝึกทำโจทย์</button>
+
+                    <!-- ปุ่มขยายแผงล่าง — แผงนี้สูงคงที่ ทำให้ตารางยาว ๆ ถูกตัดจนอ่านไม่ครบ
+                         เดิมต้องลากเส้นแบ่งกลางจอเอง ซึ่งแทบไม่มีใครสังเกตเห็นว่าลากได้ -->
+                    <button id="btnPanelMax" onclick="toggleBottomPanelMax()"
+                            class="btn-cyber text-[12px] px-2 py-1 ml-auto self-center flex-shrink-0"
+                            title="ขยายแผงให้เต็มจอ เพื่ออ่านตารางได้ครบ" aria-label="ขยายแผงให้เต็มจอ เพื่ออ่านตารางได้ครบ">
+                        <i class="fas fa-up-right-and-down-left-from-center mr-1" aria-hidden="true"></i>ขยาย</button>
                 </div>
                 
                 <div id="tab-table" class="tab-content p-3 overflow-y-auto flex-1 min-h-0">

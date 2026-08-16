@@ -1050,12 +1050,89 @@ function switchTab(tab) {
     }
     // โหมดฝึกไม่ผูกกับงานที่ทำค้างอยู่เลย จึงวาดตอนเปิดแท็บครั้งแรกก็พอ
     // และตั้งใจไม่สุ่มโจทย์ให้อัตโนมัติ เพราะผู้ใช้อาจแค่กดมาดูว่าแท็บนี้คืออะไร
-    if (tab === 'practice' && typeof renderPractice === 'function') renderPractice();
+    if (tab === 'practice') {
+        if (typeof renderPractice === 'function') renderPractice();
+        // แท็บนี้เนื้อหายาวที่สุดในบรรดาสี่แท็บ (ตารางกรอกสูงสุด 7 แถว + คำอธิบายใต้แถวที่ผิด
+        // + ตารางวิธีคิดทีละขั้นอีกชุด) ถ้าไม่ขยายให้ ผู้ใช้จะเห็นแค่สองสามแถวแรกแล้วงงว่าที่เหลือหายไปไหน
+        // ขยายให้เลยตั้งแต่เข้าแท็บ แล้วผู้ใช้กดย่อกลับเองได้ถ้าอยากดูผังไปด้วย
+        if (!isBottomPanelMaximized()) toggleBottomPanelMax(true);
+    } else if (bottomPanelAutoMaxed) {
+        // ออกจากแท็บฝึกแล้วคืนความสูงเดิมให้อัตโนมัติ จะได้เห็นผังเหมือนก่อนเข้ามา
+        // แต่ถ้าผู้ใช้กดปุ่มขยายเอง (bottomPanelAutoMaxed = false) ต้องปล่อยไว้ อย่าไปย่อให้
+        toggleBottomPanelMax(true);
+    }
+    updateBottomPanelMaxButton();
 }
 
 function resetLayout() {
     layoutTopology(true); // force — ปุ่มนี้มีไว้ทิ้งตำแหน่งที่ลากเองโดยเฉพาะ
     showToast('จัดขนาดหน้าจอกลับเป็นค่าเริ่มต้นแล้ว', 'info');
+}
+
+/* ---------- ความสูงของแผงด้านล่าง ----------
+   ยกออกมาไว้ระดับไฟล์ (เดิมซ่อนอยู่ใน initResizers) เพราะแท็บฝึกทำโจทย์ต้องเรียกใช้ด้วย
+   แท็บนั้นมีเนื้อหายาวกว่าแท็บอื่นมาก คือตารางกรอกคำตอบสูงสุด 7 แถว บวกคำอธิบายใต้แถวที่ผิด
+   บวกตารางวิธีคิดทีละขั้นอีกชุด ความสูงปกติ 270px อ่านไม่ไหวจริง ๆ */
+function setBottomPanelHeight(h) {
+    var p = document.getElementById('bottomPanel');
+    if (!p) return;
+    p.style.height = h + 'px';
+    p.style.minHeight = h + 'px';
+    p.style.maxHeight = h + 'px';
+    if (typeof resizeCanvas === 'function') resizeCanvas();
+}
+
+function getBottomPanelHeight() {
+    var p = document.getElementById('bottomPanel');
+    if (!p) return 270;
+    var h = parseInt(p.style.height, 10);
+    if (isFinite(h) && h > 0) return h;
+    var r = p.getBoundingClientRect ? p.getBoundingClientRect() : null;
+    return (r && r.height) ? Math.round(r.height) : 270;
+}
+
+/* ---------- ปุ่มขยายแผงล่าง ----------
+   ปัญหาที่แก้: แผงล่างสูงคงที่ 270px ซึ่งพอดีสำหรับตาราง IP ไม่กี่แถวเท่านั้น
+   พอมีแผนกเยอะ หรือเปิดแท็บฝึกทำโจทย์ที่มีทั้งตารางกรอก คำอธิบาย และวิธีคิดทีละขั้น
+   เนื้อหาจะยาวเกินกว่าจะอ่านครบ ทางเดียวที่ทำได้คือลากเส้นแบ่งกลางจอ ซึ่งแทบไม่มีใครสังเกตเห็น
+   จึงเพิ่มปุ่มขยายไว้ที่แถบแท็บโดยตรง กดครั้งเดียวเห็นครบ กดอีกครั้งกลับไปดูผัง */
+var bottomPanelPrevHeight = null;   // ความสูงก่อนขยาย เก็บไว้คืนตอนกดย่อ
+// แยกว่า "ขยายเพราะโปรแกรมขยายให้ตอนเข้าแท็บฝึก" กับ "ขยายเพราะผู้ใช้กดปุ่มเอง"
+// เพราะอันแรกควรย่อกลับเองตอนออกจากแท็บ ส่วนอันหลังต้องคาไว้ ผู้ใช้ตั้งใจให้มันใหญ่
+var bottomPanelAutoMaxed = false;
+
+function isBottomPanelMaximized() {
+    return bottomPanelPrevHeight !== null;
+}
+
+function maxBottomPanelHeight() {
+    var winH = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 900;
+    return Math.max(300, Math.round(winH - 150)); // เหลือที่ให้เห็นผังนิดหน่อย จะได้รู้ว่ายังอยู่หน้าเดิม
+}
+
+function toggleBottomPanelMax(silent) {
+    if (isBottomPanelMaximized()) {
+        setBottomPanelHeight(bottomPanelPrevHeight);
+        bottomPanelPrevHeight = null;
+        bottomPanelAutoMaxed = false;
+        if (!silent) showToast('ย่อแผงกลับแล้ว', 'info');
+    } else {
+        bottomPanelPrevHeight = getBottomPanelHeight();
+        setBottomPanelHeight(maxBottomPanelHeight());
+        bottomPanelAutoMaxed = !!silent;   // silent = โปรแกรมขยายให้เอง ไม่ใช่ผู้ใช้กด
+        if (!silent) showToast('ขยายแผงเต็มจอแล้ว กดปุ่มเดิมอีกครั้งเพื่อย่อกลับ', 'info');
+    }
+    updateBottomPanelMaxButton();
+}
+
+function updateBottomPanelMaxButton() {
+    var btn = document.getElementById('btnPanelMax');
+    if (!btn) return;
+    var max = isBottomPanelMaximized();
+    btn.innerHTML = '<i class="fas ' + (max ? 'fa-down-left-and-up-right-to-center' : 'fa-up-right-and-down-left-from-center') +
+        ' mr-1" aria-hidden="true"></i>' + (max ? 'ย่อลง' : 'ขยาย');
+    btn.title = max ? 'ย่อแผงกลับไปขนาดเดิม' : 'ขยายแผงให้เต็มจอ เพื่ออ่านตารางได้ครบ';
+    btn.setAttribute('aria-label', btn.title);
 }
 
 function initResizers() {
@@ -1071,11 +1148,7 @@ function initResizers() {
         sidebar.style.minWidth = w + 'px';
         sidebar.style.maxWidth = w + 'px';
     }
-    function setBottomHeight(h) {
-        bottomPanel.style.height = h + 'px';
-        bottomPanel.style.minHeight = h + 'px';
-        bottomPanel.style.maxHeight = h + 'px';
-    }
+    function setBottomHeight(h) { setBottomPanelHeight(h); }
 
     // ----- Resizer ฝั่งซ้าย (Sidebar / Control Pane) -----
     if (resizerX && sidebar) {
@@ -1132,6 +1205,11 @@ function initResizers() {
         }
         function onMove(e) {
             pendingY = e.clientY;
+            // ผู้ใช้ลากเอง = ตั้งความสูงเองแล้ว จึงเลิกถือว่า "กำลังขยายอยู่"
+            // ไม่งั้นพอสลับแท็บ โปรแกรมจะเผลอย่อกลับไปทับความสูงที่เพิ่งลากไว้
+            bottomPanelPrevHeight = null;
+            bottomPanelAutoMaxed = false;
+            if (typeof updateBottomPanelMaxButton === 'function') updateBottomPanelMaxButton();
             if (!rafPending) { rafPending = true; requestAnimationFrame(applyY); }
         }
         function stop() {
@@ -1155,9 +1233,13 @@ function initResizers() {
             window.addEventListener('blur', stop);
         });
         resizerY.addEventListener('dblclick', function() {
+            // ลากเองแล้วดับเบิลคลิกเพื่อกลับค่าเริ่มต้น — ต้องล้างสถานะ "ขยายอยู่" ด้วย
+            // ไม่งั้นปุ่มบนแถบแท็บจะยังเขียนว่า "ย่อลง" ทั้งที่แผงกลับมาขนาดปกติแล้ว
+            bottomPanelPrevHeight = null;
+            bottomPanelAutoMaxed = false;
             setBottomHeight(DEFAULT_BOTTOM_H);
-            if (typeof resizeCanvas === 'function') resizeCanvas();
-            if (typeof showToast === 'function') showToast('รีเซ็ตขนาด Bottom Panel แล้ว', 'info');
+            if (typeof updateBottomPanelMaxButton === 'function') updateBottomPanelMaxButton();
+            if (typeof showToast === 'function') showToast('ปรับความสูงแผงกลับเป็นค่าเริ่มต้นแล้ว', 'info');
         });
     }
 }

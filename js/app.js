@@ -701,7 +701,14 @@ function init() {
         // เรียกใช้ Resizer (จากไฟล์ ui.js)
         if (typeof initResizers === 'function') initResizers();
 
-        window.addEventListener('resize', function() { resizeCanvas(); });
+        window.addEventListener('resize', function() {
+            resizeCanvas();
+            // ถ้าแผงล่างกำลังขยายเต็มจออยู่ ต้องคำนวณความสูงใหม่ตามขนาดหน้าต่างที่เปลี่ยน
+            // ไม่งั้นย่อหน้าต่างลงแล้วแผงจะล้นออกนอกจอ หรือขยายหน้าต่างแล้วเหลือช่องว่างค้าง
+            if (typeof isBottomPanelMaximized === 'function' && isBottomPanelMaximized()) {
+                setBottomPanelHeight(maxBottomPanelHeight());
+            }
+        });
 
         document.getElementById('baseIpInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') onBaseChange(); });
         document.getElementById('baseCidrInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') onBaseChange(); });
