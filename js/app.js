@@ -32,7 +32,13 @@ var state = {
     // ----- WAN (Router สาขา) — ดู js/wan.js -----
     wanBase: WAN_DEFAULT_BASE,   // Pool สำหรับจอง /30 ให้ลิงก์ระหว่าง Router
     wanCidr: WAN_DEFAULT_CIDR,
-    wanLinks: []                 // ผลคำนวณ calculateWanLinks() เติมให้ทุกครั้งที่ refreshAll()
+    wanLinks: [],                // ผลคำนวณ calculateWanLinks() เติมให้ทุกครั้งที่ refreshAll()
+    wanDce: {},                  // linkId -> id ของปลายที่เป็นฝั่งจ่ายสัญญาณนาฬิกา (ว่างไว้ = ให้โปรแกรมเดาให้)
+    wanClockRate: 64000,         // ความเร็วสัญญาณนาฬิกาที่ใส่ในคำสั่ง clock rate ของฝั่ง DCE
+
+    // ----- รูปแปลนอาคารที่วางไว้ใต้ผัง — ดู js/backdrop.js -----
+    // { src, x, y, scale, opacity, locked } | null  (src เป็น data URI ของ JPEG ที่ย่อแล้ว)
+    backdrop: null
 };
 
 // รีเฟรชทั้งหมด
@@ -102,6 +108,10 @@ function loadExample(key) {
 
         refreshAll(true); // ชุดข้อมูลใหม่ทั้งชุด จัดผังใหม่จากศูนย์
 
+        // ตัวอย่างที่มาพร้อมผังหลาย Router — ต้องสร้างหลัง refreshAll() รอบแรกเสมอ
+        // เพราะ Switch ของแต่ละแผนกเพิ่งถูกสร้างขึ้นตรงนั้น ก่อนหน้านี้ยังไม่มีอะไรให้ลากเชื่อม
+        var built = buildExampleTopology(ex.topology);
+
         // Flash effect
         setTimeout(function() {
             document.querySelectorAll('.dept-item').forEach(function(el) {
@@ -110,12 +120,105 @@ function loadExample(key) {
             });
         }, 50);
 
-        document.getElementById('statusBar').textContent = 'Loaded: ' + ex.label + ' — ' + ex.departments.length + ' depts — ' + ex.baseIp + '/' + ex.baseCidr;
-        showToast('โหลดตัวอย่าง: ' + ex.label, 'success');
+        document.getElementById('statusBar').textContent = 'โหลดตัวอย่าง ' + ex.label + ' แล้ว มี ' + ex.departments.length + ' แผนก ใช้เลขตั้งต้น ' + ex.baseIp + '/' + ex.baseCidr +
+            (built > 0 ? ' และมี Router สาขาอีก ' + built + ' ตัว' : '');
+        showToast('โหลดตัวอย่าง: ' + ex.label + (built > 0 ? ' (Router สาขา ' + built + ' ตัว ต่อสายให้เรียบร้อยแล้ว)' : ''), 'success');
     } catch (err) {
         console.error('loadExample error:', err);
         showToast('โหลดตัวอย่างไม่สำเร็จ', 'error');
     }
+}
+
+/* สร้าง Router สาขา + ลากสายตามที่ตัวอย่างกำหนด แล้วคืนจำนวน Router สาขาที่สร้างได้จริง
+   ลำดับสำคัญมาก และเป็นลำดับเดียวกับที่ผู้ใช้ต้องทำเองด้วยมือ:
+     1. วาง Router สาขา
+     2. ลากลิงก์ WAN ไปหา Router หลักก่อน  <-- ข้อที่คนทำเองมักข้าม แล้วงงว่าทำไมใช้ไม่ได้
+     3. ค่อยลากไปคุม Switch ของแผนก
+   ถ้าสลับข้อ 2 กับ 3 ผลลัพธ์สุดท้ายยังเหมือนกัน แต่ระหว่างทางจะมีจังหวะที่แผนกถูกตัดขาด
+   จึงยึดลำดับนี้ไว้ให้ตรงกับที่สอนในแผงรายละเอียดและในคู่มือ */
+function buildExampleTopology(topo) {
+    if (!topo || !Array.isArray(topo.branches) || typeof addManualNode !== 'function') return 0;
+
+    var idByKey = {}; // key ในไฟล์ตัวอย่าง -> id จริงที่เพิ่งถูกแจกบนผัง
+
+    // ตำแหน่งสาขาคำนวณจากผังจริง ไม่ใช่พิกัดตายตัวในไฟล์ตัวอย่าง
+    // รอบแรกเคยฝังพิกัดไว้ตรง ๆ (x:1150, y:120/380/620) ซึ่งพังทันทีที่ใช้จริง:
+    //   - y=380 ไปทับแถวกล่องแผนกที่ layoutTopology() วางไว้ที่ y=350 สูง 60 (คือ 320-380 พอดี)
+    //   - x คงที่ไม่สนใจว่าจอกว้างแค่ไหนและมีกี่แผนก พอแผนกเยอะผังจะกระจายไปทับ
+    //   - สาขาอยู่ไกลจากแผนกที่ตัวเองดูแล เส้นเลยลากพาดข้ามทั้งผังจนอ่านไม่ออก
+    var BRANCH_Y = 500;      // ใต้แถวแผนก (y=350 + สูง 60) โดยเว้นช่องให้เส้นหายใจ
+    var MIN_GAP = 190;       // กว้างกว่ากล่อง Router เล็กน้อย กันสองสาขาซ้อนกันเอง
+
+    // 1. วาง Router สาขาไว้ก่อนแบบหยาบ ๆ (ตำแหน่งจริงจะจัดอีกทีตอนท้าย)
+    //    ยังจัดตำแหน่งตอนนี้ไม่ได้ เพราะ layoutTopology() ยังไม่รู้ว่าแผนกไหนเป็นของสาขาไหน
+    //    จนกว่าจะลากสายเสร็จ — ตำแหน่งแผนกที่อ่านได้ตอนนี้จึงยังเป็นของผังแบบ Router เดียว
+    topo.branches.forEach(function(b) {
+        var node = addManualNode(BranchRouterDevice, topoNodes.router ? topoNodes.router.x : 400, BRANCH_Y);
+        if (!node) return;
+        node.label = b.label;
+        idByKey[b.key] = node.id;
+    });
+
+    // 2. ลิงก์ WAN — ทำก่อนการผูกแผนกเสมอ
+    (topo.wan || []).forEach(function(pair) {
+        var from = pair[0] === 'router' ? 'router' : idByKey[pair[0]];
+        var to = pair[1] === 'router' ? 'router' : idByKey[pair[1]];
+        if (from && to) addLink(from, to);
+    });
+
+    // 3. ผูกแผนกเข้ากับสาขาที่ดูแล — หา Switch จากชื่อแผนก (ชื่อในตัวอย่างต้องสะกดตรงกัน)
+    topo.branches.forEach(function(b) {
+        var routerId = idByKey[b.key];
+        if (!routerId) return;
+        (b.depts || []).forEach(function(deptName) {
+            var dept = state.departments.find(function(d) { return d.name === deptName; });
+            if (!dept) { console.warn('ตัวอย่างอ้างถึงแผนกที่ไม่มีอยู่:', deptName); return; }
+            var sw = topoNodes.switches.find(function(s) { return s.deptId === dept.id; });
+            if (sw) addLink(routerId, sw.id);
+        });
+    });
+
+    // 4. ต้องเป็น refreshAll(true) คือ "บังคับจัดผังใหม่" ไม่ใช่ refreshAll() เปล่า
+    //    layoutTopology() แบบไม่บังคับจะคืนตำแหน่งเดิมที่จำไว้ก่อนหน้า ซึ่งเป็นตำแหน่งจากตอนที่
+    //    ยังไม่มี Router สาขา = ยังไม่รู้ว่าแผนกไหนเป็นของใคร การจัดกลุ่มแผนกตามเจ้าของจึงไม่มีผลเลย
+    //    (เจอตอนตรวจพิกัดจริง: ลำดับในโค้ดถูกแล้ว แต่ค่า x ที่ออกมายังเป็นของผังเดิมทุกตัว)
+    refreshAll(true);
+
+    // 5. ตอนนี้แผนกถูกจัดกลุ่มตามเจ้าของแล้ว ค่อยเลื่อนสาขาไปอยู่ใต้กลุ่มของตัวเอง
+    //    ต้องทำหลังข้อ 4 เท่านั้น ถ้าคำนวณก่อนจะได้พิกัดของผังเดิมที่แผนกยังกระจัดกระจาย
+    var placements = topo.branches.map(function(b) {
+        var xs = (b.depts || []).map(function(name) {
+            var dept = state.departments.find(function(d) { return d.name === name; });
+            var node = dept && topoNodes.departments.find(function(n) { return n.deptId === dept.id; });
+            return node ? node.x : null;
+        }).filter(function(v) { return v !== null; });
+
+        return {
+            id: idByKey[b.key],
+            x: xs.length ? xs.reduce(function(s, v) { return s + v; }, 0) / xs.length
+                         : (topoNodes.router ? topoNodes.router.x : 400)
+        };
+    }).filter(function(p) { return p.id; });
+
+    // แผนกของสองสาขาอาจอยู่ใกล้กันจนกล่อง Router ซ้อนกัน -> ดันออกจากกันตามลำดับซ้ายไปขวา
+    placements.sort(function(p, q) { return p.x - q.x; });
+    for (var i = 1; i < placements.length; i++) {
+        if (placements[i].x - placements[i - 1].x < MIN_GAP) {
+            placements[i].x = placements[i - 1].x + MIN_GAP;
+        }
+    }
+    placements.forEach(function(p) {
+        var node = findNodeById(p.id);
+        if (node) { node.x = p.x; node.y = BRANCH_Y; }
+    });
+
+    // ผังที่มีสาขาสูงกว่าผัง Router เดียวเกือบเท่าตัว (แถวสาขาอยู่ที่ y=500) ถ้าไม่จัดให้พอดีกรอบ
+    // ผู้ใช้จะเปิดตัวอย่างมาแล้วเห็นแค่ครึ่งบน ไม่เห็นสาขาเลย ทั้งที่นั่นคือสิ่งที่ตัวอย่างนี้ต้องการโชว์
+    if (typeof updateParticlePositions === 'function') updateParticlePositions();
+    if (typeof zoomToFit === 'function') zoomToFit();
+    if (typeof requestRedraw === 'function') requestRedraw();
+
+    return Object.keys(idByKey).length;
 }
 
 function clearAll() {
@@ -129,9 +232,16 @@ function clearAll() {
         resetVlanRegistry();
         resetWanRegistry();
         resetManualTopology();
+        // รูปพื้นหลังถือเป็นส่วนหนึ่งของงาน ต้องถูกล้างไปด้วย ไม่งั้นกด CLEAR แล้วยังเห็นแปลนตึกเดิมค้างอยู่
+        // (ระบบ Undo เก็บ snapshot ที่มีรูปอยู่แล้ว กด Ctrl+Z เอากลับมาได้ถ้าเผลอกด)
+        if (typeof removeBackdrop === 'function' && typeof hasBackdrop === 'function' && hasBackdrop()) {
+            state.backdrop = defaultBackdrop();
+            if (typeof ensureBackdropImage === 'function') ensureBackdropImage();
+            if (typeof renderBackdropPanel === 'function') renderBackdropPanel();
+        }
         closeDetailPanel();
         refreshAll(true); // ล้างหมดแล้ว Router ควรกลับไปกลางจอตามผังมาตรฐาน
-        document.getElementById('statusBar').textContent = 'Cleared — กด EXAMPLE เพื่อเริ่มต้น';
+        document.getElementById('statusBar').textContent = 'ล้างข้อมูลหมดแล้ว กดปุ่ม EXAMPLE เพื่อเริ่มจากตัวอย่าง หรือเพิ่มแผนกเองได้เลย';
         showToast('ล้างข้อมูลทั้งหมดแล้ว', 'info');
     } catch (err) {
         console.error('clearAll error:', err);
@@ -179,6 +289,10 @@ function buildProjectSnapshot() {
         }),
         wanBase: state.wanBase,
         wanCidr: state.wanCidr,
+        // ฝั่ง DCE ที่ผู้ใช้เลือกเอง ต้องเก็บด้วย ไม่งั้นเปิดไฟล์กลับมาแล้วคำสั่ง clock rate
+        // จะย้ายกลับไปอยู่ฝั่งที่โปรแกรมเดา ซึ่งอาจไม่ตรงกับสายที่เสียบไว้จริง
+        wanDce: Object.assign({}, state.wanDce),
+        wanClockRate: state.wanClockRate,
         wan: {
             entries: Array.from(wanRegistry.entries()), // linkId -> index ของ block /30 (คงที่ตลอดชีพลิงก์)
             nextIndex: nextWanIndex
@@ -187,7 +301,15 @@ function buildProjectSnapshot() {
         links: topoNodes.links.map(function(l) {
             return { id: l.id, fromId: l.fromId, toId: l.toId };
         }),
-        nextLinkId: nextLinkId
+        nextLinkId: nextLinkId,
+        // รูปแปลนอาคาร — เป็นช่องเดียวในทั้ง snapshot ที่ใหญ่ระดับหลักแสนไบต์ (ที่เหลือรวมกันราว 2 KB)
+        // สำเนาเป็น object ใหม่ด้วยเหตุผลเดียวกับ departments: ระบบ Undo เก็บ snapshot ค้างในหน่วยความจำ
+        // ถ้าส่ง reference ตรง ๆ สภาพที่เก็บไว้จะกลายพันธุ์ตามการลากรูปครั้งถัดไป
+        backdrop: (function() {
+            var b = state.backdrop;
+            if (!b || !b.src) return null;
+            return { src: b.src, x: b.x, y: b.y, scale: b.scale, opacity: b.opacity, locked: b.locked };
+        })()
     };
 }
 
@@ -196,7 +318,7 @@ function exportProject() {
         // เดิมไม่เช็คอะไรเลย กดตอนยังไม่มีข้อมูลก็ได้ไฟล์เปล่า 362 bytes ติดเครื่องไปโดยไม่มีประโยชน์
         // (copyShareLink() เช็คอยู่แล้ว ตรงนี้ควรทำเหมือนกันเพื่อความสม่ำเสมอ)
         if (state.departments.length === 0 && topoNodes.manualNodes.length === 0) {
-            showToast('ยังไม่มีข้อมูลให้บันทึก — กด EXAMPLE หรือเพิ่มแผนกก่อน', 'error');
+            showToast('ยังไม่มีข้อมูลให้บันทึก ลองกดปุ่ม EXAMPLE เพื่อโหลดตัวอย่าง หรือเพิ่มแผนกเองก่อน', 'error');
             return;
         }
         var data = buildProjectSnapshot();
@@ -236,7 +358,7 @@ function onImportFileSelected(inputEl) {
             data = JSON.parse(e.target.result);
         } catch (err) {
             console.error('importProject parse error:', err);
-            showToast('ไฟล์นี้ไม่ใช่ JSON ที่ถูกต้อง — โหลดไม่สำเร็จ', 'error');
+            showToast('เปิดไฟล์นี้ไม่ได้ เพราะไม่ใช่ไฟล์ที่บันทึกจากโปรแกรมนี้', 'error');
             return;
         }
         applyProjectData(data);
@@ -266,7 +388,7 @@ function isValidProjectData(data) {
 
 function applyProjectData(data) {
     if (!isValidProjectData(data)) {
-        showToast('โครงสร้างไฟล์ไม่ตรงกับ NetForge Project — โหลดไม่สำเร็จ', 'error');
+        showToast('เปิดไฟล์นี้ไม่ได้ ข้อมูลข้างในไม่ตรงกับที่โปรแกรมรู้จัก', 'error');
         return;
     }
     try {
@@ -284,7 +406,7 @@ function applyProjectData(data) {
         });
         if (state.departments.length > MAX_DEPARTMENTS) {
             state.departments = state.departments.slice(0, MAX_DEPARTMENTS);
-            showToast('ไฟล์มีมากกว่า ' + MAX_DEPARTMENTS + ' แผนก — ใช้แค่ ' + MAX_DEPARTMENTS + ' แผนกแรก', 'info');
+            showToast('ไฟล์นี้มีแผนกมากกว่า ' + MAX_DEPARTMENTS + ' แผนก โปรแกรมรับได้สูงสุดเท่านี้ จึงใช้แค่ ' + MAX_DEPARTMENTS + ' แผนกแรก', 'info');
         }
 
         var maxDeptId = state.departments.reduce(function(m, d) { return Math.max(m, d.id); }, 0);
@@ -303,6 +425,24 @@ function applyProjectData(data) {
             if (typeof renderSummaryInputs === 'function') renderSummaryInputs();
         }
 
+        // รูปแปลนอาคาร — ไฟล์เก่าที่บันทึกก่อนมีฟีเจอร์นี้จะไม่มีช่อง backdrop เลย ถือเป็น "ไม่มีรูป"
+        // ตรวจ src ว่าเป็น data URI ของรูปจริง ๆ ก่อนรับ กันไฟล์ที่ถูกแก้มาให้ชี้ไป URL ภายนอก
+        // (ถึงจะมี CSP img-src กันอีกชั้น แต่ไม่ควรพึ่งด่านเดียว และไม่ควรยิง request ออกไปตั้งแต่แรก)
+        if (data.backdrop && typeof data.backdrop.src === 'string' && /^data:image\//.test(data.backdrop.src)) {
+            state.backdrop = {
+                src: data.backdrop.src,
+                x: Number(data.backdrop.x) || 0,
+                y: Number(data.backdrop.y) || 0,
+                scale: Math.max(0.1, Math.min(4, Number(data.backdrop.scale) || 1)),
+                opacity: Math.max(0.05, Math.min(1, Number(data.backdrop.opacity) || 0.35)),
+                locked: data.backdrop.locked !== false
+            };
+        } else {
+            state.backdrop = typeof defaultBackdrop === 'function' ? defaultBackdrop() : null;
+        }
+        if (typeof ensureBackdropImage === 'function') ensureBackdropImage();
+        if (typeof renderBackdropPanel === 'function') renderBackdropPanel();
+
         if (data.vlan && Array.isArray(data.vlan.entries)) {
             data.vlan.entries.forEach(function(pair) {
                 if (Array.isArray(pair) && pair.length === 2) vlanRegistry.set(pair[0], pair[1]);
@@ -310,6 +450,11 @@ function applyProjectData(data) {
         }
         state.wanBase = (typeof data.wanBase === 'string' && isValidIp(data.wanBase)) ? data.wanBase : WAN_DEFAULT_BASE;
         state.wanCidr = Number.isInteger(data.wanCidr) ? data.wanCidr : WAN_DEFAULT_CIDR;
+        // ไฟล์เก่าที่บันทึกก่อนมีฟีเจอร์นี้จะไม่มีสองช่องนี้ ให้ตกกลับไปใช้ค่าที่โปรแกรมเดาให้
+        state.wanDce = (data.wanDce && typeof data.wanDce === 'object' && !Array.isArray(data.wanDce))
+            ? Object.assign({}, data.wanDce) : {};
+        state.wanClockRate = (typeof WAN_CLOCK_RATES !== 'undefined' && WAN_CLOCK_RATES.indexOf(Number(data.wanClockRate)) !== -1)
+            ? Number(data.wanClockRate) : 64000;
         if (data.wan && Array.isArray(data.wan.entries)) {
             data.wan.entries.forEach(function(pair) {
                 if (Array.isArray(pair) && pair.length === 2) wanRegistry.set(pair[0], pair[1]);
@@ -365,7 +510,7 @@ function applyProjectData(data) {
         setIpMode(state.ipMode, true); // silent — ไม่ toast ซ้อนกับ toast โหลดสำเร็จด้านล่าง
 
         refreshAll(true); // โปรเจกต์ใหม่ทั้งก้อน (ไฟล์ไม่ได้เก็บตำแหน่ง Router/Switch อยู่แล้ว)
-        document.getElementById('statusBar').textContent = 'Loaded project — ' + state.departments.length + ' depts — ' + state.baseIp + '/' + state.baseCidr;
+        document.getElementById('statusBar').textContent = 'เปิดไฟล์งานแล้ว มี ' + state.departments.length + ' แผนก ใช้เลขตั้งต้น ' + state.baseIp + '/' + state.baseCidr;
         showToast('โหลดโปรเจกต์สำเร็จ', 'success');
     } catch (err) {
         console.error('applyProjectData error:', err);
@@ -400,7 +545,7 @@ function tryRestoreAutosave() {
         var data = JSON.parse(raw);
         if (!isValidProjectData(data)) return;
         applyProjectData(data);
-        showToast('กู้คืนข้อมูลล่าสุดจาก Autosave อัตโนมัติ (' + data.departments.length + ' แผนก) — กด CLEAR หากต้องการเริ่มใหม่', 'info');
+        showToast('เปิดงานที่ค้างไว้ครั้งก่อนกลับมาให้แล้ว (' + data.departments.length + ' แผนก) ถ้าอยากเริ่มใหม่ให้กดปุ่ม CLEAR', 'info');
     } catch (err) {
         console.error('tryRestoreAutosave error:', err);
     }
@@ -408,24 +553,39 @@ function tryRestoreAutosave() {
 
 // สร้าง dropdown HTML
 function buildExampleDropdown() {
+    // เก็บแค่ไอคอน — สีเคยเขียนซ้ำเหมือนกันทั้ง 6 บรรทัด ทำให้ดูเหมือนตั้งได้รายตัวทั้งที่ไม่เคยต่างกันเลย
     var icons = {
-        company: { icon: 'fa-building', bg: 'rgba(76,141,255,0.1)', border: 'rgba(76,141,255,0.3)', color: '#4C8DFF' },
-        school: { icon: 'fa-graduation-cap', bg: 'rgba(76,141,255,0.1)', border: 'rgba(76,141,255,0.3)', color: '#4C8DFF' },
-        hospital: { icon: 'fa-hospital', bg: 'rgba(76,141,255,0.1)', border: 'rgba(76,141,255,0.3)', color: '#4C8DFF' },
-        small: { icon: 'fa-store', bg: 'rgba(76,141,255,0.1)', border: 'rgba(76,141,255,0.3)', color: '#4C8DFF' },
-        factory: { icon: 'fa-industry', bg: 'rgba(76,141,255,0.1)', border: 'rgba(76,141,255,0.3)', color: '#4C8DFF' },
-        enterprise: { icon: 'fa-city', bg: 'rgba(76,141,255,0.1)', border: 'rgba(76,141,255,0.3)', color: '#4C8DFF' }
+        company: 'fa-building',
+        school: 'fa-graduation-cap',
+        hospital: 'fa-hospital',
+        small: 'fa-store',
+        factory: 'fa-industry',
+        enterprise: 'fa-city',
+        branch2: 'fa-code-branch',
+        branch3: 'fa-sitemap'
     };
 
     var html = '';
     Object.keys(EXAMPLES).forEach(function(key) {
         var ex = EXAMPLES[key];
-        var ic = icons[key];
+        // เดิมไม่มี fallback: เพิ่มตัวอย่างใหม่แล้วลืมเติมไอคอน -> ic เป็น undefined -> throw
+        // ตรงกลาง buildExampleDropdown() ซึ่งถูกเรียกจาก init() ผลคือ **แอปไม่ขึ้นทั้งหน้า**
+        // เพราะ init() ตายก่อนทำงานที่เหลือ ความผิดพลาดเล็กที่ลงโทษแรงเกินเหตุ จึงต้องมีค่าสำรอง
+        var icon = icons[key] || 'fa-diagram-project';
+        var branchCount = ex.topology && Array.isArray(ex.topology.branches) ? ex.topology.branches.length : 0;
+
         html += '<div class="ex-item" onclick="loadExample(\'' + key + '\')">' +
-            '<div class="ex-icon" style="background:' + ic.bg + ';border:1px solid ' + ic.border + ';color:' + ic.color + ';">' +
-            '<i class="fas ' + ic.icon + '"></i></div>' +
-            '<div><div class="ex-title">' + ex.label + '</div>' +
-            '<div class="ex-desc">' + ex.departments.map(function(d) { return d.name; }).join(', ') + '<br>Base: ' + ex.baseIp + '/' + ex.baseCidr + '</div></div>' +
+            '<div class="ex-icon"><i class="fas ' + icon + '" aria-hidden="true"></i></div>' +
+            '<div><div class="ex-title">' + escapeHtml(ex.label) +
+                // ป้ายบอกว่าตัวอย่างนี้มาพร้อมผังหลาย Router — เป็นเหตุผลหลักที่คนเลือกตัวอย่างพวกนี้
+                (branchCount > 0
+                    ? ' <span class="ex-badge">' + branchCount + ' สาขา</span>'
+                    : '') + '</div>' +
+            '<div class="ex-desc">' +
+                (ex.hint ? escapeHtml(ex.hint) + '<br>' : '') +
+                escapeHtml(ex.departments.map(function(d) { return d.name; }).join(', ')) +
+                '<br>Base: ' + ex.baseIp + '/' + ex.baseCidr +
+            '</div></div>' +
             '</div>';
     });
     document.getElementById('exampleDropdown').innerHTML = html;
@@ -514,7 +674,7 @@ function setupGlobalKeys() {
                 state.connectMode = false;
                 state.linkFromId = null;
                 if (typeof updateModeButtons === 'function') updateModeButtons();
-                document.getElementById('statusBar').textContent = 'ยกเลิกโหมดแล้ว';
+                document.getElementById('statusBar').textContent = 'ยกเลิกแล้ว';
                 return;
             }
 
@@ -564,7 +724,7 @@ function init() {
         layoutTopology();
         renderFrame();
 
-        document.getElementById('statusBar').textContent = 'Ready — กดปุ่ม EXAMPLE เพื่อโหลดข้อมูลตัวอย่าง';
+        document.getElementById('statusBar').textContent = 'พร้อมใช้งาน ถ้ายังไม่รู้จะเริ่มยังไง ลองกดปุ่ม EXAMPLE เพื่อโหลดตัวอย่างดูก่อน';
 
         // ลิงก์แชร์ (#p=...) ต้องชนะ Autosave เสมอ — ผู้ใช้กดลิงก์นั้นเพราะตั้งใจจะเปิดงานชิ้นนั้น
         // ถ้าปล่อยให้ Autosave ทับ จะกลายเป็นเปิดลิงก์แล้วเห็นงานเก่าของตัวเอง ซึ่งสับสนหนัก

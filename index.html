@@ -40,21 +40,46 @@
     <!-- iOS ไม่รองรับ favicon แบบ SVG จึงต้องมี PNG สี่เหลี่ยมจัตุรัสแยกให้ (180x180 คือขนาดที่ Apple แนะนำ) -->
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 
+    <!-- ========== Content-Security-Policy ==========
+         GitHub Pages ตั้ง HTTP header เองไม่ได้ จึงประกาศผ่าน meta ซึ่งรองรับเกือบทุก directive
+         (ยกเว้น frame-ancestors, report-uri, sandbox ที่ต้องมาทาง header เท่านั้น — ใส่ไปก็ถูกเมิน)
+
+         'unsafe-inline' ใน script-src ยังตัดออกไม่ได้ เพราะ UI ใช้ onclick= ในแอตทริบิวต์ 68 จุด
+         ซึ่งนับเป็น inline script ทั้งหมด การถอดออกต้องรื้อไปผูก event listener แทนทุกจุด
+         จึงยังไม่ใช่ตาข่ายกัน XSS ในตัวมันเอง — ด่านแรกยังเป็น escapeHtml() ใน ui.js เหมือนเดิม
+
+         แต่ที่ได้จริงและมีค่าแม้จะมี unsafe-inline:
+           - default-src 'self' + connect-src 'none' = ต่อให้มีสคริปต์แปลกปลอมหลุดเข้ามาได้จริง
+             ก็ส่งข้อมูลออกนอกเครื่องไม่ได้ ซึ่งสำคัญมากเพราะงานผู้ใช้ทั้งหมดอยู่ใน localStorage
+           - object-src 'none' ปิดทาง <object>/<embed> ซึ่งเป็นช่องหนีคลาสสิก
+           - base-uri 'self' กัน <base> injection ที่เปลี่ยนปลายทางของ path แบบ relative ทั้งหน้า
+           - form-action 'none' — แอปนี้ไม่มี <form> ที่ต้อง submit ออกไปไหนเลย
+         ไม่ต้องมี 'unsafe-eval' อีกแล้วหลังเลิกใช้ Tailwind CDN (ตัวนั้นคอมไพล์ CSS ในเบราว์เซอร์)
+
+         img-src ต้องมี data: และ blob: — favicon เป็น data URI และ Export PNG สร้าง blob URL -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline';
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com;
+        font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com;
+        img-src 'self' data: blob:;
+        connect-src 'none';
+        object-src 'none';
+        base-uri 'self';
+        form-action 'none';">
+
     <!-- ========== หมายเหตุเรื่อง SRI (Subresource Integrity) ==========
-         ตั้งใจ "ไม่ใส่" integrity= ให้สามตัวข้างล่าง และนี่คือการตัดสินใจ ไม่ใช่การลืม
+         ตั้งใจ "ไม่ใส่" integrity= ให้สองตัวข้างล่าง และนี่คือการตัดสินใจ ไม่ใช่การลืม
          SRI ทำงานแบบ all-or-nothing: ถ้า hash ไม่ตรงกับไฟล์ที่ได้แม้แต่ไบต์เดียว
          เบราว์เซอร์จะ "ทิ้งไฟล์ทั้งก้อน" เงียบ ๆ — หน้าเว็บจะโหลดแต่ไม่มีสไตล์เลย
 
-         1) cdn.tailwindcss.com — URL ไม่ระบุเวอร์ชัน เนื้อไฟล์เปลี่ยนได้ทุกครั้งที่ Tailwind ออกรุ่นใหม่
-            ใส่ hash = เว็บพังเองวันไหนก็ได้โดยที่เราไม่ได้แก้อะไรเลย
-            ถ้าจะใส่จริงต้องเปลี่ยนไปใช้ URL ที่ปักเวอร์ชันก่อน
-         2) fonts.googleapis.com — ตอบ CSS ไม่เหมือนกันตาม User-Agent (woff2 / woff / ttf)
+         1) fonts.googleapis.com — ตอบ CSS ไม่เหมือนกันตาม User-Agent (woff2 / woff / ttf)
             hash ที่ถูกกับเบราว์เซอร์เรา จะผิดกับเบราว์เซอร์อื่นเสมอ ใส่ไม่ได้โดยธรรมชาติของมัน
-         3) cdnjs (Font Awesome 6.5.0) — ปักเวอร์ชันแล้ว ไฟล์นิ่ง ใส่ SRI ได้จริงตัวเดียวในสามตัวนี้
+         2) cdnjs (Font Awesome 6.5.0) — ปักเวอร์ชันแล้ว ไฟล์นิ่ง ใส่ SRI ได้จริง
 
-         ถ้าจะใส่ให้ตัวที่ 3 — ทางที่ไม่มีโอกาสพิมพ์ผิดเลย:
+         ถ้าจะใส่ให้ตัวที่ 2 — ทางที่ไม่มีโอกาสพิมพ์ผิดเลย:
            เข้า cdnjs.com/libraries/font-awesome -> เลือกเวอร์ชัน 6.5.0 -> กดปุ่ม copy
-           มันให้แท็ก <link> พร้อม integrity มาครบ **วางทับแท็กที่ 3 ทั้งบรรทัด**
+           มันให้แท็ก <link> พร้อม integrity มาครบ **วางทับแท็กนั้นทั้งบรรทัด**
            แล้วเปิดเว็บเช็คว่าไอคอนยังขึ้นครบก่อน push
 
          กับดัก: ห้าม copy มาแค่ค่า integrity แล้วแปะใส่แท็กเดิม
@@ -64,33 +89,23 @@
            แท็กที่ปุ่ม copy ให้มามี crossorigin ติดมาแล้ว วางทับทั้งบรรทัดจึงปลอดภัยกว่า
 
          (ถ้าอยากตรวจค่าซ้ำด้วยตัวเอง: curl ไฟล์นั้นมาแล้วส่งเข้า
-          openssl dgst -sha384 -binary | openssl base64 -A) -->
-    <script src="https://cdn.tailwindcss.com"></script>
+          openssl dgst -sha384 -binary | openssl base64 -A)
+
+         หมายเหตุ: Tailwind เคยเป็นตัวที่สามในรายการนี้ (cdn.tailwindcss.com) ตอนนี้เลิกใช้แล้ว
+         คอมไพล์ล่วงหน้าเป็น css/tailwind.css ที่โหลดจากโดเมนตัวเอง จึงไม่ต้องพึ่ง SRI อีก -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-    <script>
-    tailwind.config = {
-        theme: {
-            extend: {
-                colors: {
-                    // ผูกกับ CSS variable ใน style.css โดยตรง (ไม่ใช่ hex ตายตัวแบบเดิม)
-                    // เพื่อให้ text-neon/border-dark-900/ฯลฯ สลับสีเองอัตโนมัติตอน toggle Light/Dark
-                    // (เดิมมีสองแหล่งค่าจริงที่ต้องแก้พร้อมกันทุกครั้ง เสี่ยงตกหล่นเหมือนตอนแก้ contrast รอบก่อน)
-                    neon: 'var(--neon)',
-                    cyber: 'var(--cyber)',
-                    hot: 'var(--hot)',
-                    dark: { 900:'var(--bg)', 800:'var(--card)', 700:'#1d212b', 600:'var(--border)' }
-                },
-                fontFamily: {
-                    display: ['Orbitron','sans-serif'],
-                    mono: ['Share Tech Mono','monospace']
-                }
-            }
-        }
-    }
-    </script>
+    <!-- Tailwind ที่คอมไพล์ไว้ล่วงหน้าแล้ว (เดิมเป็น <script src="cdn.tailwindcss.com"> ที่คอมไพล์
+         ในเบราว์เซอร์ทุกครั้งที่เปิดหน้า) — ค่า config ย้ายไปอยู่ที่ tailwind.config.js ในรากโปรเจกต์
 
+         ลำดับสำคัญ: ต้องมาก่อน style.css เสมอ
+         คลาสของเราใน style.css หลายตัวตั้งใจเขียนทับ utility ของ Tailwind ที่ specificity เท่ากัน
+         ซึ่งกรณีเสมอกันแบบนั้น "ตัวที่ประกาศทีหลังชนะ" ถ้าสลับลำดับ ปุ่มกับแผงต่าง ๆ จะเพี้ยนทันที
+
+         **ถ้าเพิ่มคลาส Tailwind ใหม่ในไฟล์ไหนก็ตาม ต้องรัน `npm run build:css` ก่อน commit**
+         ไม่งั้นคลาสนั้นจะไม่มีสไตล์บนเว็บจริงทั้งที่เห็นในโค้ด (CI มีขั้นตอนดักไว้ให้แล้ว) -->
+    <link rel="stylesheet" href="css/tailwind.css">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="bg-dark-900 overflow-x-hidden">
@@ -105,9 +120,9 @@
     <!-- หน้าช่วยเหลือ: แสดงอัตโนมัติครั้งแรกที่เปิดแอป และเรียกดูซ้ำได้ทุกเมื่อผ่านปุ่ม HELP หรือกด ?
          เนื้อหาต้องครอบคลุมฟีเจอร์ "ที่มีอยู่จริงตอนนี้" — ของที่หาไม่เจอเท่ากับของที่ไม่มี -->
     <div id="onboardOverlay" class="onboard-overlay hidden" onclick="if(event.target===this) closeOnboarding()">
-        <div class="onboard-card" style="max-width:640px;">
+        <div class="onboard-card" style="max-width:820px;">
             <div class="flex items-center justify-between mb-3">
-                <div class="font-display text-[15px] tracking-[2px] text-neon"><i class="fas fa-network-wired mr-2"></i>คู่มือใช้งาน NetForge</div>
+                <div class="font-display text-[19px] tracking-[2px] text-neon"><i class="fas fa-network-wired mr-2"></i>คู่มือใช้งาน NetForge</div>
                 <button onclick="closeOnboarding()" class="text-muted hover:text-hot transition-colors p-1" aria-label="ปิดคู่มือใช้งาน"><i class="fas fa-times fa-lg" aria-hidden="true"></i></button>
             </div>
 
@@ -118,50 +133,72 @@
                 <button class="tab-btn help-tab" data-help="keys" onclick="switchHelpTab('keys')">คีย์ลัด</button>
             </div>
 
-            <div class="max-h-[52vh] overflow-y-auto pr-1">
+            <div class="max-h-[60vh] overflow-y-auto pr-2">
                 <div class="help-pane" id="help-start">
-                    <div class="space-y-3">
+                    <div class="space-y-4">
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-circle-info"></i></div>
+                            <div><div class="onboard-step-title">โปรแกรมนี้ทำอะไร</div><div class="onboard-step-desc">ช่วยแบ่งเลข IP ให้แต่ละแผนกในบริษัท โดยดูจากว่าแผนกนั้นมีเครื่องกี่เครื่องจริง ๆ แผนกใหญ่ก็ได้เยอะ แผนกเล็กก็ได้น้อย ไม่ต้องแบ่งเท่ากันหมด<br>วิธีแบ่งแบบนี้มีชื่อเรียกว่า <b>VLSM</b><br>พอแบ่งเสร็จ มันจะวาดผังให้ดูด้วยว่าอะไรต่อกับอะไร แล้วเขียนคำสั่งสำหรับใส่ในอุปกรณ์ Cisco ให้เลย</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-list-ul"></i></div>
-                            <div><div class="onboard-step-title">1. ใส่แผนก</div><div class="onboard-step-desc">กรอกชื่อ + จำนวนเครื่องเอง หรือกด <b>EXAMPLE</b> เลือกชุดสำเร็จรูป 6 แบบ<br>ระบบคำนวณ VLSM ให้ทันทีทุกครั้งที่แก้ ไม่ต้องกดคำนวณซ้ำ</div></div></div>
+                            <div><div class="onboard-step-title">1. ใส่รายชื่อแผนก</div><div class="onboard-step-desc">พิมพ์ชื่อแผนกกับจำนวนเครื่องลงในช่องทางซ้ายมือ<br>ถ้ายังไม่รู้จะเริ่มยังไง กดปุ่ม <b>EXAMPLE</b> แล้วเลือกตัวอย่างสำเร็จรูปได้ 8 ชุด<br>แก้ตัวเลขตรงไหนก็ได้ มันคิดให้ใหม่ทันที ไม่ต้องกดปุ่มคำนวณซ้ำ</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-wand-magic-sparkles"></i></div>
-                            <div><div class="onboard-step-title">2. ปุ่มไม้กายสิทธิ์ ข้าง Calculate</div><div class="onboard-step-desc">หา Base ที่พอดีที่สุดให้อัตโนมัติ — ลดพื้นที่เหลือทิ้งได้มาก<br>ในโหมด IPv6 จะเติมค่ามาตรฐานและแก้ prefix ที่ตั้งผิดให้เอง</div></div></div>
+                            <div><div class="onboard-step-title">2. ให้โปรแกรมเลือกเลขตั้งต้นให้</div><div class="onboard-step-desc">ช่อง <b>Base</b> คือเลข IP ก้อนใหญ่ที่เราจะเอามาแบ่งให้ทุกแผนก<br>ถ้าไม่รู้ว่าควรใส่เลขอะไร กดปุ่มรูปไม้กายสิทธิ์ข้างปุ่ม Calculate ได้เลย<br>มันจะหาก้อนที่เล็กที่สุดที่ยังพอแบ่งครบทุกแผนกให้เอง จะได้ไม่เหลือ IP ทิ้งไว้เยอะเกินจำเป็น</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-chart-pie"></i></div>
-                            <div><div class="onboard-step-title">3. อ่านแผงสรุปใต้ตาราง</div><div class="onboard-step-desc">แยกให้เห็น <b>ใช้จริง / เสียจากการปัด / สำรองเผื่อโต</b><br>พร้อมบอกว่าแต่ละแผนกเพิ่มเครื่องได้อีกกี่ตัวโดยไม่เสีย IP เพิ่ม</div></div></div>
+                            <div><div class="onboard-step-title">3. ดูว่าใช้ IP ไปคุ้มไหม</div><div class="onboard-step-desc">แผงใต้ตารางจะบอกว่า IP ที่มีถูกใช้ไปกับอะไรบ้าง แยกเป็นสามส่วน คือส่วนที่ได้ใช้จริง ส่วนที่เสียไปเพราะต้องปัดขนาดขึ้น และส่วนที่เหลือไว้เผื่อเพิ่มเครื่องทีหลัง<br>แล้วยังบอกด้วยว่าแต่ละแผนกเพิ่มเครื่องได้อีกกี่เครื่อง โดยไม่ต้องไปขอ IP เพิ่ม</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-diagram-project"></i></div>
-                            <div><div class="onboard-step-title">4. จัดผังบน Canvas</div><div class="onboard-step-desc">ลากอุปกรณ์ได้อิสระ วาง PC/Server เพิ่มเอง คลิกโหนดเพื่อแก้รายละเอียด<br><b>ล้อเมาส์</b> = ย่อ/ขยาย · <b>ลากที่ว่าง</b> = เลื่อนผัง · ปุ่ม ⛶ = เห็นครบพอดีกรอบ</div></div></div>
+                            <div><div class="onboard-step-title">4. จัดผังเครือข่าย</div><div class="onboard-step-desc">ผังตรงกลางลากย้ายได้ทุกชิ้น อยากดูรายละเอียดตัวไหนก็คลิกที่ตัวนั้น<br>ปุ่มมุมขวาบนไว้เพิ่มเครื่องคอม เซิร์ฟเวอร์ หรือ Router เข้าไปในผัง<br>หมุนล้อเมาส์ = ย่อขยาย ลากที่ว่าง = เลื่อนผัง กดปุ่มขยายเต็มกรอบ = เห็นทุกอย่างพอดีจอ</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-image"></i></div>
+                            <div><div class="onboard-step-title">5. ใส่แปลนอาคารเป็นพื้นหลัง (ถ้าต้องการ)</div><div class="onboard-step-desc">ถ้ามีรูปแปลนตึก เอามาวางเป็นพื้นหลังได้ แล้วลากอุปกรณ์ไปวางตรงจุดที่จะติดตั้งจริง<br>กดปุ่ม <b>แปลน</b> มุมขวาบน เลือกรูป แล้วลากรูปให้เข้าที่ ปรับความจางกับขนาดได้<br>จัดเสร็จแล้วกดล็อก ไม่งั้นเวลาลากผังจะไปโดนรูปแทน</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-screwdriver-wrench"></i></div>
-                            <div><div class="onboard-step-title">5. แท็บล่างมี 3 อย่าง</div><div class="onboard-step-desc"><b>IP TABLE</b> ผลคำนวณ · <b>CLI CONFIG</b> คำสั่ง Cisco พร้อมคัดลอก · <b>NET TOOLS</b> Wildcard Mask และ Route Summary</div></div></div>
+                            <div><div class="onboard-step-title">6. ดูผลลัพธ์ที่แท็บด้านล่าง</div><div class="onboard-step-desc"><b>IP TABLE</b> คือตารางสรุปว่าแต่ละแผนกได้ IP ช่วงไหน<br><b>CLI CONFIG</b> คือคำสั่งสำหรับตั้งค่าอุปกรณ์ Cisco คัดลอกไปวางบนอุปกรณ์ได้เลย<br><b>NET TOOLS</b> เป็นเครื่องมือเสริม ไว้หา Wildcard Mask และรวมเส้นทางหลายเส้นให้เหลือเส้นเดียว</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-graduation-cap"></i></div>
+                            <div><div class="onboard-step-title">7. อยากฝึกคำนวณเองบ้าง</div><div class="onboard-step-desc">แท็บ <b>ฝึกทำโจทย์</b> จะกลับด้านกัน คือโปรแกรมออกโจทย์ให้ แล้วคุณคำนวณเอง<br>กดตรวจแล้วมันจะบอกเป็นช่อง ๆ ว่าถูกหรือผิด และถ้าผิดจะบอกด้วยว่าพลาดที่ขั้นตอนไหน ไม่ใช่แค่บอกว่าผิด<br>เลือกความยากได้ 3 ระดับ และเอาโจทย์ที่ทำอยู่ไปทำต่อเป็นงานจริงเพื่อดูผังกับคำสั่งได้ด้วย</div></div></div>
                     </div>
                 </div>
 
                 <div class="help-pane hidden" id="help-wan">
-                    <div class="space-y-3">
+                    <div class="space-y-4">
+                        <!-- กล่องนี้อยู่บนสุดเพราะเป็นข้อที่ผู้ใช้สะดุดกันทุกคน: ปุ่ม Router วาง "สาขา" เสมอ
+                             ไม่ได้วาง Router อิสระตัวที่สอง ซึ่งไม่มีอะไรในหน้าจอบอกไว้เลยก่อนหน้านี้ -->
+                        <div class="rounded p-3" style="background:rgba(240,160,32,0.1);border:1px solid rgba(240,160,32,0.45);">
+                            <div class="text-[15px] font-bold mb-1" style="color:#f0a020;">
+                                <i class="fas fa-lightbulb mr-1" aria-hidden="true"></i>อ่านตรงนี้ก่อน</div>
+                            <div class="text-muted text-[14.5px] leading-relaxed">
+                                ในผังจะมี Router ตัวหลักชื่อ <b>Router-01</b> ให้มาตั้งแต่แรกหนึ่งตัว ลบทิ้งไม่ได้<br>ส่วนปุ่ม <b>Router</b> มุมขวาบน กดแล้วจะได้ <b>Router ของสาขา</b> เสมอ ไม่ใช่ Router ตัวหลักอีกตัว
+                                <br><br>Router สาขาที่เพิ่งวางลงไป จะยังใช้ไม่ได้ ต้องลากสายไปเชื่อมกับ Router ตัวอื่นก่อน<br>ถ้าลืมทำ สาขานั้นจะไม่มีเลข IP และแผนกที่ย้ายไปอยู่กับมันจะคุยกับที่อื่นไม่ได้เลย
+                                <br><br>ถ้าอยากเห็นตัวอย่างที่ต่อเสร็จแล้ว กดปุ่ม <b>EXAMPLE</b> แล้วเลือกชุดที่มีป้าย
+                                <span class="ex-badge">2 สาขา</span> หรือ <span class="ex-badge">3 สาขา</span>
+                            </div>
+                        </div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-network-wired"></i></div>
-                            <div><div class="onboard-step-title">วาง Router สาขา</div><div class="onboard-step-desc">กดปุ่ม <b>Router</b> มุมขวาบนของ Canvas แล้วคลิกตำแหน่งที่ต้องการ</div></div></div>
+                            <div><div class="onboard-step-title">1. วาง Router ของสาขา</div><div class="onboard-step-desc">กดปุ่ม <b>Router</b> ที่มุมขวาบนของผัง แล้วคลิกตรงตำแหน่งที่อยากวาง<br>ตอนนี้ Router ตัวนั้นจะมีกรอบสีเหลืองและเครื่องหมายตกใจกำกับไว้ แปลว่ายังใช้งานไม่ได้</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-link"></i></div>
-                            <div><div class="onboard-step-title">เชื่อมเป็นลิงก์ WAN</div><div class="onboard-step-desc">กด <b>Connect</b> แล้วคลิก Router สองตัว — ระบบจอง <b>/30</b> ให้อัตโนมัติ<br>ดูเลข IP ทั้งสองฝั่งได้ที่ตาราง WAN ใต้แท็บ IP TABLE</div></div></div>
+                            <div><div class="onboard-step-title">2. ลากสายไปเชื่อมกับ Router-01 <span style="color:#f0a020;">(ห้ามข้ามขั้นตอนนี้)</span></div><div class="onboard-step-desc">กดปุ่ม <b>Connect</b> แล้วคลิก Router สองตัวที่จะเชื่อมกัน<br>โปรแกรมจะแบ่งเลข IP ให้สายเส้นนี้เอง โดยใช้ขนาด <b>/30</b> ซึ่งให้เลขใช้ได้พอดี 2 เบอร์ ตรงกับที่ต้องใช้สองฝั่ง<br>เมื่อเชื่อมสำเร็จ กรอบสีเหลืองจะหายไป และดูเลข IP ของทั้งสองฝั่งได้ที่ตาราง WAN ในแท็บ IP TABLE</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-arrows-turn-right"></i></div>
-                            <div><div class="onboard-step-title">ย้ายแผนกไปอยู่สาขา</div><div class="onboard-step-desc">ลาก Router สาขาไปเชื่อมกับ <b>Switch</b> ของแผนกใด แผนกนั้นจะย้ายไปอยู่หลังสาขานั้น<br>สายจาก Router หลักถูกตัดออกเองอัตโนมัติ</div></div></div>
+                            <div><div class="onboard-step-title">3. ย้ายแผนกไปอยู่กับสาขา</div><div class="onboard-step-desc">อยากให้แผนกไหนย้ายไปอยู่กับสาขา ก็ลากสายจาก Router สาขาไปหา <b>Switch</b> ของแผนกนั้น<br>สายเดิมที่ต่อกับ Router ตัวหลักจะถูกตัดออกให้เอง ไม่ต้องไปลบ</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-terminal"></i></div>
-                            <div><div class="onboard-step-title">config แยกต่อ Router</div><div class="onboard-step-desc">แท็บ CLI จะมีปุ่มเลือกดูทีละตัว<br>สำนักงานใหญ่ได้ <b>static route</b> ไปแต่ละสาขา · สาขาได้ <b>default route</b> กลับต้นทาง</div></div></div>
+                            <div><div class="onboard-step-title">4. ดูคำสั่งของ Router แต่ละตัว</div><div class="onboard-step-desc">ในแท็บ CLI CONFIG มีปุ่มให้เลือกดูทีละตัว เพราะแต่ละ Router ตั้งค่าไม่เหมือนกัน<br>สำนักงานใหญ่จะได้เส้นทางที่ระบุชัดเจนว่าจะไปหาแต่ละสาขาทางไหน ส่วนสาขาจะได้เส้นทางแบบส่งกลับมาที่สำนักงานใหญ่ทางเดียว เพราะสาขามีทางออกอยู่ทางเดียวอยู่แล้ว</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-clock"></i></div>
+                            <div><div class="onboard-step-title">5. เรื่องสัญญาณนาฬิกาของสายอนุกรม</div><div class="onboard-step-desc">สายอนุกรมต้องมีฝั่งหนึ่งเป็นคนจ่ายสัญญาณนาฬิกา เรียกว่าฝั่ง <b>DCE</b> ซึ่งเป็นฝั่งเดียวที่ต้องมีคำสั่ง <b>clock rate</b> ถ้าฝั่งนั้นไม่ได้ตั้ง สายจะไม่ขึ้นเลยทั้งที่ IP ถูกหมดแล้ว<br>โปรแกรมสร้างคำสั่งนี้ให้แล้ว โดยเดาว่า Router หลักเป็นฝั่ง DCE ถ้าของจริงเสียบสายกลับด้าน กดปุ่มสลับได้ที่คอลัมน์สุดท้ายของตาราง WAN ใต้แท็บ IP TABLE</div></div></div>
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-sitemap"></i></div>
+                            <div><div class="onboard-step-title">ข้อควรรู้เรื่องรูปแบบการต่อ</div><div class="onboard-step-desc">เพิ่มสาขาได้ไม่จำกัด แต่ควรต่อแบบให้ทุกสาขาวิ่งเข้าหา Router ตัวหลักโดยตรง<br>ยังไม่รองรับการต่อแบบเรียงต่อกันเป็นทอด ๆ เช่นสำนักงานใหญ่ต่อไปสาขา A แล้วสาขา A ต่อไปสาขา B อีกที เพราะโปรแกรมสร้างเส้นทางให้เฉพาะอุปกรณ์ที่ต่อสายถึงกันโดยตรงเท่านั้น ถ้าต่อแบบนั้นสาขาที่อยู่ปลายสุดจะติดต่อกับสำนักงานใหญ่ไม่ได้</div></div></div>
                     </div>
                 </div>
 
                 <div class="help-pane hidden" id="help-save">
-                    <div class="space-y-3">
+                    <div class="space-y-4">
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-box-archive"></i></div>
-                            <div><div class="onboard-step-title">คลังโปรเจกต์ (ปุ่ม LIBRARY)</div><div class="onboard-step-desc">เก็บงานหลายชิ้นไว้ในเบราว์เซอร์ เปิดกลับมาได้ทันที ไม่ต้องสมัครสมาชิก<br>ข้อมูลอยู่ในเครื่องคุณเท่านั้น ไม่ถูกส่งออกไปไหน</div></div></div>
+                            <div><div class="onboard-step-title">เก็บงานไว้หลายชิ้น (ปุ่ม LIBRARY)</div><div class="onboard-step-desc">เก็บงานได้หลายชิ้นไว้ในเบราว์เซอร์ อยากกลับมาดูชิ้นไหนก็กดเปิดได้ทันที ไม่ต้องสมัครสมาชิก<br>ข้อมูลทั้งหมดอยู่ในเครื่องของคุณเท่านั้น ไม่ได้ถูกส่งไปเก็บไว้ที่อื่น</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-link"></i></div>
-                            <div><div class="onboard-step-title">ลิงก์แชร์</div><div class="onboard-step-desc">ฝังทั้งโปรเจกต์ไว้ในตัว URL — ส่งลิงก์เดียวให้คนอื่นเปิดงานได้เลย ไม่ต้องแนบไฟล์</div></div></div>
+                            <div><div class="onboard-step-title">ส่งงานให้คนอื่นดูด้วยลิงก์</div><div class="onboard-step-desc">โปรแกรมจะเก็บงานทั้งหมดไว้ในตัวลิงก์เลย ส่งลิงก์เดียวให้เพื่อนหรืออาจารย์ก็เปิดดูได้ ไม่ต้องแนบไฟล์ตามไปด้วย<br>ยกเว้นรูปแปลนอาคารที่จะไม่ติดไปกับลิงก์ เพราะไฟล์รูปใหญ่เกินกว่าจะใส่ในลิงก์ได้ ถ้าอยากส่งรูปไปด้วยให้ใช้ปุ่ม SAVE แล้วส่งเป็นไฟล์แทน</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-file-export"></i></div>
-                            <div><div class="onboard-step-title">ปุ่ม EXPORT</div><div class="onboard-step-desc"><b>.png</b> รูปผังความละเอียดสูงสำหรับรายงาน/สไลด์<br><b>.csv</b> ตาราง IP เปิดด้วย Excel · <b>.txt</b> คำสั่ง CLI ทุกอุปกรณ์ · <b>.json</b> ไฟล์โปรเจกต์</div></div></div>
+                            <div><div class="onboard-step-title">บันทึกออกเป็นไฟล์ (ปุ่ม EXPORT)</div><div class="onboard-step-desc">เลือกได้ 4 แบบตามที่จะเอาไปใช้<br><b>.png</b> รูปผังความละเอียดสูง เอาไปใส่รายงานหรือสไลด์<br><b>.csv</b> ตาราง IP เปิดด้วย Excel ได้<br><b>.txt</b> คำสั่งของอุปกรณ์ทุกตัวรวมไว้ในไฟล์เดียว<br><b>.json</b> ไฟล์งานสำหรับเก็บไว้เปิดต่อทีหลัง</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-clock-rotate-left"></i></div>
-                            <div><div class="onboard-step-title">บันทึกอัตโนมัติ + ย้อนกลับได้</div><div class="onboard-step-desc">งานถูกเก็บอัตโนมัติทุกครั้งที่แก้ ปิดหน้าเว็บแล้วเปิดใหม่ยังอยู่<br>ลบผิดกด <b>Ctrl+Z</b> ย้อนได้ถึง 40 ขั้น</div></div></div>
+                            <div><div class="onboard-step-title">บันทึกให้อัตโนมัติ และย้อนกลับได้</div><div class="onboard-step-desc">โปรแกรมจะบันทึกงานให้เองทุกครั้งที่มีการแก้ ปิดหน้าเว็บไปแล้วเปิดกลับมาใหม่ งานก็ยังอยู่<br>ถ้าเผลอลบอะไรผิด กด <b>Ctrl+Z</b> เพื่อย้อนกลับได้ ย้อนได้มากสุด 40 ครั้ง</div></div></div>
                     </div>
                 </div>
 
                 <div class="help-pane hidden" id="help-keys">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-[13px]">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2 text-[15px]">
                         <div class="flex justify-between py-1"><span class="text-muted">ย้อนกลับ</span><kbd>Ctrl + Z</kbd></div>
                         <div class="flex justify-between py-1"><span class="text-muted">ทำซ้ำ</span><kbd>Ctrl + Y</kbd></div>
                         <div class="flex justify-between py-1"><span class="text-muted">เปิดคลังโปรเจกต์</span><kbd>Ctrl + S</kbd></div>
@@ -173,11 +210,11 @@
                         <div class="flex justify-between py-1"><span class="text-muted">ย่อ / ขยายผัง</span><kbd>ล้อเมาส์</kbd></div>
                         <div class="flex justify-between py-1"><span class="text-muted">เลื่อนผัง</span><kbd>ลากที่ว่าง</kbd></div>
                     </div>
-                    <p class="text-[12px] text-subtle mt-3">คีย์ลัดที่ใช้ Ctrl ใช้ได้แม้ขณะพิมพ์อยู่ในช่องกรอก ส่วน Delete และ ? จะทำงานเฉพาะตอนไม่ได้พิมพ์อยู่</p>
+                    <p class="text-[14.5px] text-subtle mt-3">คีย์ลัดที่ใช้ Ctrl ใช้ได้แม้ขณะพิมพ์อยู่ในช่องกรอก ส่วน Delete และ ? จะทำงานเฉพาะตอนไม่ได้พิมพ์อยู่</p>
                 </div>
             </div>
 
-            <button onclick="closeOnboarding()" class="btn-neon w-full justify-center text-[13px] py-2 mt-4">เริ่มใช้งาน</button>
+            <button onclick="closeOnboarding()" class="btn-neon w-full justify-center text-[16px] py-2.5 mt-4">เริ่มใช้งาน</button>
         </div>
     </div>
 
@@ -188,7 +225,7 @@
                 <div class="font-display text-[15px] tracking-[2px] text-neon"><i class="fas fa-box-archive mr-2"></i>คลังโปรเจกต์</div>
                 <button onclick="closeLibrary()" class="text-muted hover:text-hot transition-colors p-1" aria-label="ปิดคลังโปรเจกต์"><i class="fas fa-times fa-lg" aria-hidden="true"></i></button>
             </div>
-            <p class="text-[12px] text-muted mb-3">เก็บงานไว้ในเบราว์เซอร์ เปิดได้ทันทีโดยไม่ต้องโหลดไฟล์ — ไม่ต้องสมัครสมาชิก ข้อมูลอยู่ในเครื่องคุณเท่านั้น</p>
+            <p class="text-[12px] text-muted mb-3">เก็บงานไว้ในเบราว์เซอร์ กลับมาเปิดได้ทันทีโดยไม่ต้องโหลดไฟล์ ไม่ต้องสมัครสมาชิก ข้อมูลทั้งหมดอยู่ในเครื่องของคุณเท่านั้น</p>
 
             <div class="flex gap-2 mb-3">
                 <input id="libraryNewName" aria-label="ชื่อที่จะใช้บันทึกงานปัจจุบันลงคลัง" type="text" class="input-cyber flex-1 min-w-0" placeholder="ตั้งชื่องานปัจจุบัน" maxlength="60" />
@@ -204,7 +241,7 @@
         </div>
     </div>
 
-    <header class="min-h-[56px] h-auto flex flex-wrap items-center justify-between px-3 md:px-5 py-2 md:py-0 border-b border-dark-600 relative z-40 bg-dark-900/90 backdrop-blur-sm" style="background: linear-gradient(90deg, rgba(76,141,255,0.04), transparent, rgba(148,163,184,0.04));">
+    <header class="min-h-[56px] h-auto flex flex-wrap items-center justify-between px-3 md:px-5 py-2 md:py-0 border-b border-dark-600 relative z-40 bg-app-90 backdrop-blur-sm" style="background: linear-gradient(90deg, rgba(76,141,255,0.04), transparent, rgba(148,163,184,0.04));">
         <div class="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-between md:justify-start mb-2 md:mb-0">
             <div class="flex items-center gap-2">
                 <div class="w-8 h-8 rounded flex items-center justify-center" style="background: rgba(76,141,255,0.1); border: 1px solid var(--neon);">
@@ -212,7 +249,7 @@
                 </div>
                 <h1 class="font-display text-base tracking-[3px] text-neon font-bold">NETFORGE</h1>
             </div>
-            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v2.0</span>
+            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v2.3</span>
         </div>
         <div class="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-start md:justify-end flex-wrap">
             <div class="relative flex-1 md:flex-none" id="exampleWrapper">
@@ -331,12 +368,28 @@
                      จึงต้องบอกด้วย aria-label ว่านี่คืออะไร และชี้ทางไปยังตาราง IP ที่อ่านได้จริง -->
                 <canvas id="topoCanvas" class="w-full h-full block" role="img"
                         aria-label="ผัง Topology ของเครือข่าย แสดง Router สวิตช์ของแต่ละแผนก และอุปกรณ์ที่เชื่อมอยู่ ข้อมูลเดียวกันนี้อ่านเป็นข้อความได้ที่ตาราง IP Table ด้านล่าง"></canvas>
-                <div class="absolute top-3 left-3 font-display text-[10px] md:text-[12px] tracking-[2px] text-cyber opacity-90 font-bold bg-dark-900/50 p-1 rounded">TOPOLOGY — TAP NODE TO EDIT — DRAG TO MOVE</div>
+                <div class="absolute top-3 left-3 font-display text-[10px] md:text-[12px] tracking-[2px] text-cyber opacity-90 font-bold bg-app-50 p-1 rounded">ผังเครือข่าย คลิกที่อุปกรณ์เพื่อดูรายละเอียด ลากเพื่อย้ายตำแหน่ง</div>
                 <div class="absolute top-3 right-3 flex gap-1.5 z-10">
                     <button id="btnAddPc" onclick="togglePlacingMode('pc')" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกบน Canvas เพื่อวาง PC"><i class="fas fa-desktop mr-1"></i>PC</button>
                     <button id="btnAddServer" onclick="togglePlacingMode('server')" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกบน Canvas เพื่อวาง Server"><i class="fas fa-server mr-1"></i>Server</button>
                     <button id="btnAddRouter" onclick="togglePlacingMode('router-branch')" class="btn-cyber text-[12px] px-2 py-1" title="วาง Router สาขา แล้วลากเชื่อมกับ Router หลักเพื่อสร้างลิงก์ WAN"><i class="fas fa-network-wired mr-1"></i>Router</button>
                     <button id="btnConnect" onclick="toggleConnectMode()" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกอุปกรณ์ 2 ตัวเพื่อเชื่อมสาย"><i class="fas fa-link mr-1"></i>Connect</button>
+                    <button id="btnBackdrop" onclick="openBackdropPanel()" class="btn-cyber text-[12px] px-2 py-1" title="ใส่รูปแปลนอาคารไว้ใต้ผัง แล้วลากอุปกรณ์ไปวางตรงตำแหน่งจริง"><i class="fas fa-image mr-1"></i>แปลน</button>
+                </div>
+
+                <!-- แผงจัดการรูปแปลนอาคาร — ซ่อนไว้จนกว่าจะกดปุ่ม "แปลน"
+                     input file แยกไว้นอกแผงและซ่อนถาวร เพราะปุ่มเลือกไฟล์มาตรฐานของเบราว์เซอร์
+                     จัดสไตล์ให้เข้ากับธีมไม่ได้ จึงใช้ปุ่มของเราแล้วส่งคลิกต่อไปให้ input ตัวนี้ -->
+                <input type="file" id="backdropFileInput" accept="image/png,image/jpeg,image/webp"
+                       class="hidden" onchange="onBackdropFile(this)" aria-label="เลือกไฟล์รูปแปลนอาคาร">
+                <div id="backdropPanel" class="backdrop-panel hidden" role="group" aria-label="ตั้งค่ารูปแปลนอาคาร">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="font-display text-[12px] tracking-[1px] text-neon">
+                            <i class="fas fa-image mr-1" aria-hidden="true"></i>รูปแปลนอาคาร</div>
+                        <button onclick="openBackdropPanel()" class="text-subtle hover:text-hot" title="ปิดแผงนี้" aria-label="ปิดแผงรูปแปลนอาคาร">
+                            <i class="fas fa-times" aria-hidden="true"></i></button>
+                    </div>
+                    <div id="backdropBody"></div>
                 </div>
                 <!-- แถบควบคุมมุมมอง — ผังกว้างเกินกรอบเมื่อมี Router หลายตัว จึงต้องย่อ/ขยาย/เลื่อนได้ -->
                 <div class="canvas-zoom" role="group" aria-label="ควบคุมมุมมองผัง">
@@ -363,6 +416,7 @@
                     <button class="tab-btn active flex-shrink-0" data-tab="table" onclick="switchTab('table')"><i class="fas fa-table mr-1"></i>IP Table</button>
                     <button class="tab-btn flex-shrink-0" data-tab="cli" onclick="switchTab('cli')"><i class="fas fa-terminal mr-1"></i>CLI Config</button>
                     <button class="tab-btn flex-shrink-0" data-tab="tools" onclick="switchTab('tools')"><i class="fas fa-wrench mr-1"></i>Net Tools</button>
+                    <button class="tab-btn flex-shrink-0" data-tab="practice" onclick="switchTab('practice')"><i class="fas fa-graduation-cap mr-1"></i>ฝึกทำโจทย์</button>
                 </div>
                 
                 <div id="tab-table" class="tab-content p-3 overflow-y-auto flex-1 min-h-0">
@@ -390,19 +444,32 @@
                         <div class="flex justify-between items-center mb-2 flex-shrink-0">
                             <span class="font-display text-[11px] tracking-[2px] text-hot"><i class="fas fa-server mr-1"></i>ROUTER CONFIG</span>
                             <div id="cliRouterPicker" class="flex gap-1 flex-wrap hidden"></div>
-                            <button onclick="copyCLI('router')" class="btn-hot text-[12px]"><i class="fas fa-copy mr-1"></i>Copy</button>
+                            <div class="flex gap-1">
+                                <!-- ปุ่มนี้มีไว้ตอนจะเอาคำสั่งไปวางใน Packet Tracer หรือสายคอนโซลจริง
+                                     ซึ่งรับได้เฉพาะอักขระ ASCII คอมเมนต์ภาษาไทยจะทำให้ตัวอักษรเพี้ยนทั้งหน้าจอ -->
+                                <button id="btnCliAscii" onclick="toggleCliAsciiOnly()" class="btn-cyber text-[12px]"
+                                        title="กดเพื่อตัดคอมเมนต์ภาษาไทยออกตอนคัดลอก เวลาจะเอาไปวางใน Packet Tracer">
+                                    <i class="fas fa-terminal mr-1" aria-hidden="true"></i>โหมด PT</button>
+                                <button onclick="copyCLI('router')" class="btn-hot text-[12px]"><i class="fas fa-copy mr-1"></i>คัดลอก</button>
+                            </div>
                         </div>
                         <div id="cliRouterOutput" class="cli-output flex-1 overflow-y-auto min-h-0 pb-4 pr-2 text-[12px] md:text-[14px]"></div>
                     </div>
                     <div class="flex-1 flex flex-col min-h-0">
                         <div class="flex justify-between items-center mb-2 flex-shrink-0">
                             <span class="font-display text-[11px] tracking-[2px] text-cyber"><i class="fas fa-network-wired mr-1"></i>SWITCH CONFIG</span>
-                            <button onclick="copyCLI('switch')" class="btn-cyber text-[12px]"><i class="fas fa-copy mr-1"></i>Copy</button>
+                            <button onclick="copyCLI('switch')" class="btn-cyber text-[12px]"><i class="fas fa-copy mr-1"></i>คัดลอก</button>
                         </div>
                         <div id="cliSwitchOutput" class="cli-output flex-1 overflow-y-auto min-h-0 pb-4 pr-2 text-[12px] md:text-[14px]"></div>
                     </div>
                 </div>
                 
+                <!-- โหมดฝึกทำโจทย์ — เนื้อหาทั้งหมดสร้างจาก renderPractice() ใน js/practice.js
+                     ไม่ได้เขียนโครงไว้ใน HTML เพราะตารางเปลี่ยนตามจำนวนแผนกของโจทย์ที่สุ่มได้ -->
+                <div id="tab-practice" class="tab-content p-3 hidden flex-1 min-h-0 overflow-y-auto">
+                    <div id="practiceBody"></div>
+                </div>
+
                 <div id="tab-tools" class="tab-content p-3 hidden flex-1 min-h-0 overflow-y-auto">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 h-full min-h-0">
                         <div class="glow-border rounded-lg p-3 flex flex-col min-h-0 h-[250px] md:h-auto">
@@ -429,7 +496,7 @@
         </div>
 
         <aside id="detailPanel" class="detail-panel fixed inset-y-0 right-0 z-50 mt-[100px] md:mt-0 w-full sm:w-[320px] md:relative flex-shrink-0 border-l border-dark-600 flex flex-col shadow-2xl md:shadow-none" style="background: var(--card);">
-            <div class="p-4 border-b border-dark-600 flex items-center justify-between bg-dark-900/90 backdrop-blur">
+            <div class="p-4 border-b border-dark-600 flex items-center justify-between bg-app-90 backdrop-blur">
                 <div class="font-display text-[12px] tracking-[2px] text-neon"><i class="fas fa-edit mr-1"></i>NODE DETAILS</div>
                 <button onclick="closeDetailPanel()" class="text-muted hover:text-hot transition-colors p-2" aria-label="ปิดแผงรายละเอียด"><i class="fas fa-times fa-lg" aria-hidden="true"></i></button>
             </div>
@@ -448,6 +515,13 @@
     <script src="js/topology.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/wan.js"></script>
+    <!-- cli.js ต้องอยู่หลัง ui.js (ใช้ escapeHtml) และหลัง wan.js (ใช้ข้อมูลลิงก์ WAN)
+         แต่ต้องอยู่ก่อน export.js ที่เรียก renderCLI() ซ้ำทีละ Router ตอนสร้างไฟล์ .txt -->
+    <script src="js/cli.js"></script>
+    <!-- backdrop.js ต้องอยู่หลัง topology.js (ใช้ ctx/requestRedraw) และก่อน export.js ที่วาดรูปลงไฟล์ PNG -->
+    <script src="js/backdrop.js"></script>
+    <!-- practice.js ใช้ solveVLSM จาก vlsm.js และ escapeHtml จาก ui.js จึงต้องอยู่หลังทั้งสองไฟล์ -->
+    <script src="js/practice.js"></script>
     <script src="js/tools.js"></script>
     <script src="js/library.js"></script>
     <script src="js/history.js"></script>

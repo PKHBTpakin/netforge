@@ -1,7 +1,6 @@
 name: tests
 
-# รันชุดทดสอบทุกครั้งที่ push หรือเปิด pull request เข้า main
-# เทสไม่มี dependency ภายนอกเลย จึงไม่ต้อง npm install และไม่ต้อง cache อะไร
+# รันทุกครั้งที่ push หรือเปิด pull request เข้า main
 on:
   push:
     branches: [main]
@@ -10,15 +9,72 @@ on:
   workflow_dispatch: # กดรันเองได้จากแท็บ Actions
 
 jobs:
-  test:
+  # ---------------------------------------------------------------
+  # 1) ชุดทดสอบหลัก — ไม่มี dependency ภายนอกเลย จึงไม่ต้อง npm install
+  #    เร็วที่สุดในสามงาน จึงเป็นตัวที่ขึ้นกากบาทให้เห็นก่อนถ้ามีอะไรพัง
+  # ---------------------------------------------------------------
+  unit:
+    name: unit (Node)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
       # run-all.js คืน exit code 1 เมื่อมีไฟล์ไหน fail — GitHub Actions จะขึ้นกากบาทเอง
       - name: Run test suite
         run: node tests/run-all.js
+
+  # ---------------------------------------------------------------
+  # 2) css/tailwind.css ต้องตรงกับคลาสที่ใช้อยู่จริงในโค้ด
+  #    ตั้งแต่เลิกใช้ cdn.tailwindcss.com ไฟล์นี้ถูก build ล่วงหน้าแล้ว commit ลง repo
+  #    กับดักคือ "เพิ่มคลาสใหม่แล้วลืมรัน npm run build:css" ซึ่งไม่มีอะไรเตือนเลย
+  #    หน้าเว็บจะขึ้นปกติแต่คลาสนั้นไม่มีสไตล์ — งานนี้ build ใหม่แล้วเทียบกับที่ commit ไว้
+  # ---------------------------------------------------------------
+  css:
+    name: css ตรงกับโค้ด
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - name: Rebuild CSS
+        run: npm run build:css
+      - name: ต้องไม่มีอะไรเปลี่ยน
+        run: |
+          if ! git diff --exit-code --stat css/tailwind.css; then
+            echo "::error::css/tailwind.css ไม่ตรงกับคลาสที่ใช้ในโค้ด — รัน 'npm run build:css' แล้ว commit ไฟล์ที่ได้ด้วย"
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------
+  # 3) เทสบนเบราว์เซอร์จริง — ตาข่ายชั้นที่สอง
+  #    ครอบสิ่งที่ stub ใน Node จับไม่ได้: เลย์เอาต์จริง, Canvas ที่วาดจริง, ลำดับโหลดสคริปต์,
+  #    CSS ที่ build มาครบไหม และ CSP บล็อกทรัพยากรของตัวเองหรือเปล่า
+  #    แยกเป็นคนละ job เพราะต้องโหลดเบราว์เซอร์ ~150 MB ช้ากว่าอีกสองงานมาก
+  #    ไม่ใส่ needs: unit เพื่อให้เห็นผลทั้งสองฝั่งพร้อมกันในรอบเดียว ไม่ต้องแก้แล้วรอรันใหม่สองรอบ
+  # ---------------------------------------------------------------
+  e2e:
+    name: e2e (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run E2E
+        run: npm run test:e2e
+      # เก็บ trace/screenshot ไว้ดูเมื่อพัง — ไม่งั้นดีบั๊กจากล็อกอย่างเดียวแทบไม่ได้
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

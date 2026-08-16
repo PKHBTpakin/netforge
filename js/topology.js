@@ -20,6 +20,16 @@ let animFrame = null;
 let viewZoom = 1;
 let viewPanX = 0, viewPanY = 0;
 let panInfo = null; // { startX, startY, panX, panY } ระหว่างลากพื้นที่ว่างเพื่อเลื่อนผัง
+let backdropDrag = null; // { offsetX, offsetY } ระหว่างลากรูปแปลนอาคารตอนปลดล็อก
+
+// รูปพื้นหลังกินพื้นที่ตรงจุดนี้ไหม (พิกัด world) — ใช้ตัดสินว่าคลิกพื้นที่ว่างคือ "เลื่อนผัง" หรือ "เลื่อนรูป"
+function hitBackdrop(x, y) {
+    if (typeof backdropImg === 'undefined' || !backdropImg || !state.backdrop) return false;
+    const b = state.backdrop;
+    const s = Math.max(0.05, Number(b.scale) || 1);
+    return x >= b.x && x <= b.x + backdropImg.naturalWidth * s &&
+           y >= b.y && y <= b.y + backdropImg.naturalHeight * s;
+}
 const ZOOM_MIN = 0.35, ZOOM_MAX = 2.5;
 
 /* ชุดสีประจำแผนก — ขยายจาก 8 เป็น 12 สีตอนปลดเพดานจำนวนแผนก
@@ -35,6 +45,9 @@ let DEPT_COLORS = DEPT_COLORS_DARK; // applyTheme() ใน ui.js สลับใ
 
 // สี "chrome" ของ Canvas เอง (ไม่ใช่สีอุปกรณ์) — กล่อง Node / เส้น grid / ตัวหนังสือ label หลัก
 // วาดด้วยค่าตรงๆ ใน ctx.fillStyle ไม่ผ่าน CSS เลย เลยต้องมีตัวแปรคู่ขนานแบบนี้ให้ applyTheme() สลับ
+// สีเตือน — จงใจ "ไม่" ผูกกับระบบธีม เพราะความหมายของมันคือ "มีอะไรผิด" ซึ่งต้องอ่านออกเหมือนกัน
+// ทั้ง Light และ Dark เหลืองอำพันตัวนี้ผ่าน contrast 4.5:1 บนพื้นทั้งสองโหมด และไม่ชนกับสีแผนก 12 สี
+const CANVAS_WARN_COLOR = '#f0a020';
 let CANVAS_BOX_BG = 'rgba(15,17,21,0.95)';
 let CANVAS_GRID_COLOR = 'rgba(0,212,255,0.04)';
 let CANVAS_LABEL_COLOR = '#e0e0f0';
@@ -98,12 +111,38 @@ function layoutTopology(force) {
     topoNodes.departments = [];
     if (count === 0) { createParticles(); requestRedraw(); return; }
 
-    const maxSpacing = 180, minSpacing = 100;
+    // minSpacing ต้องไม่น้อยกว่าความกว้างกล่อง ไม่งั้นกล่องที่อยู่ติดกันจะซ้อนทับกันเอง
+    // เดิมตั้งไว้ 100 ทั้งที่กล่องแผนกกว้าง 132 -> ตั้งแต่ 8 แผนกขึ้นไปบนจอกว้าง 1024
+    // กล่องจะเริ่มกินกันเอง และที่ 12 แผนก (เพดานของแอป) ทับกันถึง 32px จนอ่านชื่อไม่ออก
+    // ปล่อยให้ผังกว้างเกินกรอบดีกว่าให้กล่องทับกัน เพราะตอนนี้ผังย่อ/เลื่อน/จัดพอดีกรอบได้แล้ว
+    // (ปุ่ม ⛶ / Ctrl+F เรียก zoomToFit ซึ่งจัดการกรณีผังกว้างให้อยู่แล้ว)
+    const DEPT_BOX_W = 132;
+    const maxSpacing = 180, minSpacing = DEPT_BOX_W + 14;
     let spacing = maxSpacing;
     if ((count - 1) * maxSpacing > cW - 160) spacing = Math.max(minSpacing, (cW - 160) / (count - 1));
     const startX = cW / 2 - (count - 1) * spacing / 2;
 
-    depts.forEach((dept, i) => {
+    /* ลำดับ "ตำแหน่งบนจอ" ของแผนก — จัดกลุ่มตาม Router ที่ดูแล
+       state.calculated เรียงตามจำนวน host มากไปน้อย (จำเป็นต่อการแจก subnet ห้ามแตะ)
+       แต่ลำดับนั้นทำให้แผนกของสาขาเดียวกันกระจัดกระจายอยู่คนละมุมของแถว
+       เส้นจากสาขาจึงต้องลากพาดข้ามผังไปหาแผนกของตัวเองทีละเส้น จนดูเหมือนเส้นพันกันมั่ว
+       ตรงนี้เรียงใหม่เฉพาะ "ลำดับการวางตำแหน่ง" โดยไม่แตะ state.calculated เลย
+       ผลคือแผนกของ Router เดียวกันอยู่ติดกัน เส้นสั้นลงและแทบไม่ตัดกัน
+       ส่วน subnet/VLAN/สี ยังผูกกับ dept.id เหมือนเดิมทุกประการ ไม่มีอะไรเปลี่ยนค่า */
+    const ownerOrder = new Map(); // routerId -> ลำดับกลุ่ม ('' = Router หลัก มาก่อนเสมอ)
+    ownerOrder.set('', 0);
+    const layoutDepts = depts.slice().sort((a, b) => {
+        const oa = (typeof getDeptOwnerRouter === 'function' && getDeptOwnerRouter(a.id)) || null;
+        const ob = (typeof getDeptOwnerRouter === 'function' && getDeptOwnerRouter(b.id)) || null;
+        const ka = oa ? oa.id : '', kb = ob ? ob.id : '';
+        if (!ownerOrder.has(ka)) ownerOrder.set(ka, ownerOrder.size);
+        if (!ownerOrder.has(kb)) ownerOrder.set(kb, ownerOrder.size);
+        const d = ownerOrder.get(ka) - ownerOrder.get(kb);
+        // กลุ่มเดียวกัน -> คงลำดับเดิม (host มากไปน้อย) เพื่อให้ผังนิ่ง ไม่สลับไปมาทุกครั้งที่คำนวณใหม่
+        return d !== 0 ? d : depts.indexOf(a) - depts.indexOf(b);
+    });
+
+    layoutDepts.forEach((dept, i) => {
         const x = startX + i * spacing;
         const color = getDeptColor(dept.id); // ผูกกับแผนก ไม่ใช่ลำดับ (ดู getDeptColor ใน devices.js)
 
@@ -448,7 +487,7 @@ function drawFlowArrows() {
     });
 }
 
-function drawNodeBox(node, icon, borderColor, isSelected, isHover) {
+function drawNodeBox(node, icon, borderColor, isSelected, isHover, isWarning) {
     const x = node.x - node.w / 2, y = node.y - node.h / 2;
     if (isSelected) { ctx.shadowColor = borderColor; ctx.shadowBlur = 6; }
 
@@ -456,10 +495,25 @@ function drawNodeBox(node, icon, borderColor, isSelected, isHover) {
     ctx.roundRect(x, y, node.w, node.h, 8);
     ctx.fillStyle = CANVAS_BOX_BG;
     ctx.fill();
-    ctx.strokeStyle = isSelected ? borderColor : (isHover ? borderColor + 'aa' : borderColor + '55');
-    ctx.lineWidth = isSelected ? 2 : 1;
+    // กล่องที่มีคำเตือนใช้เส้นขอบเต็มความทึบและหนาขึ้นเสมอ ไม่ว่าจะถูกเลือกอยู่หรือไม่
+    // เพราะประเด็นคือ "ต้องสังเกตเห็นโดยไม่ต้องไปคลิกก่อน"
+    ctx.strokeStyle = isWarning ? borderColor : (isSelected ? borderColor : (isHover ? borderColor + 'aa' : borderColor + '55'));
+    ctx.lineWidth = isWarning ? 2 : (isSelected ? 2 : 1);
     ctx.stroke();
     ctx.shadowBlur = 0;
+
+    // ป้ายอัศเจรีย์มุมขวาบนของกล่อง — สัญลักษณ์เดียวที่อ่านออกทันทีแม้ย่อผังจนอ่านตัวหนังสือไม่ทัน
+    if (isWarning) {
+        ctx.beginPath();
+        ctx.arc(x + node.w - 4, y + 4, 8, 0, Math.PI * 2);
+        ctx.fillStyle = borderColor;
+        ctx.fill();
+        ctx.fillStyle = '#1a1205'; // เข้มเกือบดำ ให้ตัด ! ออกจากพื้นเหลืองได้ในทั้งสองธีม
+        ctx.font = 'bold 12px "Share Tech Mono"';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('!', x + node.w - 4, y + 5);
+    }
 
     ctx.fillStyle = borderColor;
     ctx.font = '900 16px "Font Awesome 6 Free"'; // ต้องระบุ weight 900 ไม่งั้น solid icon ของ FA6 จะไม่ขึ้น (ขึ้นเป็นกล่องแทน)
@@ -529,12 +583,14 @@ function drawDeptNodes() {
 function drawManualNodes() {
     topoNodes.manualNodes.forEach(n => {
         // Router สาขามีความหมายของ 'เชื่อมแล้ว' คนละแบบกับ PC/Server (ดูจากลิงก์ WAN ไม่ใช่ linkedDeptId)
+        const orphan = typeof isOrphanBranchRouter === 'function' && isOrphanBranchRouter(n);
         n.subnetInfo = n.type === 'router-branch'
-            ? n.getIpLabel()
+            ? (orphan ? 'ยังไม่ได้เชื่อม WAN — ใช้งานไม่ได้' : n.getIpLabel())
             : n.getIpLabel() + (n.linkedDeptId ? '' : ' • ยังไม่เชื่อม');
-        drawNodeBox(n, n.icon, n.color,
+        drawNodeBox(n, n.icon, orphan ? CANVAS_WARN_COLOR : n.color,
             state.selectedNodeType === n.type && state.selectedDeptId === n.id,
-            hoverInfo && hoverInfo.id === n.id);
+            hoverInfo && hoverInfo.id === n.id,
+            orphan);
     });
 }
 
@@ -553,7 +609,7 @@ function requestRedraw() {
 }
 
 function isAnimating() {
-    return (state.showArrows && particles.length > 0) || dragInfo !== null || panInfo !== null || hoverInfo !== null;
+    return (state.showArrows && particles.length > 0) || dragInfo !== null || panInfo !== null || backdropDrag !== null || hoverInfo !== null;
 }
 
 function renderFrame() {
@@ -565,6 +621,8 @@ function renderFrame() {
             drawGrid();
             // ชั้นที่ 2 — พิกัด world: ทุกอย่างที่เหลือวาดด้วยพิกัดเดิมของโหนด ไม่ต้องแก้โค้ดวาดสักบรรทัด
             ctx.setTransform(dpr * viewZoom, 0, 0, dpr * viewZoom, viewPanX * dpr, viewPanY * dpr);
+            // รูปแปลนอาคารต้องอยู่ล่างสุดเสมอ วาดก่อนทุกอย่างในชั้น world
+            if (typeof drawBackdrop === 'function') drawBackdrop();
             drawConnections();
             drawFlowArrows();
             drawRouterNode();
@@ -687,11 +745,22 @@ function handlePointerDown(x, y) {
             const DeviceClass = state.placingType === 'pc' ? PCDevice
                               : state.placingType === 'router-branch' ? BranchRouterDevice
                               : ServerDevice;
-            addManualNode(DeviceClass, x, y);
+            const placedType = state.placingType;
+            const placed = addManualNode(DeviceClass, x, y);
             refreshAfterTopologyChange();
             state.placingType = null;
             if (typeof updateModeButtons === 'function') updateModeButtons();
-            if (typeof showToast === 'function') showToast('วางอุปกรณ์แล้ว — กด Connect เพื่อเชื่อมสาย', 'success');
+            // Router สาขาต่างจาก PC/Server ตรงที่ "วางแล้วยังใช้ไม่ได้" จนกว่าจะมีลิงก์ WAN
+            // บอกขั้นตอนถัดไปให้ตรง ๆ ตั้งแต่วินาทีที่วาง ดีกว่าให้ไปงงเอาตอนดู config ที่ไม่มีทางออก
+            if (typeof showToast === 'function') {
+                showToast(placedType === 'router-branch'
+                    ? 'วาง Router ของสาขาแล้ว แต่ยังใช้งานไม่ได้ ต้องกดปุ่ม Connect แล้วลากสายไปเชื่อมกับ Router-01 ก่อน'
+                    : 'วางอุปกรณ์แล้ว กดปุ่ม Connect เพื่อลากสายเชื่อมกับอุปกรณ์ตัวอื่น', placedType === 'router-branch' ? 'info' : 'success');
+            }
+            // เปิดแผงรายละเอียดของ Router ที่เพิ่งวางให้เลย ในนั้นมีขั้นตอนครบ 3 ข้อ
+            if (placedType === 'router-branch' && placed && typeof selectNode === 'function') {
+                selectNode(placed.id, 'router-branch');
+            }
             document.getElementById('statusBar').textContent = 'Ready';
             return;
         }
@@ -702,7 +771,7 @@ function handlePointerDown(x, y) {
             if (!hit) { state.linkFromId = null; return; } // คลิกพื้นที่ว่าง = ยกเลิกตัวที่เลือกไว้
             if (!state.linkFromId) {
                 state.linkFromId = hit.node.id;
-                document.getElementById('statusBar').textContent = 'เลือก ' + hit.node.label + ' แล้ว — คลิกอุปกรณ์ตัวที่สองเพื่อเชื่อม';
+                document.getElementById('statusBar').textContent = 'เลือก ' + hit.node.label + ' แล้ว ต่อไปให้คลิกอุปกรณ์ตัวที่สองที่ต้องการเชื่อมด้วย';
                 return;
             }
             if (state.linkFromId === hit.node.id) { state.linkFromId = null; return; } // คลิกตัวเดิมซ้ำ = ยกเลิก
@@ -718,7 +787,7 @@ function handlePointerDown(x, y) {
             } else if (typeof showToast === 'function') {
                 showToast(lastLinkMessage || 'เชื่อมไม่สำเร็จ', 'error');
             }
-            document.getElementById('statusBar').textContent = 'โหมดเชื่อมสาย: คลิกอุปกรณ์ตัวแรก';
+            document.getElementById('statusBar').textContent = 'กำลังลากสาย ให้คลิกอุปกรณ์ตัวแรกที่ต้องการเชื่อม';
             return;
         }
 
@@ -730,6 +799,10 @@ function handlePointerDown(x, y) {
             // Router หลักแทน -> ผู้ใช้เลยไม่เห็นปุ่มลบและแก้ชื่อของ Router สาขาที่เพิ่งวางเลย
             if (hit.type === 'department' || hit.type === 'switch' || hit.type === 'pc' || hit.type === 'server' || hit.type === 'router-branch') selectNode(hit.deptId, hit.type);
             else { state.selectedDeptId = null; state.selectedNodeType = 'router'; renderDetailPanel(); renderSidebarDepts(); }
+        } else if (typeof isBackdropDraggable === 'function' && isBackdropDraggable() && hitBackdrop(x, y)) {
+            // รูปพื้นหลังที่ "ปลดล็อกไว้" กินคลิกก่อนการเลื่อนผัง — เป็นโหมดชั่วคราวตอนจัดตำแหน่งเท่านั้น
+            // พอกดล็อก รูปจะคลิกทะลุได้ทันทีและกิ่งนี้จะไม่ถูกเข้าอีกเลย
+            backdropDrag = { offsetX: x - state.backdrop.x, offsetY: y - state.backdrop.y };
         } else {
             // คลิกพื้นที่ว่าง = เริ่มเลื่อนผัง (นอกเหนือจากการยกเลิกการเลือก)
             // ทำให้ผังที่กว้างเกินกรอบยังเข้าถึงได้ทุกส่วนโดยไม่ต้องย่อจนอ่านไม่ออก
@@ -747,6 +820,13 @@ function handlePointerDown(x, y) {
 // isHover = true เฉพาะเมาส์ — นิ้วไม่มีสถานะ "ชี้ค้าง" การอัปเดต hoverInfo จาก touch จะทำให้โหนดค้างสว่างหลังยกนิ้ว
 function handlePointerMove(x, y, isHover) {
     try {
+        if (backdropDrag && state.backdrop) {
+            state.backdrop.x = x - backdropDrag.offsetX;
+            state.backdrop.y = y - backdropDrag.offsetY;
+            if (isHover) canvas.style.cursor = 'grabbing';
+            requestRedraw();
+            return;
+        }
         if (panInfo) {
             const sx = x * viewZoom + viewPanX, sy = y * viewZoom + viewPanY;
             viewPanX = panInfo.panX + (sx - panInfo.startX);
@@ -780,8 +860,11 @@ function handlePointerMove(x, y, isHover) {
 }
 
 function handlePointerUp() {
+    // เก็บตำแหน่งรูปที่เพิ่งจัดเสร็จ ไม่งั้นรีเฟรชแล้วรูปเด้งกลับที่เดิม
+    if (backdropDrag && typeof scheduleAutosave === 'function') scheduleAutosave();
     dragInfo = null;
     panInfo = null;
+    backdropDrag = null;
     canvas.style.cursor = 'default';
     requestRedraw();
 }

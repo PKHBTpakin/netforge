@@ -56,6 +56,24 @@ function getBranchRouters() {
     return topoNodes.manualNodes.filter(function (n) { return n.type === 'router-branch'; });
 }
 
+/* ---------- Router สาขาที่ยังลอยอยู่ ----------
+   ปุ่ม Router บน Canvas วาง "Router สาขา" ให้เสมอ (Router หลักมีได้ตัวเดียวและมีมาให้ตั้งแต่ต้น)
+   Router สาขาที่เพิ่งวางลงไปยังไม่มีความหมายอะไรเลยจนกว่าจะมีลิงก์ WAN ไปหา Router ตัวอื่น:
+     - ไม่มี IP ฝั่ง WAN เพราะ /30 จะถูกจองตอนมีลิงก์เท่านั้น
+     - ไม่มี default route กลับต้นทาง
+     - ต่อให้ลากไปคุมแผนกไว้แล้ว แผนกนั้นจะถูกตัดขาดจากส่วนอื่นของเครือข่ายทันที
+       เพราะ Router หลักเลิกดูแลแผนกนั้นแล้ว แต่สาขาก็ยังไม่มีทางออก
+   ข้อสุดท้ายอันตรายที่สุด เพราะผังดูเหมือนถูกต้องทุกอย่างแต่ config ที่ได้ใช้งานจริงไม่ได้
+   จึงต้องมีสัญญาณเตือนบนผังและในแผงรายละเอียด ไม่ใช่ให้ผู้ใช้ค้นพบเอาเองตอนแปะลงอุปกรณ์ */
+function isOrphanBranchRouter(node) {
+    if (!node || node.type !== 'router-branch') return false;
+    return getWanLinksOfRouter(node.id).length === 0;
+}
+
+function getOrphanBranchRouters() {
+    return getBranchRouters().filter(isOrphanBranchRouter);
+}
+
 // Router ทั้งหมดในระบบ เรียง Router หลักไว้ก่อนเสมอ
 function getAllRouters() {
     var list = [];
@@ -138,7 +156,8 @@ function calculateWanLinks() {
             ends: [
                 { id: first.id, label: first.label, ip: longToIp((network + 1) >>> 0) },
                 { id: second.id, label: second.label, ip: longToIp((network + 2) >>> 0) }
-            ]
+            ],
+            dceId: resolveDceEnd(l.id, first.id, second.id)
         });
     });
 
@@ -147,6 +166,51 @@ function calculateWanLinks() {
     return results;
 }
 
+/* ---------- ฝั่ง DCE ของสายอนุกรม ----------
+   สายอนุกรมแบบเชื่อมตรงสองจุดต้องมีฝั่งหนึ่งเป็นคนจ่ายสัญญาณนาฬิกา เรียกว่าฝั่ง DCE
+   อีกฝั่งเป็นฝ่ายรับ เรียกว่า DTE ฝั่ง DCE เท่านั้นที่ต้องตั้งคำสั่ง clock rate
+
+   ประเด็นสำคัญ: "ฝั่งไหนเป็น DCE" ไม่ใช่สิ่งที่คำนวณจากผังได้ มันขึ้นกับว่าปลายสายฝั่งไหน
+   ถูกเสียบเข้ากับอุปกรณ์ตัวไหน ซึ่งเป็นเรื่องของสายจริงในห้องแล็บ ไม่ใช่เรื่องของตรรกะเครือข่าย
+   (ในงานจริงที่เช่าสายจากผู้ให้บริการ ตัวจ่ายนาฬิกาคืออุปกรณ์ของผู้ให้บริการ ทั้งสอง Router
+    เป็น DTE ทั้งคู่ และไม่ต้องตั้ง clock rate เลย)
+
+   โปรแกรมจึงเดาให้ก่อนตามธรรมเนียมที่ใช้กันในห้องแล็บ คือให้ Router หลักเป็นฝั่ง DCE
+   แล้วเปิดให้ผู้ใช้สลับเองได้จากตาราง WAN ถ้าเสียบสายกลับด้าน */
+function resolveDceEnd(linkId, firstId, secondId) {
+    var chosen = state.wanDce && state.wanDce[linkId];
+    if (chosen === firstId || chosen === secondId) return chosen;
+    // ค่าเริ่มต้น: Router หลักเป็นฝั่งจ่ายนาฬิกา ถ้าไม่มีในลิงก์นี้ก็ใช้ปลายแรก
+    if (firstId === 'router') return firstId;
+    if (secondId === 'router') return secondId;
+    return firstId;
+}
+
+// สลับว่าปลายไหนของลิงก์เป็นฝั่ง DCE — เรียกจากปุ่มในตาราง WAN
+function toggleWanDce(linkId) {
+    var link = (state.wanLinks || []).find(function (w) { return w.linkId === linkId; });
+    if (!link) return;
+    if (typeof pushHistory === 'function') pushHistory('สลับฝั่ง DCE');
+    if (!state.wanDce) state.wanDce = {};
+    var other = link.ends.find(function (e) { return e.id !== link.dceId; });
+    if (!other) return;
+    state.wanDce[linkId] = other.id;
+    if (typeof refreshAll === 'function') refreshAll();
+    if (typeof showToast === 'function') {
+        showToast('ย้ายฝั่งจ่ายสัญญาณนาฬิกาไปที่ ' + other.label + ' แล้ว คำสั่ง clock rate จะย้ายตามไปด้วย', 'info');
+    }
+}
+
+// ความเร็วสัญญาณนาฬิกาที่จะใส่ในคำสั่ง clock rate
+// 64000 เป็นค่ามาตรฐานที่ใช้กันในห้องแล็บและ Packet Tracer รับได้แน่นอน
+function getWanClockRate() {
+    var v = Number(state.wanClockRate);
+    return WAN_CLOCK_RATES.indexOf(v) !== -1 ? v : 64000;
+}
+
+// ค่าที่อุปกรณ์ Cisco ยอมรับจริง ไม่ใช่ตัวเลขอะไรก็ได้ — ถ้าใส่ค่านอกรายการนี้ IOS จะปฏิเสธ
+const WAN_CLOCK_RATES = [9600, 19200, 38400, 56000, 64000, 128000, 256000, 512000, 1024000, 2048000, 4000000];
+
 // ลิงก์ WAN ทั้งหมดที่ Router ตัวนี้มีส่วนร่วม พร้อมบอกว่าฝั่งเราคือ IP ไหน ฝั่งตรงข้ามคือใคร
 function getWanLinksOfRouter(routerId) {
     return (state.wanLinks || []).filter(function (w) {
@@ -154,15 +218,31 @@ function getWanLinksOfRouter(routerId) {
     }).map(function (w) {
         var mine = w.ends.find(function (e) { return e.id === routerId; });
         var peer = w.ends.find(function (e) { return e.id !== routerId; });
-        return { link: w, myIp: mine.ip, peerIp: peer.ip, peerId: peer.id, peerLabel: peer.label };
+        return {
+            link: w, myIp: mine.ip, peerIp: peer.ip, peerId: peer.id, peerLabel: peer.label,
+            isDce: w.dceId === routerId   // ฝั่งเราต้องตั้ง clock rate ไหม
+        };
     });
 }
 
 /* ---------- ตัวช่วยสำหรับ CLI ---------- */
 
 // ชื่อ hostname ที่ใช้ใน config — Router หลักคง 'Router-01' ไว้เหมือนเดิม (เทสเดิมอ้างอิงชื่อนี้)
+// ชื่อสำหรับ "คำสั่ง hostname" เท่านั้น — ต้องเป็นชื่อที่ IOS รับได้จริง
+// เดิมแทนแค่เว้นวรรคด้วยขีด ซึ่งแก้ได้ครึ่งเดียว: ชื่อสาขาภาษาไทย (เช่น "สาขาเชียงใหม่")
+// ยังหลุดไปเป็น `hostname สาขาเชียงใหม่` ซึ่ง IOS ไม่รับ — ใช้ toCiscoName() ให้ครบทุกกรณี
+// (ui.js โหลดก่อน wan.js เสมอทั้งใน index.html และในชุดเทส จึงเรียกได้ปลอดภัย)
 function routerHostname(routerNode) {
-    return routerNode.id === 'router' ? 'Router-01' : String(routerNode.label || 'Router').replace(/\s+/g, '-');
+    if (routerNode.id === 'router') return 'Router-01';
+    return toCiscoName(routerNode.label, 'Router-' + routerNode.id);
+}
+
+// ชื่อสำหรับ "ให้คนอ่าน" — ปุ่มเลือก Router, หัวข้อในไฟล์ export, คอมเมนต์ `!` ใน config
+// ต้องแยกจาก routerHostname() เพราะที่เหล่านี้ไม่ใช่คำสั่ง จึงเก็บชื่อไทยที่ผู้ใช้ตั้งไว้ได้
+// ถ้าใช้ตัวเดียวกันทั้งสองงาน ผู้ใช้ที่ตั้งชื่อ "สาขาเชียงใหม่" จะเห็นแท็บเป็น Router-m-3 แทน
+function routerDisplayName(routerNode) {
+    if (routerNode.id === 'router') return 'Router-01';
+    return String(routerNode.label || '').trim() || ('Router-' + routerNode.id);
 }
 
 // เส้นทางที่ Router ตัวนี้ต้องรู้จัก เพื่อไปถึงแผนกที่อยู่หลัง Router ตัวอื่น

@@ -62,7 +62,7 @@ function persistLibrary(list) {
 function saveToLibrary(name) {
     try {
         if (!isStorageAvailable()) {
-            showToast('เบราว์เซอร์นี้เก็บข้อมูลไม่ได้ (อาจเปิดจากไฟล์โดยตรงหรืออยู่โหมดส่วนตัว) — ใช้ปุ่ม SAVE โหลดไฟล์แทน', 'error');
+            showToast('เบราว์เซอร์นี้เก็บข้อมูลให้อัตโนมัติไม่ได้ อาจเพราะเปิดจากไฟล์โดยตรงหรือใช้โหมดไม่ระบุตัวตน ให้กดปุ่ม SAVE บันทึกเป็นไฟล์เองแทน', 'error');
             return null;
         }
         if (state.departments.length === 0 && topoNodes.manualNodes.length === 0) {
@@ -72,7 +72,7 @@ function saveToLibrary(name) {
 
         var list = loadLibrary();
         if (list.length >= LIBRARY_MAX) {
-            showToast('คลังเต็ม (' + LIBRARY_MAX + ' โปรเจกต์) — ลบของเก่าออกก่อน', 'error');
+            showToast('คลังเก็บงานเต็มแล้ว (เก็บได้สูงสุด ' + LIBRARY_MAX + ' ชิ้น) ต้องลบงานเก่าออกก่อนถึงจะเก็บเพิ่มได้', 'error');
             return null;
         }
 
@@ -88,7 +88,7 @@ function saveToLibrary(name) {
 
         list.unshift(entry); // ใหม่สุดอยู่บนสุด
         if (!persistLibrary(list)) {
-            showToast('บันทึกไม่สำเร็จ พื้นที่เก็บอาจเต็ม — ลองลบโปรเจกต์เก่าออก', 'error');
+            showToast('บันทึกไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์น่าจะเต็ม ลองลบงานเก่าที่ไม่ใช้แล้วออกก่อน', 'error');
             return null;
         }
         renderLibrary();
@@ -183,9 +183,19 @@ function decodeProject(encoded) {
     return JSON.parse(new TextDecoder().decode(bytes));
 }
 
+/* รูปแปลนอาคารใหญ่ระดับ 120-350 KB ซึ่งกลายเป็น base64 ราว 160-470K ตัวอักษร
+   เกินเพดาน URL ของทุกเบราว์เซอร์และทุกแชตแอปแบบเทียบกันไม่ติด (ทั้งโปรเจกต์ที่เหลือราว 2 KB)
+   จึงตัดรูปออกจากลิงก์เสมอ ไม่ใช่ปล่อยให้สร้างลิงก์ที่ส่งไม่ได้แล้วค่อยไปพังตอนวาง
+   ผู้ใช้ที่ต้องการส่งรูปไปด้วยมีทางอยู่แล้วคือปุ่ม SAVE ที่ได้ไฟล์ .json ซึ่งมีรูปครบ */
+function snapshotForShare() {
+    var snap = buildProjectSnapshot();
+    snap.backdrop = null;
+    return snap;
+}
+
 function buildShareUrl() {
     var base = location.href.split('#')[0];
-    return base + '#p=' + encodeProject(buildProjectSnapshot());
+    return base + '#p=' + encodeProject(snapshotForShare());
 }
 
 function copyShareLink() {
@@ -196,14 +206,20 @@ function copyShareLink() {
         }
         var url = buildShareUrl();
         if (url.length > 30000) { // เผื่อขอบเขตความยาว URL ที่เบราว์เซอร์/แชตแอปรองรับ
-            showToast('โปรเจกต์ใหญ่เกินกว่าจะใส่ในลิงก์ — ใช้ปุ่ม SAVE ส่งไฟล์แทน', 'error');
+            showToast('งานชิ้นนี้ใหญ่เกินกว่าจะใส่ในลิงก์ได้ ให้ใช้ปุ่ม SAVE บันทึกเป็นไฟล์แล้วส่งไฟล์แทน', 'error');
             return;
         }
         copyToClipboard(url, 'คัดลอกลิงก์แชร์แล้ว (' + url.length.toLocaleString() + ' ตัวอักษร) — วางส่งได้เลย');
+        // บอกให้ชัดว่ารูปไม่ได้ไปด้วย ไม่งั้นผู้รับเปิดลิงก์แล้วไม่เห็นแปลนอาคาร จะเข้าใจว่าลิงก์เสีย
+        if (typeof hasBackdrop === 'function' && hasBackdrop()) {
+            setTimeout(function () {
+                showToast('ลิงก์นี้ไม่มีรูปแปลนอาคารติดไปด้วย เพราะไฟล์รูปใหญ่เกินกว่าจะใส่ในลิงก์ได้ ถ้าอยากส่งรูปไปด้วยให้ใช้ปุ่ม SAVE แล้วส่งเป็นไฟล์แทน', 'info');
+            }, 800);
+        }
         if (location.protocol === 'file:') {
             // ลิงก์ file:// เปิดได้แค่บนเครื่องที่มีไฟล์นั้นอยู่จริง เตือนไว้กันเข้าใจผิดว่าส่งให้คนอื่นได้
             setTimeout(function () {
-                showToast('หมายเหตุ: ตอนนี้เปิดจากไฟล์ในเครื่อง ลิงก์นี้ใช้ได้เฉพาะเครื่องนี้ — ถ้าจะส่งให้คนอื่นต้องนำเว็บขึ้นโฮสต์ก่อน', 'info');
+                showToast('ตอนนี้คุณเปิดโปรแกรมจากไฟล์ในเครื่อง ลิงก์ที่ได้จึงใช้ได้แค่บนเครื่องนี้ ถ้าจะส่งให้คนอื่นต้องเอาเว็บขึ้นออนไลน์ก่อน', 'info');
             }, 800);
         }
     } catch (err) {
@@ -224,7 +240,7 @@ function tryLoadFromUrl() {
         try {
             data = decodeProject(m[1]);
         } catch (e) {
-            showToast('ลิงก์นี้เสียหายหรือไม่สมบูรณ์ — โหลดโปรเจกต์ไม่ได้', 'error');
+            showToast('ลิงก์นี้เปิดไม่ได้ อาจถูกคัดลอกมาไม่ครบหรือเสียหายระหว่างทาง', 'error');
             return false;
         }
         if (!isValidProjectData(data)) {
@@ -234,7 +250,7 @@ function tryLoadFromUrl() {
 
         applyProjectData(data);
         if (typeof clearHistory === 'function') clearHistory();
-        showToast('เปิดโปรเจกต์จากลิงก์แล้ว — กด LIBRARY เพื่อบันทึกเก็บไว้', 'info');
+        showToast('เปิดงานจากลิงก์เรียบร้อยแล้ว ถ้าอยากเก็บไว้ในเครื่อง ให้กดปุ่ม LIBRARY', 'info');
         return true;
     } catch (err) {
         console.error('tryLoadFromUrl error:', err);

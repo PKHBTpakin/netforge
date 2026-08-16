@@ -78,7 +78,7 @@ function renderSummaryInputs() {
     if (!el) return;
 
     if (!state.summaryRoutes || state.summaryRoutes.length === 0) {
-        el.innerHTML = '<div class="text-subtle text-[12px] py-1">ยังไม่มีเส้นทาง — เพิ่มด้านล่าง</div>';
+        el.innerHTML = '<div class="text-subtle text-[12px] py-1">ยังไม่มีเส้นทางในรายการ เพิ่มได้ที่ช่องด้านล่าง</div>';
         return;
     }
 
@@ -96,7 +96,7 @@ function addSummaryRoute() {
         var input = document.getElementById('summaryNew');
         if (!input) return;
         var parsed = parseCidrText(input.value);
-        if (!parsed) { showToast('รูปแบบไม่ถูกต้อง — ต้องเป็น x.x.x.x/yy เช่น 192.168.4.0/24', 'error'); return; }
+        if (!parsed) { showToast('รูปแบบไม่ถูกต้อง ต้องพิมพ์เป็น x.x.x.x/yy เช่น 192.168.4.0/24', 'error'); return; }
 
         // เก็บเป็น Network Address เสมอ กันผู้ใช้ใส่ host address แล้วผลสรุปเพี้ยน
         var maskLong = parsed.cidr === 0 ? 0 : (0xFFFFFFFF << (32 - parsed.cidr)) >>> 0;

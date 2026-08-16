@@ -280,9 +280,24 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
 .ex-icon {
     width: 30px; height: 30px; border-radius: 6px; display: flex;
     align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; margin-top: 2px;
+    /* ย้ายสีมาไว้ที่นี่ เดิมเขียนเป็น inline style ซ้ำกันทุกตัวใน buildExampleDropdown()
+       ซึ่งค่าเหมือนกันหมดทั้ง 6 รายการ และไม่สลับตามธีมด้วย */
+    background: rgba(76,141,255,0.1);
+    border: 1px solid rgba(76,141,255,0.3);
+    color: var(--neon);
 }
 .ex-title { font-size: 14px; color: var(--text); font-weight: bold; }
 .ex-desc { font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
+/* ป้ายเล็กท้ายชื่อตัวอย่าง บอกว่าชุดนี้มาพร้อมผัง Router หลายตัว
+   ธีมของแอปสลับด้วยแอตทริบิวต์ html[data-theme="light"] (ไม่ใช่คลาส) — ค่าเริ่มต้นคือธีมมืด
+   ตัวอักษรเหลืองบนพื้นขาวจะ contrast ไม่ผ่าน จึงต้องเข้มลงเฉพาะโหมดสว่าง */
+.ex-badge {
+    font-size: 10px; font-weight: normal; padding: 1px 6px; border-radius: 999px;
+    background: rgba(240,160,32,0.15); border: 1px solid rgba(240,160,32,0.45);
+    color: #f0a020; vertical-align: middle; white-space: nowrap;
+}
+html[data-theme="light"] .ex-badge { color: #8a5709; }
 
 /* --- Resizer (แถบลากปรับขนาด Split-Pane) --- */
 .resizer-x, .resizer-y {
@@ -337,17 +352,21 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
     max-width: 440px; width: 100%; padding: 20px 22px;
     box-shadow: 0 20px 60px var(--shadow);
 }
-.onboard-step { display: flex; gap: 12px; align-items: flex-start; }
+/* ขนาดตัวอักษรในคู่มือ — ตั้งใจใหญ่กว่าส่วนอื่นของแอป
+   ส่วนอื่นเป็นหน้าจอทำงานที่ต้องยัดข้อมูลเยอะในพื้นที่จำกัด ตัวเล็กจึงเหมาะกว่า
+   แต่คู่มือคือหน้าที่ "ต้องอ่านจริง ๆ" ทีละบรรทัด ถ้าตัวเล็กเท่ากันคนจะข้ามไม่อ่าน
+   และเวลานำเสนอหน้าห้อง คนนั่งหลังห้องต้องอ่านออกจากโปรเจกเตอร์ด้วย */
+.onboard-step { display: flex; gap: 14px; align-items: flex-start; }
 .onboard-step-icon {
-    width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+    width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(76,141,255,0.12); color: var(--neon); font-size: 14px;
+    background: rgba(76,141,255,0.12); color: var(--neon); font-size: 17px;
 }
-.onboard-step-title { font-size: 13px; font-weight: bold; color: var(--text); margin-bottom: 2px; }
-.onboard-step-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.onboard-step-title { font-size: 16.5px; font-weight: bold; color: var(--text); margin-bottom: 4px; }
+.onboard-step-desc { font-size: 15px; color: var(--muted); line-height: 1.75; }
 
 /* แท็บในหน้าคู่มือ + ปุ่มคีย์ลัด */
-.help-tab { padding: 5px 12px; font-size: 11px; border-radius: 4px; border: 1px solid transparent; }
+.help-tab { padding: 7px 16px; font-size: 14px; border-radius: 4px; border: 1px solid transparent; }
 .help-tab.active { color: var(--neon); border-color: var(--border); background: var(--item-bg); }
 kbd {
     font-family: 'Share Tech Mono', monospace; font-size: 12px;
@@ -390,3 +409,30 @@ kbd {
 @media (min-width: 768px) {
     .legend-item { font-size: 12px; }
 }
+
+/* ============================================
+   พื้นหลังกึ่งโปร่งของธีมปัจจุบัน
+   ============================================
+   เดิมสามจุดนี้ใช้คลาส `bg-dark-900/90` กับ `bg-dark-900/50` ของ Tailwind ซึ่ง "ไม่เคยทำงานเลย"
+   ตั้งแต่แรก: dark.900 ถูกนิยามเป็น var(--bg) และ Tailwind แปลงค่าใน var() เป็น rgba ไม่ได้
+   จึงข้ามการสร้างคลาสตัวคูณความทึบทิ้งไปเงียบ ๆ (พฤติกรรมนี้เหมือนกันทั้งตอนใช้ CDN และตอน build
+   เพราะเป็นข้อจำกัดของ config ไม่ใช่ของวิธีคอมไพล์) ผลคือ header กับป้ายบน Canvas ไม่มีพื้นหลังเลย
+   เห็นชัดตอนเลื่อนหน้าให้เนื้อหาลอดไปอยู่ใต้ header
+
+   ทางแก้ที่ไม่ต้องรื้อ CSS variable ทั้งไฟล์: ใช้ color-mix() ผสมสีพื้นของธีมกับความโปร่งตรงนี้เลย
+   ได้ผลถูกต้องอัตโนมัติทั้ง Light และ Dark เพราะอ่านจาก --bg ตัวเดียวกับที่ธีมสลับอยู่แล้ว
+   (ทางเลือกอื่นคือเปลี่ยน --bg ให้เก็บค่า RGB ดิบแล้วประกาศสีเป็น rgb(var(--bg) / <alpha-value>)
+    แต่ต้องไล่แก้ทุกที่ที่ใช้ var(--bg) ทั้งไฟล์ เสี่ยงกว่ามากโดยได้ผลเท่ากัน) */
+.bg-app-90 { background-color: color-mix(in srgb, var(--bg) 90%, transparent); }
+.bg-app-50 { background-color: color-mix(in srgb, var(--bg) 50%, transparent); }
+
+/* แผงตั้งค่ารูปแปลนอาคาร — ลอยอยู่มุมขวาบนของ Canvas ใต้แถวปุ่ม
+   ตำแหน่ง absolute เทียบกับกล่อง Canvas (ตัวแม่มี position:relative อยู่แล้ว) */
+.backdrop-panel {
+    position: absolute; top: 46px; right: 12px; z-index: 20;
+    width: 250px; max-width: calc(100% - 24px);
+    padding: 12px; border-radius: 8px;
+    background: var(--card); border: 1px solid var(--border);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+}
+.backdrop-panel input[type="range"] { accent-color: var(--neon); }

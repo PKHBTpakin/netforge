@@ -1,0 +1,8 @@
+/* ไฟล์ตั้งต้นของ Tailwind — ไม่ได้ถูกโหลดตอนเปิดเว็บ ใช้เป็น input ของ `npm run build:css` เท่านั้น
+   ผลลัพธ์คือ css/tailwind.css ซึ่งเป็นไฟล์ที่ index.html โหลดจริง
+
+   base = reset ของ Tailwind (preflight) ต้องมี เพราะเลย์เอาต์ทั้งหน้าเขียนบนสมมติฐานว่ามี reset นี้อยู่
+          ตอนใช้ CDN มันใส่ให้อัตโนมัติจนมองไม่เห็น ถ้าตัดออกตอน build ระยะห่าง/ขนาดฟอนต์จะเพี้ยนทั้งหน้า */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

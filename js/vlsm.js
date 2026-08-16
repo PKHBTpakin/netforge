@@ -101,24 +101,27 @@ function calculateUtilization() {
     };
 }
 
-function calculateVLSM() {
-    const baseCidr = state.baseCidr;
-    // ตาข่ายนิรภัยชั้นสุดท้าย: state.baseIp ถูกตั้งได้จากหลายทาง (กรอกเอง, โหลด Example, import ไฟล์, autosave)
-    // onBaseChange() ปัดให้ตั้งแต่ต้นทางแล้ว แต่เส้นทางอื่นไม่ได้ผ่านตรงนั้น จึงปัดซ้ำตรงนี้ให้ครบทุกทาง
-    // แก้ที่ state เลย (ไม่ใช่แค่ตัวแปรภายใน) เพื่อไม่ให้ Router panel/CLI โชว์ Base คนละค่ากับ subnet ที่แจกจริง
-    const normalized = normalizeNetwork(state.baseIp, baseCidr);
-    if (normalized !== state.baseIp) state.baseIp = normalized;
-    const baseLong = ipToLong(state.baseIp);
-    const sorted = [...state.departments].sort((a, b) => b.hosts - a.hosts);
+/* ============================================
+   1b. solveVLSM — เครื่องคำนวณตัวจริง แยกออกมาเป็นฟังก์ชันบริสุทธิ์
+   ============================================
+   ไม่อ่านและไม่เขียน state ใด ๆ ทั้งสิ้น รับค่าเข้าไปแล้วคืนผลออกมาอย่างเดียว
+
+   ทำไมต้องแยก:
+   โหมดฝึกทำโจทย์ (js/practice.js) ต้องใช้ "เฉลย" ของโจทย์ที่สุ่มขึ้นมา ซึ่งไม่เกี่ยวกับงานที่ผู้ใช้
+   ทำค้างอยู่บนหน้าจอเลย ถ้าเขียนโค้ดคำนวณชุดที่สองขึ้นมาต่างหาก วันหนึ่งเครื่องคำนวณจริงกับเฉลย
+   จะค่อย ๆ หลุดจากกันโดยไม่มีใครรู้ แล้วโปรแกรมจะสอนสิ่งที่ตัวเองไม่ได้ทำ
+   การใช้ฟังก์ชันเดียวกันทั้งสองที่ทำให้เฉลยไม่มีทางไม่ตรงกับผลจริงได้เลย
+
+   คืนค่า: { results, failed }  โดย results เรียงตามลำดับที่จัดสรรจริง (มาก -> น้อย)
+   ============================================ */
+function solveVLSM(baseIp, baseCidr, departments) {
+    const baseLong = ipToLong(normalizeNetwork(baseIp, baseCidr));
+    const sorted = [...(departments || [])].sort((a, b) => b.hosts - a.hosts);
     let currentIp = baseLong;
     const results = [];
-    const errors = [];
-    // แผนกที่จัดสรรไม่สำเร็จ เดิมถูกทิ้งไปเงียบ ๆ เหลือแค่ toast 2.5 วินาที
-    // ผู้ใช้ที่พลาดช่วงนั้นจะไม่มีทางรู้เลยว่ามีแผนกหนึ่งไม่ได้อยู่ในแผน -> เก็บเหตุผลไว้ให้ UI แสดงค้าง
     const failed = [];
     const fail = (dept, reason) => {
         failed.push({ id: dept.id, name: dept.name || 'Dept', hosts: dept.hosts, reason: reason });
-        errors.push((dept.name || 'Dept') + ': ' + reason);
     };
 
     for (const dept of sorted) {
@@ -163,6 +166,24 @@ function calculateVLSM() {
         });
         currentIp = broadcast + 1;
     }
+    return { results: results, failed: failed };
+}
+
+// ตัวห่อบาง ๆ ที่ผูกกับ state ของหน้าจอ — ตรรกะการคำนวณทั้งหมดอยู่ใน solveVLSM ข้างบน
+function calculateVLSM() {
+    const baseCidr = state.baseCidr;
+    // ตาข่ายนิรภัยชั้นสุดท้าย: state.baseIp ถูกตั้งได้จากหลายทาง (กรอกเอง, โหลด Example, import ไฟล์, autosave)
+    // onBaseChange() ปัดให้ตั้งแต่ต้นทางแล้ว แต่เส้นทางอื่นไม่ได้ผ่านตรงนั้น จึงปัดซ้ำตรงนี้ให้ครบทุกทาง
+    // แก้ที่ state เลย (ไม่ใช่แค่ตัวแปรภายใน) เพื่อไม่ให้ Router panel/CLI โชว์ Base คนละค่ากับ subnet ที่แจกจริง
+    const normalized = normalizeNetwork(state.baseIp, baseCidr);
+    if (normalized !== state.baseIp) state.baseIp = normalized;
+
+    const out = solveVLSM(state.baseIp, baseCidr, state.departments);
+    const results = out.results;
+    // แผนกที่จัดสรรไม่สำเร็จ เดิมถูกทิ้งไปเงียบ ๆ เหลือแค่ toast 2.5 วินาที
+    // ผู้ใช้ที่พลาดช่วงนั้นจะไม่มีทางรู้เลยว่ามีแผนกหนึ่งไม่ได้อยู่ในแผน -> เก็บเหตุผลไว้ให้ UI แสดงค้าง
+    const failed = out.failed;
+    const errors = failed.map(f => f.name + ': ' + f.reason);
 
     state.calculated = results;
     state.failed = failed;

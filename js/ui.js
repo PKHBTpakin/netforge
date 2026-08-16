@@ -1,5 +1,8 @@
 /* ============================================
-   2. UI — ตาราง, แผนก, Detail Panel, Sidebar
+   2. UI — ตาราง, แผนก, Detail Panel, Sidebar, ธีม, layout
+   ============================================
+   ส่วนสร้าง config Cisco IOS เคยอยู่ในไฟล์นี้ ย้ายออกไป js/cli.js แล้วเมื่อ 31 ก.ค. 2569
+   (เหลือ copyToClipboard ไว้ที่นี่ เพราะ library.js ใช้คู่กับลิงก์แชร์ด้วย ไม่ใช่ของ CLI อย่างเดียว)
    ============================================ */
 
 let isEditing = false;
@@ -39,7 +42,7 @@ function renderSidebarDepts() {
     document.getElementById('deptCount').textContent = state.departments.length;
 
     if (state.departments.length === 0) {
-        el.innerHTML = '<div class="text-muted text-center py-6 text-[13px]">ยังไม่มีแผนก<br><span class="text-subtle text-[12px]">ลองกดปุ่ม EXAMPLE ด้านบน</span></div>';
+        el.innerHTML = '<div class="text-muted text-center py-6 text-[13px]">ยังไม่มีแผนกในรายการ<br><span class="text-subtle text-[12px]">พิมพ์เพิ่มเองด้านบน หรือกดปุ่ม EXAMPLE เพื่อโหลดตัวอย่าง</span></div>';
         return;
     }
 
@@ -207,36 +210,37 @@ function renderUtilization() {
     el.innerHTML =
         '<div class="glow-border rounded-lg p-3">' +
             '<div class="flex items-baseline justify-between mb-2 flex-wrap gap-1">' +
-                '<span class="section-label" style="border:none;padding:0;">การใช้พื้นที่ใน ' + state.baseIp + '/' + state.baseCidr + '</span>' +
-                '<span class="text-[12px] text-muted">' + fmt(u.total) + ' addresses</span>' +
+                '<span class="section-label" style="border:none;padding:0;">IP ในช่วง ' + state.baseIp + '/' + state.baseCidr + ' ถูกใช้ไปกับอะไรบ้าง</span>' +
+                '<span class="text-[12px] text-muted">มีทั้งหมด ' + fmt(u.total) + ' เบอร์</span>' +
             '</div>' +
 
             // แถบสัดส่วน 3 ส่วน — ใช้ flex-grow ตาม % จริง ไม่ใช่ width คงที่
             '<div class="flex h-3 rounded overflow-hidden mb-2" style="background:var(--border)">' +
-                '<div style="width:' + u.usedPct + '%;background:var(--neon)" title="ใช้จริง"></div>' +
-                '<div style="width:' + u.roundingPct + '%;background:var(--hot)" title="เสียจากการปัด"></div>' +
-                '<div style="width:' + u.reservePct + '%;background:var(--cyber);opacity:.45" title="สำรองเผื่อโต"></div>' +
+                '<div style="width:' + u.usedPct + '%;background:var(--neon)" title="ใช้งานจริง"></div>' +
+                '<div style="width:' + u.roundingPct + '%;background:var(--hot)" title="เสียไปเพราะปัดขนาดขึ้น"></div>' +
+                '<div style="width:' + u.reservePct + '%;background:var(--cyber);opacity:.45" title="เหลือไว้เผื่อขยาย"></div>' +
             '</div>' +
 
             '<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[12px]">' +
                 '<div class="flex items-center gap-2"><span class="legend-dot" style="background:var(--neon)"></span>' +
-                    '<span class="text-muted">ใช้จริง</span><span class="ml-auto text-neon">' + fmt(u.used) + ' (' + pct(u.usedPct) + ')</span></div>' +
+                    '<span class="text-muted">ใช้งานจริง</span><span class="ml-auto text-neon">' + fmt(u.used) + ' (' + pct(u.usedPct) + ')</span></div>' +
                 '<div class="flex items-center gap-2"><span class="legend-dot" style="background:var(--hot)"></span>' +
-                    '<span class="text-muted">เสียจากการปัด</span><span class="ml-auto text-hot">' + fmt(u.rounding) + ' (' + pct(u.roundingPct) + ')</span></div>' +
+                    '<span class="text-muted">เสียเพราะปัดขนาด</span><span class="ml-auto text-hot">' + fmt(u.rounding) + ' (' + pct(u.roundingPct) + ')</span></div>' +
                 '<div class="flex items-center gap-2"><span class="legend-dot" style="background:var(--cyber);opacity:.45"></span>' +
-                    '<span class="text-muted">สำรองเผื่อโต</span><span class="ml-auto text-cyber">' + fmt(u.reserve) + ' (' + pct(u.reservePct) + ')</span></div>' +
+                    '<span class="text-muted">เหลือเผื่อขยาย</span><span class="ml-auto text-cyber">' + fmt(u.reserve) + ' (' + pct(u.reservePct) + ')</span></div>' +
             '</div>' +
 
             '<div class="text-[11px] text-subtle mt-2 leading-relaxed">' +
-                '"เสียจากการปัด" เลี่ยงไม่ได้ เพราะ subnet ต้องมีขนาดเป็นกำลังสองเสมอ — ต่อให้เลือก Base พอดีเป๊ะ ' +
-                'ก็ใช้ได้สูงสุด ' + pct(u.ceilingPct) + ' &nbsp;•&nbsp; "สำรองเผื่อโต" ไม่ใช่ความสูญเปล่า เป็นพื้นที่รองรับการขยายในอนาคต' +
+                'ส่วนที่เสียไปเพราะปัดขนาดขึ้นเป็นเรื่องปกติ หลีกเลี่ยงไม่ได้ เพราะขนาดของแต่ละกลุ่มต้องเป็น 2, 4, 8, 16 ไล่ขึ้นไปเรื่อย ๆ เท่านั้น ' +
+                'ต่อให้เลือกเลขตั้งต้นได้พอดีที่สุดแล้ว ก็ยังใช้ได้สูงสุดแค่ ' + pct(u.ceilingPct) + ' อยู่ดี' +
+                '<br>ส่วนที่เหลือไว้เผื่อขยายไม่ถือว่าเสียเปล่า เพราะเป็นพื้นที่ที่กันไว้ให้เพิ่มเครื่องได้ในอนาคต' +
             '</div>' +
 
             (worthIt
                 ? '<div class="text-[12px] mt-2 pt-2" style="border-top:1px solid var(--border)">' +
-                  '<i class="fas fa-lightbulb text-neon mr-1"></i>ถ้าย่อ Base เป็น <span class="text-neon">/' + u.suggestedCidr + '</span> ' +
-                  'สัดส่วนใช้จริงจะขึ้นเป็น <span class="text-neon">' + pct(wouldBe) + '</span> ' +
-                  '<button onclick="onSuggestBase()" class="btn-cyber text-[11px] ml-1 px-2 py-0.5">ปรับให้</button></div>'
+                  '<i class="fas fa-lightbulb text-neon mr-1"></i>ถ้าเปลี่ยนเลขตั้งต้นเป็น <span class="text-neon">/' + u.suggestedCidr + '</span> ' +
+                  'สัดส่วนที่ได้ใช้จริงจะเพิ่มเป็น <span class="text-neon">' + pct(wouldBe) + '</span> ' +
+                  '<button onclick="onSuggestBase()" class="btn-cyber text-[11px] ml-1 px-2 py-0.5">เปลี่ยนให้เลย</button></div>'
                 : '') +
 
             renderHeadroomHTML() +
@@ -371,22 +375,65 @@ function renderWanTable() {
                 '<span class="section-label" style="border:none;padding:0;"><i class="fas fa-link mr-1"></i>ลิงก์ WAN (' + links.length + ')</span>' +
                 '<span class="text-[12px] text-muted">Pool ' + pool.ip + '/' + pool.cidr + ' — จองทีละ /30</span>' +
             '</div>' +
-            '<div class="overflow-x-auto"><table class="w-full text-[13px] min-w-[520px]">' +
+            '<div class="overflow-x-auto"><table class="w-full text-[13px] min-w-[640px]">' +
             '<thead><tr class="text-neon text-left"><th class="pb-2 pr-3">Subnet</th><th class="pb-2 pr-3">Netmask</th>' +
-            '<th class="pb-2 pr-3">ปลายทาง A</th><th class="pb-2">ปลายทาง B</th></tr></thead><tbody>' +
+            '<th class="pb-2 pr-3">ปลายทาง A</th><th class="pb-2 pr-3">ปลายทาง B</th>' +
+            '<th class="pb-2">ฝั่งจ่ายสัญญาณนาฬิกา</th></tr></thead><tbody>' +
             links.map(function(w) {
+                // ป้าย DCE ติดกับปลายที่จ่ายสัญญาณนาฬิกา เพื่อให้เห็นทันทีว่าคำสั่ง clock rate จะไปอยู่ที่ Router ตัวไหน
+                var tag = function(end) {
+                    return w.dceId === end.id
+                        ? ' <span class="label-tag" style="background:rgba(240,160,32,0.15);border:1px solid rgba(240,160,32,0.5);color:#b8790f;">DCE</span>'
+                        : '';
+                };
+                var dceEnd = w.ends.find(function(e) { return e.id === w.dceId; }) || w.ends[0];
                 return '<tr class="border-t border-dark-600">' +
                     '<td class="py-2 pr-3 text-neon">' + w.network + '/30</td>' +
                     '<td class="py-2 pr-3">' + w.netmask + '</td>' +
                     '<td class="py-2 pr-3"><span class="text-cyber">' + w.ends[0].ip + '</span> ' +
-                        '<span class="text-muted text-[12px]">' + escapeHtml(w.ends[0].label) + '</span></td>' +
-                    '<td class="py-2"><span class="text-cyber">' + w.ends[1].ip + '</span> ' +
-                        '<span class="text-muted text-[12px]">' + escapeHtml(w.ends[1].label) + '</span></td>' +
+                        '<span class="text-muted text-[12px]">' + escapeHtml(w.ends[0].label) + '</span>' + tag(w.ends[0]) + '</td>' +
+                    '<td class="py-2 pr-3"><span class="text-cyber">' + w.ends[1].ip + '</span> ' +
+                        '<span class="text-muted text-[12px]">' + escapeHtml(w.ends[1].label) + '</span>' + tag(w.ends[1]) + '</td>' +
+                    '<td class="py-2"><button onclick="toggleWanDce(\'' + w.linkId + '\')" class="btn-cyber text-[11px] px-2 py-0.5" ' +
+                        'title="สลับให้อีกฝั่งเป็นตัวจ่ายสัญญาณนาฬิกาแทน">' +
+                        '<i class="fas fa-right-left mr-1" aria-hidden="true"></i>' + escapeHtml(dceEnd.label) + '</button></td>' +
                 '</tr>';
             }).join('') +
             '</tbody></table></div>' +
+
             '<div class="text-[11px] text-subtle mt-2">ใช้ /30 เพราะให้ usable address พอดี 2 ตัว ตรงกับลิงก์ point-to-point ที่มีปลายทางสองฝั่ง</div>' +
+
+            // อธิบายเรื่อง DCE ไว้ตรงนี้ เพราะเป็นจุดที่ทำให้สายไม่ขึ้นบ่อยที่สุดตอนต่อในห้องแล็บ
+            '<div class="text-[11px] text-subtle mt-1 leading-relaxed">' +
+                'สายอนุกรมต้องมีฝั่งหนึ่งเป็นคนจ่ายสัญญาณนาฬิกา เรียกว่าฝั่ง <b>DCE</b> ซึ่งเป็นฝั่งเดียวที่ต้องมีคำสั่ง ' +
+                '<span class="font-mono">clock rate</span> ในคอนฟิก ถ้าฝั่งนั้นไม่ได้ตั้ง สายจะไม่ขึ้นทั้งที่ IP ถูกหมดแล้ว' +
+                '<br>ฝั่งไหนเป็น DCE ขึ้นกับว่าเสียบปลายสายด้านไหนเข้ากับอุปกรณ์ตัวไหน โปรแกรมเดาให้ว่าเป็น Router หลัก ' +
+                'ถ้าของจริงเสียบกลับด้าน กดปุ่มในคอลัมน์สุดท้ายเพื่อสลับได้เลย' +
+            '</div>' +
+
+            '<div class="flex items-center gap-2 mt-2 flex-wrap">' +
+                '<label class="text-subtle text-[11px]" for="wanClockRate">ความเร็วสัญญาณนาฬิกา</label>' +
+                '<select id="wanClockRate" class="input-cyber text-[12px] py-1" onchange="onWanClockRateChange(this.value)" ' +
+                    'aria-label="ความเร็วสัญญาณนาฬิกาของสายอนุกรม">' +
+                    WAN_CLOCK_RATES.map(function(r) {
+                        return '<option value="' + r + '"' + (r === getWanClockRate() ? ' selected' : '') + '>' + r.toLocaleString() + '</option>';
+                    }).join('') +
+                '</select>' +
+                '<span class="text-subtle text-[11px]">ค่ามาตรฐานที่ใช้ในห้องแล็บคือ 64,000</span>' +
+            '</div>' +
         '</div>';
+}
+
+// เปลี่ยนความเร็วสัญญาณนาฬิกาของสายอนุกรมทุกเส้นพร้อมกัน
+// ตั้งเป็นค่าเดียวทั้งโปรเจกต์โดยตั้งใจ เพราะในห้องแล็บใช้ค่าเดียวกันทุกเส้นอยู่แล้ว
+// และการให้ตั้งแยกทีละเส้นจะเพิ่มช่องให้ตั้งไม่ตรงกันจนสายไม่ขึ้นโดยไม่จำเป็น
+function onWanClockRateChange(value) {
+    var v = Number(value);
+    if (WAN_CLOCK_RATES.indexOf(v) === -1) return;
+    if (typeof pushHistory === 'function') pushHistory('เปลี่ยนความเร็วสัญญาณนาฬิกา');
+    state.wanClockRate = v;
+    refreshAll();
+    showToast('เปลี่ยนความเร็วสัญญาณนาฬิกาเป็น ' + v.toLocaleString() + ' แล้ว มีผลกับสายอนุกรมทุกเส้น', 'info');
 }
 
 function onSuggestBase() {
@@ -399,7 +446,7 @@ function onSuggestBase() {
 
         document.getElementById('baseCidrInput').value = cidr;
         onBaseChange(); // ให้ทางเดิมเป็นคนตรวจ+ปัด Network Address+คำนวณ ไม่เขียนตรรกะซ้ำ
-        showToast('ปรับ Base เป็น /' + cidr + ' — เล็กที่สุดที่ยังจองครบทุกแผนก', 'success');
+        showToast('ปรับเลขตั้งต้นเป็น /' + cidr + ' ให้แล้ว ซึ่งเป็นขนาดเล็กที่สุดที่ยังพอใช้ครบทุกแผนก', 'success');
     } catch (err) {
         console.error('onSuggestBase error:', err);
         showToast('แนะนำ Base ไม่สำเร็จ', 'error');
@@ -466,7 +513,7 @@ function suggestBaseV6Info() {
         if (changes.length > 0) {
             showToast('ปรับค่า IPv6 ให้แล้ว:\n• ' + changes.join('\n• '), 'success');
         } else {
-            showToast('ค่า IPv6 พร้อมใช้งานแล้ว — /' + basePrefix + ' แบ่งเป็น /' + newPrefix + ' ได้ ' + maxText + ' subnet ใช้จริง ' + count + '\n' +
+            showToast('ตั้งค่า IPv6 ให้แล้ว จาก /' + basePrefix + ' แบ่งเป็น /' + newPrefix + ' ได้ทั้งหมด ' + maxText + ' ชุด ใช้จริง ' + count + ' ชุด' + '\n' +
                 'IPv6 ไม่ต้องย่อ Base ให้พอดี เพราะพื้นที่ไม่ใช่ทรัพยากรที่ต้องประหยัด และ /64 คือขนาดมาตรฐานที่ SLAAC ต้องการ (RFC 4291)', 'info');
         }
     } catch (err) {
@@ -506,7 +553,7 @@ function renderDetailPanelInner() {
         const swDept = state.calculated.find(function(d) { return d.id === state.selectedDeptId; });
         if (!sw || !swDept) {
             // Switch นี้หายไปแล้ว (เช่นแผนกถูกลบ/คำนวณใหม่) เคลียร์ selection กันค้างพาเนลเก่า
-            el.innerHTML = '<div class="text-muted text-center py-10 text-[13px]">Switch นี้ไม่มีอยู่แล้ว — เลือก Node อื่นจากผัง</div>';
+            el.innerHTML = '<div class="text-muted text-center py-10 text-[13px]">Switch ตัวนี้ถูกลบไปแล้ว ลองคลิกเลือกอุปกรณ์ตัวอื่นในผัง</div>';
             state.selectedDeptId = null;
             state.selectedNodeType = null;
             return;
@@ -525,14 +572,34 @@ function renderDetailPanelInner() {
     if (state.selectedNodeType === 'router-branch') {
         const br = topoNodes.manualNodes.find(function(n) { return n.id === state.selectedDeptId; });
         if (!br) {
-            el.innerHTML = '<div class="text-muted text-center py-10 text-[13px]">Router นี้ไม่มีอยู่แล้ว — เลือก Node อื่นจากผัง</div>';
+            el.innerHTML = '<div class="text-muted text-center py-10 text-[13px]">Router ตัวนี้ถูกลบไปแล้ว ลองคลิกเลือกอุปกรณ์ตัวอื่นในผัง</div>';
             state.selectedDeptId = null; state.selectedNodeType = null;
             return;
         }
         const wan = getWanLinksOfRouter(br.id);
         const owned = getDeptsOfRouter(br.id);
+        // Router สาขาที่ยังไม่มีลิงก์ WAN = ยังใช้งานไม่ได้จริง (ดู isOrphanBranchRouter ใน wan.js)
+        // เป็นสภาพที่ผู้ใช้เจอทุกคนตอนวาง Router ตัวแรก เพราะปุ่มบน Canvas วางให้เป็น "สาขา" เสมอ
+        // เดิมมีแค่ข้อความบรรทัดเดียวในกล่องลิงก์ WAN ซึ่งอ่านเหมือนรายงานสถานะ ไม่ใช่สิ่งที่ต้องลงมือทำ
+        // จึงยกขึ้นมาไว้บนสุดเป็นขั้นตอนที่ทำตามได้ทีละข้อ
+        const orphanNotice = wan.length > 0 ? '' :
+            '<div class="rounded p-3 mb-3" style="background:rgba(240,160,32,0.1);border:1px solid rgba(240,160,32,0.5);">' +
+                '<div class="text-[13px] font-bold mb-1" style="color:#f0a020;">' +
+                    '<i class="fas fa-triangle-exclamation mr-1" aria-hidden="true"></i>Router นี้ยังใช้งานไม่ได้</div>' +
+                '<div class="text-muted text-[12px] leading-relaxed">' +
+                    'Router สาขาต้องมีทางออกก่อน ไม่งั้นจะไม่มี IP ฝั่ง WAN และแผนกที่ย้ายมาอยู่หลังมันจะถูกตัดขาด' +
+                    '<div class="mt-2 text-[12px]" style="color:var(--text);">' +
+                        '<div class="mb-1"><b>1.</b> กดปุ่ม <b>Connect</b> มุมขวาบนของผัง</div>' +
+                        '<div class="mb-1"><b>2.</b> คลิก Router นี้ แล้วคลิก <b>Router-01</b> (ตัวหลัก)</div>' +
+                        '<div><b>3.</b> ระบบจะจอง <b>/30</b> ให้เองทันที แล้วคำเตือนนี้จะหายไป</div>' +
+                    '</div>' +
+                    '<div class="mt-2 text-[12px]">อยากให้ดูแลแผนกไหน ค่อยลากเชื่อมกับ <b>Switch</b> ของแผนกนั้นทีหลังได้</div>' +
+                '</div>' +
+            '</div>';
+
         el.innerHTML =
             '<div class="mb-4"><div class="label-tag mb-2" style="background:' + br.color + '15;border:1px solid ' + br.color + '50;color:' + br.color + ';">ROUTER สาขา</div></div>' +
+            orphanNotice +
             '<div class="space-y-3">' +
                 '<div><label class="text-subtle text-[11px] tracking-wider block mb-1">ชื่ออุปกรณ์</label>' +
                 '<input id="detailRouterName" type="text" value="' + escapeHtml(br.label) + '" maxlength="40" class="input-cyber w-full" ' +
@@ -540,7 +607,7 @@ function renderDetailPanelInner() {
 
                 '<div class="glow-border rounded p-3"><div class="text-subtle text-[11px] tracking-wider mb-1">ลิงก์ WAN (' + wan.length + ')</div>' +
                 (wan.length === 0
-                    ? '<div class="text-muted text-[13px]">ยังไม่ได้เชื่อม — กด Connect แล้วลากไปหา Router อีกตัวเพื่อสร้างลิงก์ WAN</div>'
+                    ? '<div class="text-muted text-[13px]">ยังไม่ได้เชื่อม — ทำตาม 3 ขั้นตอนด้านบน</div>'
                     : wan.map(function(w) {
                         // เดิมไม่มีทางลบสายทีละเส้นเลย มีแต่ลบทั้งอุปกรณ์ทิ้ง ซึ่งแรงเกินไปเมื่อแค่อยากย้ายสาย
                         return '<div class="text-[13px] mt-1 flex items-start justify-between gap-2">' +
@@ -569,7 +636,7 @@ function renderDetailPanelInner() {
         const node = topoNodes.manualNodes.find(function(n) { return n.id === state.selectedDeptId; });
         if (!node) {
             // อุปกรณ์นี้ถูกลบไปแล้ว (เช่นกด Remove จาก Detail Panel เอง) เคลียร์ selection กันค้างพาเนลเก่า
-            el.innerHTML = '<div class="text-muted text-center py-10 text-[13px]">อุปกรณ์นี้ไม่มีอยู่แล้ว — เลือก Node อื่นจากผัง</div>';
+            el.innerHTML = '<div class="text-muted text-center py-10 text-[13px]">อุปกรณ์ตัวนี้ถูกลบไปแล้ว ลองคลิกเลือกอุปกรณ์ตัวอื่นในผัง</div>';
             state.selectedDeptId = null;
             state.selectedNodeType = null;
             return;
@@ -689,8 +756,8 @@ function onBaseChange() {
     if (state.ipMode === 'v6') { onBaseChangeV6(); return; }
     var ip = document.getElementById('baseIpInput').value.trim();
     var cidr = parseInt(document.getElementById('baseCidrInput').value);
-    if (!isValidIp(ip)) { showToast('IP ไม่ถูกต้อง', 'error'); return; }
-    if (isNaN(cidr) || cidr < 8 || cidr > 30) { showToast('CIDR ต้อง 8-30', 'error'); return; }
+    if (!isValidIp(ip)) { showToast('รูปแบบเลข IP ไม่ถูกต้อง ต้องเป็นตัวเลขสี่ชุดคั่นด้วยจุด', 'error'); return; }
+    if (isNaN(cidr) || cidr < 8 || cidr > 30) { showToast('ตัวเลขหลังเครื่องหมาย / ต้องอยู่ระหว่าง 8 ถึง 30', 'error'); return; }
     if (typeof pushHistory === 'function') pushHistory('เปลี่ยน Base Network');
 
     // ปัดลงหาขอบ block ก่อนเสมอ — ใส่ 10.0.0.5/24 ต้องได้ 10.0.0.0/24 ไม่ใช่เริ่มแจกจาก .5
@@ -707,7 +774,7 @@ function onBaseChange() {
         refreshAll();
         document.getElementById('statusBar').textContent = 'Base: ' + ip + '/' + cidr + ' | ' + state.calculated.length + ' subnets allocated';
         if (wasAdjusted) showToast('ปรับ Base เป็น Network Address: ' + ip + '/' + cidr, 'info');
-        else showToast('VLSM Calculated', 'success');
+        else showToast('คำนวณเรียบร้อยแล้ว', 'success');
     } catch (err) {
         console.error('onBaseChange error:', err);
         showToast('คำนวณไม่สำเร็จ ตรวจสอบข้อมูลแผนกอีกครั้ง', 'error');
@@ -718,8 +785,8 @@ function onBaseChangeV6() {
     var ip = document.getElementById('baseIp6Input').value.trim();
     var prefix = parseInt(document.getElementById('basePrefixInput').value);
     var newPrefix = parseInt(document.getElementById('newPrefixInput').value);
-    if (!isValidIpv6(ip)) { showToast('IPv6 ไม่ถูกต้อง', 'error'); return; }
-    if (isNaN(prefix) || prefix < 1 || prefix > 127) { showToast('Base Prefix ต้อง 1-127', 'error'); return; }
+    if (!isValidIpv6(ip)) { showToast('รูปแบบเลข IPv6 ไม่ถูกต้อง', 'error'); return; }
+    if (isNaN(prefix) || prefix < 1 || prefix > 127) { showToast('ความยาว Prefix ของ IPv6 ต้องอยู่ระหว่าง 1 ถึง 127', 'error'); return; }
     if (isNaN(newPrefix) || newPrefix <= prefix || newPrefix > 128) { showToast('Prefix ย่อยต้องมากกว่า Base Prefix และไม่เกิน 128', 'error'); return; }
 
     // ปัดลงหาขอบ Block ก่อนเสมอ เหมือนที่ฝั่ง IPv4 ทำ
@@ -739,7 +806,7 @@ function onBaseChangeV6() {
         refreshAll();
         document.getElementById('statusBar').textContent = 'IPv6 Base: ' + ip + '/' + prefix + ' → /' + newPrefix + ' | ' + state.calculatedV6.length + ' subnets allocated';
         if (v6Adjusted) showToast('ปรับ Base เป็นขอบ Block: ' + ip + '/' + prefix, 'info');
-        else showToast('IPv6 Calculated', 'success');
+        else showToast('คำนวณ IPv6 เรียบร้อยแล้ว', 'success');
     } catch (err) {
         console.error('onBaseChangeV6 error:', err);
         showToast('คำนวณ IPv6 ไม่สำเร็จ ตรวจสอบข้อมูลอีกครั้ง', 'error');
@@ -848,8 +915,8 @@ function onAddDept() {
     var hostsEl = document.getElementById('newDeptHosts');
     var name = nameEl.value.trim();
     var hosts = parseInt(hostsEl.value);
-    if (!name) { showToast('ระบุชื่อแผนก', 'error'); return; }
-    if (isNaN(hosts) || hosts < 1) { showToast('Hosts >= 1', 'error'); return; }
+    if (!name) { showToast('ยังไม่ได้ตั้งชื่อแผนก', 'error'); return; }
+    if (isNaN(hosts) || hosts < 1) { showToast('จำนวนเครื่องต้องเป็นตัวเลขตั้งแต่ 1 ขึ้นไป', 'error'); return; }
     if (hosts > 65534) { showToast('Hosts สูงสุด 65534 (เทียบเท่า /16)', 'error'); return; }
     if (state.departments.length >= MAX_DEPARTMENTS) { showToast('สูงสุด ' + MAX_DEPARTMENTS + ' แผนก', 'error'); return; }
     isEditing = true;
@@ -928,237 +995,13 @@ function onRemoveDept(id) {
         }
         refreshAll();
         if (typeof detachManualNodesFromDept === 'function') detachManualNodesFromDept(id);
-        showToast('ลบ ' + (dept ? dept.name : 'dept') + ' แล้ว — กด Ctrl+Z เพื่อย้อนกลับ', 'info');
+        showToast('ลบ ' + (dept ? dept.name : 'dept') + ' แล้ว ถ้าลบผิดกด Ctrl+Z เพื่อเอากลับคืนได้', 'info');
     } catch (err) {
         console.error('onRemoveDept error:', err);
         showToast('ลบแผนกไม่สำเร็จ', 'error');
     } finally {
         isEditing = false;
     }
-}
-
-/* ----- ตัวเลือก Router สำหรับดู config -----
-   พอมี Router ได้หลายตัว การยัด config ทุกตัวลงกล่องเดียวจะยาวจนคัดลอกผิดตัวได้ง่าย
-   จึงให้เลือกดูทีละตัว เหมือนการเข้าไปตั้งค่าอุปกรณ์จริงทีละเครื่อง
-   ซ่อนแถบนี้เมื่อมี Router ตัวเดียว เพื่อไม่ให้รกในกรณีใช้งานปกติ */
-function renderCliRouterPicker() {
-    var el = document.getElementById('cliRouterPicker');
-    if (!el) return;
-    var routers = getAllRouters();
-    if (routers.length <= 1) {
-        el.classList.add('hidden');
-        el.innerHTML = '';
-        state.cliRouterId = 'router';
-        return;
-    }
-    el.classList.remove('hidden');
-    el.innerHTML = routers.map(function(r) {
-        var active = r.id === state.cliRouterId;
-        var count = getDeptsOfRouter(r.id).length;
-        return '<button onclick="selectCliRouter(\'' + r.id + '\')" class="' + (active ? 'btn-neon' : 'btn-cyber') + ' text-[11px] px-2 py-0.5">' +
-            escapeHtml(routerHostname(r)) + ' <span class="opacity-70">(' + count + ')</span></button>';
-    }).join('');
-}
-
-function selectCliRouter(id) {
-    state.cliRouterId = id;
-    renderCLI();
-}
-
-// แถว WAN + static route ต่อท้าย config ของ Router แต่ละตัว
-function buildWanSectionHTML(myWan, myRoutes, target) {
-    var out = '';
-    if (myWan.length > 0) {
-        out += '<span class="comment">! --- ลิงก์ WAN (จอง /30 ให้อัตโนมัติ 2 usable address พอดีกับ point-to-point) ---</span>\n';
-        myWan.forEach(function(wl, i) {
-            out += '<span class="cmd">interface</span> <span class="value">Serial0/' + i + '/0</span>\n' +
-                ' <span class="cmd">description</span> <span class="value">WAN to ' + escapeHtml(wl.peerLabel) + '</span>\n' +
-                ' <span class="cmd">ip address</span> <span class="value">' + wl.myIp + ' ' + wl.link.netmask + '</span>\n' +
-                ' <span class="cmd">no shutdown</span>\n' +
-                '<span class="comment">!   ปลายทาง ' + escapeHtml(wl.peerLabel) + ' = ' + wl.peerIp + ' (subnet ' + wl.link.network + '/30)</span>\n\n';
-        });
-    }
-
-    // สาขาที่มีทางออกทางเดียว (stub network) ใช้ default route เป็นมาตรฐานปฏิบัติ
-    // อ่านง่ายกว่าและไม่ต้องแก้ทุกครั้งที่สำนักงานใหญ่เพิ่มวงใหม่
-    // ส่วนสำนักงานใหญ่ต้องรู้เส้นทางเจาะจงของแต่ละสาขา เพราะมีหลายทางให้เลือก
-    if (target.id !== 'router' && myWan.length === 1) {
-        out += '<span class="comment">! --- Default Route: สาขานี้มีทางออกทางเดียว จึงชี้ทุกอย่างที่ไม่รู้จักกลับต้นทาง ---</span>\n' +
-            '<span class="cmd">ip route</span> <span class="value">0.0.0.0 0.0.0.0 ' + myWan[0].peerIp + '</span>' +
-            ' <span class="comment">! ออกทาง ' + escapeHtml(myWan[0].peerLabel) + '</span>\n\n';
-    } else if (myRoutes.length > 0) {
-        out += '<span class="comment">! --- Static Route ไปยังเครือข่ายที่อยู่หลัง Router ตัวอื่น ---</span>\n';
-        myRoutes.forEach(function(r) {
-            out += '<span class="cmd">ip route</span> <span class="value">' + r.network + ' ' + r.netmask + ' ' + r.nextHop + '</span>' +
-                ' <span class="comment">! ' + escapeHtml(r.deptName) + ' ผ่าน ' + escapeHtml(r.via) + '</span>\n';
-        });
-        out += '\n';
-    } else if (myWan.length > 0 && target.id !== 'router') {
-        // สาขาที่ยังไม่มีเส้นทางเจาะจง ใช้ default route ชี้กลับสำนักงานใหญ่ ซึ่งเป็นวิธีมาตรฐานของ stub network
-        out += '<span class="comment">! --- ยังไม่มีเครือข่ายอื่นให้ route เจาะจง ใช้ default route ชี้กลับต้นทาง ---</span>\n' +
-            '<span class="cmd">ip route</span> <span class="value">0.0.0.0 0.0.0.0 ' + myWan[0].peerIp + '</span>' +
-            ' <span class="comment">! ออกทาง ' + escapeHtml(myWan[0].peerLabel) + '</span>\n\n';
-    }
-    return out;
-}
-
-function renderCLI() {
-    var routerEl = document.getElementById('cliRouterOutput');
-    var switchEl = document.getElementById('cliSwitchOutput');
-    // เดิมเช็คแค่ state.calculated (IPv4) ทำให้ถ้าตั้งค่าเฉพาะ IPv6 จะไม่ได้ CLI อะไรเลยทั้งที่คำนวณสำเร็จแล้ว
-    if (state.calculated.length === 0 && state.calculatedV6.length === 0) {
-        var emptyMsg = '<span class="comment">ยังไม่มีข้อมูล — เพิ่มแผนกและกด Calculate ก่อน</span>';
-        routerEl.innerHTML = emptyMsg;
-        switchEl.innerHTML = emptyMsg;
-        routerEl.classList.add('cli-empty');   // เปลี่ยนจากจอดำทึบเป็นกล่องเส้นประจาง ๆ (ดู .cli-empty ใน style.css)
-        switchEl.classList.add('cli-empty');
-        return;
-    }
-    routerEl.classList.remove('cli-empty');
-    switchEl.classList.remove('cli-empty');
-
-    renderCliRouterPicker();
-
-    // Router ที่กำลังเลือกดู config อยู่ — ค่าปกติคือ Router หลัก
-    var target = getAllRouters().find(function(r) { return r.id === state.cliRouterId; }) || topoNodes.router;
-    if (!target) return;
-    state.cliRouterId = target.id;
-
-    // แผนกที่ Router ตัวนี้ดูแล (Router หลักได้ทุกแผนกที่ไม่มีสาขารับไป — ดู getDeptsOfRouter ใน wan.js)
-    var myDepts = getDeptsOfRouter(target.id);
-    // โหมด IPv6 ล้วน: state.calculated ว่าง แต่ยังต้องออก config ให้ได้ -> ถอยไปใช้รายชื่อจากฝั่ง v6
-    var deptListForCli = myDepts.length > 0 ? myDepts
-        : (state.calculated.length === 0 && target.id === 'router' ? state.calculatedV6 : []);
-
-    var myWan = getWanLinksOfRouter(target.id);
-    var myRoutes = getStaticRoutesForRouter(target.id);
-
-    // ----- Router Config (คัดลอกไปวางบน Router ได้ทันที ไม่ปนกับ Switch -----
-    var cliRouter = '<span class="comment">! ============================================</span>\n' +
-        '<span class="comment">! NetForge — Auto-generated Cisco IOS Config (ROUTER)</span>\n' +
-        '<span class="comment">! ' + escapeHtml(routerHostname(target)) +
-            (target.id === 'router' ? ' — Base: ' + state.baseIp + '/' + state.baseCidr : ' — Router สาขา') + '</span>\n' +
-        '<span class="comment">! ============================================</span>\n\n' +
-        '<span class="cmd">hostname</span> <span class="value">' + escapeHtml(routerHostname(target)) + '</span>\n' +
-        '<span class="cmd">enable secret</span> <span class="value">cisco</span>\n\n';
-
-    // มี IPv6 คำนวณไว้ด้วย -> เปิด global command ที่จำเป็นเสมอแต่มักลืมใส่
-    if (state.calculatedV6.length > 0) {
-        cliRouter += '<span class="comment">! เปิดใช้งาน IPv6 Routing (คำสั่งนี้จำเป็นเสมอถ้าจะใช้ IPv6 มักถูกลืม)</span>\n' +
-            '<span class="cmd">ipv6 unicast-routing</span>\n\n';
-    }
-
-    cliRouter += '<span class="cmd">interface</span> <span class="value">GigabitEthernet0/0</span>\n' +
-        ' <span class="cmd">description</span> <span class="value">Trunk to Switch-01</span>\n' +
-        ' <span class="cmd">no shutdown</span>\n\n';
-
-    // Dual-Stack: ถ้าแผนกไหนมีทั้ง IPv4 (state.calculated) และ IPv6 (state.calculatedV6) คำนวณไว้แล้ว
-    // จะรวม ip address + ipv6 address ไว้ใน Sub-Interface เดียวกัน ตรงกับวิธีตั้งค่า Dual-Stack จริงบน Cisco IOS
-    deptListForCli.forEach(function(entry) {
-        var d = state.calculated.find(function(x) { return x.id === entry.id; });
-        var v6 = state.calculatedV6.find(function(x) { return x.id === entry.id; });
-        var sw = topoNodes.switches.find(function(x) { return x.deptId === entry.id; });
-        var vlanId = sw ? sw.vlanId : 0;
-
-        cliRouter += '<span class="cmd">interface</span> <span class="value">GigabitEthernet0/0.' + vlanId + '</span>\n' +
-            ' <span class="cmd">encapsulation</span> <span class="value">dot1Q ' + vlanId + '</span>\n';
-        if (d) {
-            cliRouter += ' <span class="cmd">ip address</span> <span class="value">' + d.subnet.firstUsable + ' ' + d.subnet.netmask + '</span>\n';
-        }
-        if (v6) {
-            cliRouter += ' <span class="cmd">ipv6 address</span> <span class="value">' + v6.subnet6.network + '/' + v6.subnet6.prefixLen + '</span>\n' +
-                ' <span class="comment">! Link-Local (fe80::/10) จะถูกสร้างอัตโนมัติบน Interface นี้เสมอ ใช้สำหรับ NDP (ไม่ต้องตั้งเอง)</span>\n';
-        }
-        cliRouter += ' <span class="cmd">description</span> <span class="value">' + escapeHtml(entry.name) + ' VLAN</span>\n\n';
-    });
-
-    if (state.calculatedV6.length > 0) {
-        cliRouter += '<span class="comment">! --- IPv6: อุปกรณ์ปลายทางจะได้ Address อัตโนมัติผ่าน SLAAC (Router Advertisement) ---</span>\n' +
-            '<span class="comment">! ไม่ต้องตั้ง DHCPv6 Pool เพิ่มถ้าใช้ SLAAC เฉยๆ พอ</span>\n\n';
-    }
-
-    // ต้องใช้ myDepts ไม่ใช่ state.calculated ทั้งหมด
-    // ไม่งั้น Router สาขาจะแจก DHCP และกัน address ของเครือข่ายที่ตัวเองไม่ได้ดูแล
-    // ซึ่งบนอุปกรณ์จริงคือการตั้งค่าที่ผิด และทำให้เครื่องปลายทางได้ IP ผิดวง
-    if (myDepts.length > 0) {
-        cliRouter += '<span class="comment">! --- DHCP Pools (IPv4) ---</span>\n' +
-            '<span class="comment">! excluded-address ต้องแยกบรรทัดละช่วง — IOS รับได้แค่ low [high] ต่อหนึ่งคำสั่ง</span>\n';
-
-        // รวม Gateway + Static IP ของ PC/Server ในผัง แล้วยุบเลขที่ติดกันให้เป็นช่วงเดียว
-        // เดิมโค้ดต่อ Gateway ทุกแผนกด้วยช่องว่างเป็นบรรทัดเดียว ซึ่งผิด syntax และแปะลง IOS ไม่ผ่าน
-        // อีกทั้ง Static IP ที่ผู้ใช้ตั้งให้ PC/Server บน Canvas ไม่เคยถูกกันออกจาก DHCP Pool เลย -> เสี่ยง IP ชนกันจริง
-        myDepts.forEach(function(d) {
-            var reserved = [ipToLong(d.subnet.firstUsable)]; // Gateway ของ VLAN นี้
-            topoNodes.manualNodes.forEach(function(n) {
-                if (n.linkedDeptId === d.id && n.ip && isValidIp(n.ip)) reserved.push(ipToLong(n.ip));
-            });
-            reserved = reserved.filter(function(v, i, a) { return a.indexOf(v) === i; }).sort(function(a, b) { return a - b; });
-
-            var rangeStart = reserved[0], prev = reserved[0];
-            for (var i = 1; i <= reserved.length; i++) {
-                if (i < reserved.length && reserved[i] === prev + 1) { prev = reserved[i]; continue; }
-                cliRouter += '<span class="cmd">ip dhcp excluded-address</span> <span class="value">' +
-                    longToIp(rangeStart) + (prev !== rangeStart ? ' ' + longToIp(prev) : '') + '</span>' +
-                    ' <span class="comment">! ' + escapeHtml(d.name) + '</span>\n';
-                if (i < reserved.length) { rangeStart = reserved[i]; prev = reserved[i]; }
-            }
-        });
-        cliRouter += '\n';
-
-        myDepts.forEach(function(d) {
-            var s = d.subnet;
-            cliRouter += '<span class="cmd">ip dhcp pool</span> <span class="value">' + escapeHtml(d.name) + '</span>\n' +
-                ' <span class="cmd">network</span> <span class="value">' + s.network + ' ' + s.netmask + '</span>\n' +
-                ' <span class="cmd">default-router</span> <span class="value">' + s.firstUsable + '</span>\n' +
-                ' <span class="cmd">dns-server</span> <span class="value">8.8.8.8</span>\n\n';
-        });
-
-        // Static IP ของ PC/Server ตั้งบนตัวเครื่องเอง ไม่ใช่บน Router — แต่ต้องมีรายการกำกับไว้ในเอกสาร config
-        // ไม่งั้นงานที่ผู้ใช้จัดไว้บน Canvas ทั้งหมดหายไปจาก output
-        var statics = topoNodes.manualNodes.filter(function(n) {
-            return n.ip && n.linkedDeptId && myDepts.some(function(d) { return d.id === n.linkedDeptId; });
-        });
-        if (statics.length > 0) {
-            cliRouter += '<span class="comment">! --- Static IP ที่กำหนดไว้บนผัง (ตั้งค่าที่ตัวเครื่องปลายทาง ไม่ใช่บน Router) ---</span>\n';
-            statics.forEach(function(n) {
-                var dept = myDepts.find(function(d) { return d.id === n.linkedDeptId; });
-                if (!dept) return;
-                cliRouter += '<span class="comment">!   ' + escapeHtml(n.label) + '  ' + n.ip +
-                    '  mask ' + dept.subnet.netmask + '  gw ' + dept.subnet.firstUsable +
-                    '  (' + escapeHtml(dept.name) + ')</span>\n';
-            });
-            cliRouter += '\n';
-        }
-    }
-    cliRouter += buildWanSectionHTML(myWan, myRoutes, target);
-    cliRouter += '<span class="cmd">end</span>\n';
-
-    // ----- Switch Config (คัดลอกไปวางบน Switch ได้ทันที ไม่ปนกับ Router) -----
-    var cliSwitch = '<span class="comment">! ============================================</span>\n' +
-        '<span class="comment">! NetForge — Auto-generated Cisco IOS Config (SWITCH)</span>\n' +
-        '<span class="comment">! ============================================</span>\n\n' +
-        '<span class="cmd">hostname</span> <span class="value">Switch-01</span>\n\n';
-    var allDeptsForSwitch = state.calculated.length > 0 ? state.calculated : state.calculatedV6;
-    allDeptsForSwitch.forEach(function(d) {
-        var sw = topoNodes.switches.find(function(x) { return x.deptId === d.id; });
-        var v = sw ? sw.vlanId : 0;
-        cliSwitch += '<span class="cmd">vlan</span> <span class="value">' + v + '</span>\n <span class="cmd">name</span> <span class="value">' + escapeHtml(d.name) + '</span>\n';
-    });
-    cliSwitch += '\n<span class="cmd">interface</span> <span class="value">GigabitEthernet0/1</span>\n' +
-        ' <span class="cmd">description</span> <span class="value">Trunk to Router-01</span>\n' +
-        ' <span class="cmd">switchport mode trunk</span>\n\n';
-    allDeptsForSwitch.forEach(function(d, i) {
-        var sw = topoNodes.switches.find(function(x) { return x.deptId === d.id; });
-        var v = sw ? sw.vlanId : 0, p = i + 2;
-        cliSwitch += '<span class="cmd">interface</span> <span class="value">FastEthernet0/' + p + '</span>\n' +
-            ' <span class="cmd">description</span> <span class="value">' + escapeHtml(d.name) + ' Access Port</span>\n' +
-            ' <span class="cmd">switchport mode access</span>\n' +
-            ' <span class="cmd">switchport access vlan</span> <span class="value">' + v + '</span>\n\n';
-    });
-    cliSwitch += '<span class="cmd">end</span>\n';
-
-    routerEl.innerHTML = cliRouter;
-    switchEl.innerHTML = cliSwitch;
 }
 
 // คัดลอกข้อความ พร้อม fallback เผื่อ Clipboard API ใช้ไม่ได้
@@ -1192,14 +1035,6 @@ function copyToClipboard(text, successMsg) {
     }
 }
 
-function copyCLI(target) {
-    var elId = target === 'switch' ? 'cliSwitchOutput' : 'cliRouterOutput';
-    var label = target === 'switch' ? 'Switch' : 'Router';
-    var el = document.getElementById(elId);
-    if (!el) return;
-    copyToClipboard(el.innerText, 'Copied ' + label + ' Config to clipboard');
-}
-
 function switchTab(tab) {
     state.activeTab = tab;
     document.querySelectorAll('.tab-btn').forEach(function(b) {
@@ -1209,15 +1044,18 @@ function switchTab(tab) {
         c.classList.toggle('hidden', c.id !== 'tab-' + tab);
     });
     if (tab === 'cli') renderCLI();
-    if (tab === 'tools') { 
-        if (typeof renderSummaryInputs === 'function') renderSummaryInputs(); 
-        if (typeof calcWildcard === 'function') calcWildcard(); 
+    if (tab === 'tools') {
+        if (typeof renderSummaryInputs === 'function') renderSummaryInputs();
+        if (typeof calcWildcard === 'function') calcWildcard();
     }
+    // โหมดฝึกไม่ผูกกับงานที่ทำค้างอยู่เลย จึงวาดตอนเปิดแท็บครั้งแรกก็พอ
+    // และตั้งใจไม่สุ่มโจทย์ให้อัตโนมัติ เพราะผู้ใช้อาจแค่กดมาดูว่าแท็บนี้คืออะไร
+    if (tab === 'practice' && typeof renderPractice === 'function') renderPractice();
 }
 
 function resetLayout() {
     layoutTopology(true); // force — ปุ่มนี้มีไว้ทิ้งตำแหน่งที่ลากเองโดยเฉพาะ
-    showToast('Layout reset', 'info');
+    showToast('จัดขนาดหน้าจอกลับเป็นค่าเริ่มต้นแล้ว', 'info');
 }
 
 function initResizers() {
@@ -1424,7 +1262,7 @@ function onManualIpChange(id, value) {
         if (!trimmed) { node.ip = null; return; } // เคลียร์ IP ได้ปกติ ไม่ถือเป็นข้อผิดพลาด
 
         if (!isValidIp(trimmed)) {
-            showToast('รูปแบบ IP ไม่ถูกต้อง — ยังไม่บันทึกค่านี้', 'error');
+            showToast('รูปแบบเลข IP ไม่ถูกต้อง จึงยังไม่ได้บันทึกค่านี้', 'error');
             renderDetailPanel(); // รีเซ็ตช่องกลับไปเป็นค่าล่าสุดที่ถูกต้อง (node.ip เดิม)
             return;
         }
@@ -1449,7 +1287,7 @@ function onManualIpChange(id, value) {
 
         var dup = topoNodes.manualNodes.some(function(n) { return n.id !== id && n.ip === trimmed; });
         if (dup) {
-            showToast('IP นี้ถูกใช้กับอุปกรณ์อื่นในผังอยู่แล้ว', 'error');
+            showToast('เลข IP นี้ถูกใช้กับอุปกรณ์ตัวอื่นในผังไปแล้ว', 'error');
             renderDetailPanel();
             return;
         }
@@ -1466,9 +1304,9 @@ function onSuggestIp(id) {
     if (typeof pushHistory === 'function') pushHistory('แนะนำ IP');
     try {
         var node = topoNodes.manualNodes.find(function(n) { return n.id === id; });
-        if (!node || !node.linkedDeptId) { showToast('ต้องเชื่อมกับ Switch ก่อนถึงจะแนะนำ IP ได้', 'error'); return; }
+        if (!node || !node.linkedDeptId) { showToast('ต้องลากสายเชื่อมอุปกรณ์นี้เข้ากับ Switch ของแผนกก่อน โปรแกรมถึงจะรู้ว่าควรแนะนำ IP เบอร์ไหน', 'error'); return; }
         var ip = suggestNextIp(node.linkedDeptId);
-        if (!ip) { showToast('Subnet เต็มแล้ว ไม่เหลือ IP ให้แนะนำ', 'error'); return; }
+        if (!ip) { showToast('IP ในแผนกนี้ถูกใช้หมดแล้ว ไม่เหลือเบอร์ว่างให้แนะนำ', 'error'); return; }
         node.ip = ip;
         renderDetailPanel();
         showToast('แนะนำ IP: ' + ip, 'success');
@@ -1498,7 +1336,7 @@ function onRemoveManualNode(id) {
         state.selectedDeptId = null;
         state.selectedNodeType = null;
         closeDetailPanel();
-        showToast('ลบอุปกรณ์แล้ว — กด Ctrl+Z เพื่อย้อนกลับ', 'info');
+        showToast('ลบอุปกรณ์แล้ว ถ้าลบผิดกด Ctrl+Z เพื่อเอากลับคืนได้', 'info');
     } catch (err) {
         console.error('onRemoveManualNode error:', err);
         showToast('ลบอุปกรณ์ไม่สำเร็จ', 'error');

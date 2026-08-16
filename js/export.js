@@ -60,6 +60,16 @@ function exportTopologyPNG(scale) {
             minX = Math.min(minX, n.x - n.w / 2); maxX = Math.max(maxX, n.x + n.w / 2);
             minY = Math.min(minY, n.y - n.h / 2); maxY = Math.max(maxY, n.y + n.h / 2);
         });
+        // ถ้ามีรูปแปลนอาคาร ต้องขยายกรอบให้ครอบรูปด้วย ไม่งั้นแปลนจะถูกตัดเหลือเฉพาะส่วนที่มีอุปกรณ์วางอยู่
+        // ซึ่งทำให้รูปที่ export ออกไปอ่านไม่รู้เรื่อง (เห็นผนังครึ่งเดียว ไม่เห็นว่าห้องไหนเป็นห้องไหน)
+        if (typeof backdropImg !== 'undefined' && backdropImg && typeof hasBackdrop === 'function' && hasBackdrop()) {
+            var b = state.backdrop;
+            var bs = Math.max(0.05, Number(b.scale) || 1);
+            minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
+            maxX = Math.max(maxX, b.x + backdropImg.naturalWidth * bs);
+            maxY = Math.max(maxY, b.y + backdropImg.naturalHeight * bs);
+        }
+
         var w = (maxX - minX) + pad * 2;
         var h = (maxY - minY) + pad * 2;
 
@@ -85,6 +95,7 @@ function exportTopologyPNG(scale) {
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             drawGrid();
             ctx.setTransform(dpr * viewZoom, 0, 0, dpr * viewZoom, viewPanX * dpr, viewPanY * dpr);
+            if (typeof drawBackdrop === 'function') drawBackdrop(true); // ล่างสุดเหมือนตอนวาดบนจอ (true = ไม่เอากรอบประช่วยจัดตำแหน่ง)
             drawConnections();
             drawRouterNode();
             drawSwitchNodes();
@@ -193,13 +204,13 @@ function buildCsv() {
 function exportTableCSV() {
     try {
         if (state.calculated.length === 0 && state.calculatedV6.length === 0) {
-            showToast('ยังไม่มีตารางให้บันทึก — เพิ่มแผนกและกด Calculate ก่อน', 'error');
+            showToast('ยังไม่มีตารางให้บันทึก ต้องเพิ่มแผนกและกดคำนวณก่อน', 'error');
             return;
         }
         // ﻿ (BOM) จำเป็นสำหรับ Excel บน Windows ไม่งั้นภาษาไทยจะกลายเป็นอักขระเพี้ยนทั้งไฟล์
         var blob = new Blob(['﻿' + buildCsv()], { type: 'text/csv;charset=utf-8;' });
         downloadBlob(blob, 'netforge-ip-plan-' + exportStamp() + '.csv');
-        showToast('บันทึกตารางเป็น CSV แล้ว — เปิดด้วย Excel ได้เลย', 'success');
+        showToast('บันทึกตารางเป็นไฟล์ CSV แล้ว เปิดด้วย Excel ได้เลย', 'success');
     } catch (err) {
         console.error('exportTableCSV error:', err);
         showToast('บันทึก CSV ไม่สำเร็จ', 'error');
@@ -226,7 +237,9 @@ function buildCliText() {
             state.cliRouterId = r.id;
             renderCLI();
             parts.push('! ==========================================================');
-            parts.push('!  ' + (typeof routerHostname === 'function' ? routerHostname(r) : 'Router'));
+            // หัวข้อคั่นในไฟล์ .txt เป็นคอมเมนต์ ไม่ใช่คำสั่ง จึงใช้ชื่อที่ผู้ใช้ตั้งไว้จริง (ไทยได้)
+            // ส่วนบรรทัด hostname ข้างในใช้ชื่อที่ IOS รับได้ ซึ่ง renderCLI() จัดการให้แล้ว
+            parts.push('!  ' + (typeof routerDisplayName === 'function' ? routerDisplayName(r) : 'Router'));
             parts.push('! ==========================================================');
             parts.push(stripCliHtml(document.getElementById('cliRouterOutput').innerHTML));
             parts.push('');
@@ -245,7 +258,7 @@ function buildCliText() {
 function exportCliTxt() {
     try {
         if (state.calculated.length === 0 && state.calculatedV6.length === 0) {
-            showToast('ยังไม่มีคำสั่งให้บันทึก — เพิ่มแผนกและกด Calculate ก่อน', 'error');
+            showToast('ยังไม่มีคำสั่งให้บันทึก ต้องเพิ่มแผนกและกดคำนวณก่อน', 'error');
             return;
         }
         var blob = new Blob([buildCliText()], { type: 'text/plain;charset=utf-8;' });

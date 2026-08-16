@@ -18,7 +18,7 @@ const path = require('path');
 
 const PROJECT_ROOT = path.join(__dirname, '..');
 const JS_FILES = ['js/examples.js', 'js/vlsm.js', 'js/vlsm6.js', 'js/devices.js', 'js/topology.js', 'js/ui.js',
-    'js/wan.js', 'js/tools.js', 'js/library.js', 'js/history.js', 'js/export.js', 'js/app.js'];
+    'js/wan.js', 'js/cli.js', 'js/backdrop.js', 'js/practice.js', 'js/tools.js', 'js/library.js', 'js/history.js', 'js/export.js', 'js/app.js'];
 
 let capturedToasts = [];
 let downloads = []; // เก็บไฟล์ที่ถูกสั่งดาวน์โหลด เพื่อตรวจชื่อและเนื้อหา

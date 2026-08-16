@@ -32,7 +32,7 @@ const vm = require('vm');
 const path = require('path');
 
 const PROJECT_ROOT = path.join(__dirname, '..');
-const JS_FILES = ['js/examples.js', 'js/vlsm.js', 'js/vlsm6.js', 'js/devices.js', 'js/topology.js', 'js/ui.js', 'js/wan.js', 'js/tools.js', 'js/library.js', 'js/history.js', 'js/export.js', 'js/app.js'];
+const JS_FILES = ['js/examples.js', 'js/vlsm.js', 'js/vlsm6.js', 'js/devices.js', 'js/topology.js', 'js/ui.js', 'js/wan.js', 'js/cli.js', 'js/backdrop.js', 'js/practice.js', 'js/tools.js', 'js/library.js', 'js/history.js', 'js/export.js', 'js/app.js'];
 
 let capturedToasts = [];
 let capturedBlob = null;
@@ -215,7 +215,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     vm.runInContext('init()', context); // จำลองเปิดแอปใหม่ (localStorage ยังมีข้อมูลค้างจากรอบก่อน)
     const afterInitNames = vm.runInContext('state.departments.map(d=>d.name)', context);
     check('restore: init() re-applies autosave data', JSON.stringify(afterInitNames) === JSON.stringify(preservedDeptNames), afterInitNames.join(',') + ' vs ' + preservedDeptNames.join(','));
-    check('restore: shows "Autosave" toast', capturedToasts.some(t => /Autosave/.test(t.msg)), JSON.stringify(capturedToasts));
+    check('restore: ขึ้นข้อความบอกว่ากู้งานที่ค้างไว้กลับมาแล้ว', capturedToasts.some(t => /ค้างไว้ครั้งก่อน/.test(t.msg)), JSON.stringify(capturedToasts));
 
     vm.runInContext('clearAll()', context);
     await sleep(750);
@@ -224,7 +224,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     capturedToasts = [];
     vm.runInContext('init()', context);
     check('fresh init: no departments after init with empty autosave', vm.runInContext('state.departments.length', context) === 0);
-    check('fresh init: no restore toast fired', !capturedToasts.some(t => /Autosave/.test(t.msg)), JSON.stringify(capturedToasts));
+    check('fresh init: no restore toast fired', !capturedToasts.some(t => /ค้างไว้ครั้งก่อน/.test(t.msg)), JSON.stringify(capturedToasts));
 
     // ===== ส่วนที่ 6: ชื่อแผนกที่มาจากไฟล์ import ต้อง escape ก่อนแทรกลง innerHTML เสมอ (กัน XSS ผ่าน Save/Load) =====
     // จุดที่ทดสอบนี้เป็นรอยต่อระหว่างงาน Save/Load (import) กับงาน HTML-escape (render) — import เป็นทางเข้าของ
