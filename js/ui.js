@@ -1066,6 +1066,12 @@ function switchTab(tab) {
 
 function resetLayout() {
     layoutTopology(true); // force — ปุ่มนี้มีไว้ทิ้งตำแหน่งที่ลากเองโดยเฉพาะ
+    // ข้อความบนปุ่มบอกว่า "จัดขนาดหน้าจอกลับเป็นค่าเริ่มต้น" จึงต้องคืนความสูงแผงล่างด้วย
+    // ไม่ใช่แค่ตำแหน่งอุปกรณ์บนผัง ไม่งั้นชื่อปุ่มกับสิ่งที่มันทำจะไม่ตรงกัน
+    bottomPanelPrevHeight = null;
+    bottomPanelAutoMaxed = false;
+    setBottomPanelHeight(defaultBottomPanelHeight());
+    updateBottomPanelMaxButton();
     showToast('จัดขนาดหน้าจอกลับเป็นค่าเริ่มต้นแล้ว', 'info');
 }
 
@@ -1120,8 +1126,21 @@ function maxBottomPanelHeight() {
         var winH = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 900;
         avail = winH - 90;
     }
-    // เหลือที่ให้เห็นผังไว้ราว 110px จะได้รู้ว่ายังอยู่หน้าเดิม ไม่ใช่เปลี่ยนหน้าไปแล้ว
-    return Math.max(260, Math.round(avail - 110));
+    // เหลือที่ให้เห็นผังไว้แค่พอรู้ว่ายังอยู่หน้าเดิม ไม่ต้องเยอะ
+    // เพราะตอนกดขยายคือตอนที่ผู้ใช้ตั้งใจจะอ่านตาราง ไม่ได้จะดูผัง
+    return Math.max(260, Math.round(avail - 70));
+}
+
+/* ---------- ความสูงเริ่มต้นของแผงล่าง ----------
+   เดิมตั้งไว้ตายตัว 270px ซึ่งมาจากสมัยที่แผงนี้มีแค่ตาราง IP ไม่กี่แถว
+   พอมีแผงวิเคราะห์พื้นที่ ตาราง WAN และแท็บฝึกทำโจทย์เพิ่มเข้ามา 270px กลายเป็นเล็กเกินไปมาก
+   ผู้ใช้ต้องมานั่งลากหรือกดขยายทุกครั้งที่เปิดโปรแกรม ซึ่งไม่ควรต้องทำ
+
+   เปลี่ยนมาคิดเป็นสัดส่วนของจอแทน จอใหญ่ก็ได้แผงใหญ่ตาม จอเล็กก็ไม่โดนแผงกินจนไม่เห็นผัง
+   45% เป็นค่าที่ทำให้เห็นตาราง IP ครบ 8 แถวพร้อมแผงสรุปบนจอโน้ตบุ๊กทั่วไปได้พอดี */
+function defaultBottomPanelHeight() {
+    var winH = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 900;
+    return Math.round(Math.max(300, Math.min(560, winH * 0.45)));
 }
 
 function toggleBottomPanelMax(silent) {
@@ -1155,7 +1174,7 @@ function initResizers() {
     const bottomPanel = document.getElementById('bottomPanel');
     const resizerY = document.getElementById('resizerY');
     const DEFAULT_SIDEBAR_W = 300;
-    const DEFAULT_BOTTOM_H = 270;
+    // ค่าคงที่เดิม 270px เล็กเกินไปตั้งแต่มีแผงวิเคราะห์กับแท็บฝึกทำโจทย์ ดู defaultBottomPanelHeight()
 
     function setSidebarWidth(w) {
         sidebar.style.width = w + 'px';
@@ -1163,6 +1182,10 @@ function initResizers() {
         sidebar.style.maxWidth = w + 'px';
     }
     function setBottomHeight(h) { setBottomPanelHeight(h); }
+
+    // ตั้งความสูงเริ่มต้นตามขนาดจอทันทีที่เปิดโปรแกรม
+    // คลาสใน HTML เป็นแค่ค่าสำรองไว้กันหน้าจอกระพริบระหว่างรอสคริปต์โหลด
+    if (bottomPanel) setBottomHeight(defaultBottomPanelHeight());
 
     // ----- Resizer ฝั่งซ้าย (Sidebar / Control Pane) -----
     if (resizerX && sidebar) {
@@ -1212,7 +1235,9 @@ function initResizers() {
 
         function applyY() {
             rafPending = false;
-            const maxH = Math.min(window.innerHeight * 0.7, window.innerHeight - 200); // เผื่อพื้นที่ Canvas ด้านบนเสมอ
+            // เพดานเดิม 70% และกันที่ให้ผัง 200px ทำให้ลากได้ไม่พอกับตารางยาว ๆ
+            // คนที่ลงมือลากคือคนที่ตั้งใจจะอ่านตาราง จึงให้ลากได้ถึง 88% เหลือที่ให้ผังพอเห็นว่ายังอยู่
+            const maxH = Math.min(window.innerHeight * 0.88, window.innerHeight - 90);
             const newH = Math.max(120, Math.min(maxH, window.innerHeight - pendingY));
             setBottomHeight(newH);
             if (typeof resizeCanvas === 'function') resizeCanvas();
@@ -1251,7 +1276,7 @@ function initResizers() {
             // ไม่งั้นปุ่มบนแถบแท็บจะยังเขียนว่า "ย่อลง" ทั้งที่แผงกลับมาขนาดปกติแล้ว
             bottomPanelPrevHeight = null;
             bottomPanelAutoMaxed = false;
-            setBottomHeight(DEFAULT_BOTTOM_H);
+            setBottomHeight(defaultBottomPanelHeight());
             if (typeof updateBottomPanelMaxButton === 'function') updateBottomPanelMaxButton();
             if (typeof showToast === 'function') showToast('ปรับความสูงแผงกลับเป็นค่าเริ่มต้นแล้ว', 'info');
         });

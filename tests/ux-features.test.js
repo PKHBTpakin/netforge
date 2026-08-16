@@ -377,6 +377,30 @@ check('panel: ความสูงตอนขยายเผื่อที่
     run('maxBottomPanelHeight()') < run('window.innerHeight'),
     run('maxBottomPanelHeight()') + ' < ' + run('window.innerHeight'));
 
+/* ความสูงเริ่มต้น — เดิมตายตัว 270px ซึ่งมาจากสมัยที่แผงมีแค่ตาราง IP ไม่กี่แถว
+   พอมีแผงวิเคราะห์ ตาราง WAN และแท็บฝึกทำโจทย์ ผู้ใช้ต้องมานั่งลากทุกครั้งที่เปิดโปรแกรม */
+check('panel: ความสูงเริ่มต้นคิดตามขนาดจอ ไม่ใช่เลขตายตัว',
+    (function () {
+        const at = (h) => { const old = sandbox.window.innerHeight; sandbox.window.innerHeight = h;
+            const v = run('defaultBottomPanelHeight()'); sandbox.window.innerHeight = old; return v; };
+        return at(1080) > at(700);   // จอใหญ่ต้องได้แผงใหญ่กว่า
+    })());
+check('panel: ความสูงเริ่มต้นใหญ่กว่าค่าเดิม 270px อย่างมีนัย',
+    run('defaultBottomPanelHeight()') >= 300, run('defaultBottomPanelHeight()'));
+check('panel: จอเล็กมากก็ยังไม่ให้แผงกินจนไม่เห็นผัง',
+    (function () {
+        const old = sandbox.window.innerHeight; sandbox.window.innerHeight = 600;
+        const v = run('defaultBottomPanelHeight()'); sandbox.window.innerHeight = old;
+        return v <= 560;   // มีเพดานกันไว้
+    })());
+check('panel: กด RESET แล้วความสูงกลับเป็นค่าเริ่มต้น',
+    (function () {
+        run('toggleBottomPanelMax();');       // ขยายไว้ก่อน
+        run('resetLayout();');
+        return run('isBottomPanelMaximized()') === false &&
+               run('getBottomPanelHeight()') === run('defaultBottomPanelHeight()');
+    })(), run('getBottomPanelHeight()'));
+
 /* ---------- สรุปผล ---------- */
 let pass = 0;
 results.forEach(r => {
