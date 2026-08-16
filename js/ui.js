@@ -1105,9 +1105,23 @@ function isBottomPanelMaximized() {
     return bottomPanelPrevHeight !== null;
 }
 
+/* วัดจากกล่องพื้นที่ทำงานจริง ไม่ใช่จากความสูงหน้าต่าง
+   เพราะแถบเครื่องมือบนกับแถบสถานะล่างกินที่ไปเท่าไรขึ้นกับว่าปุ่มตัดบรรทัดหรือยัง
+   ถ้าคำนวณจาก window.innerHeight ตรง ๆ แผงจะล้นเลยขอบจอลงไป และส่วนที่ล้นจะอ่านไม่ได้เลย */
 function maxBottomPanelHeight() {
-    var winH = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 900;
-    return Math.max(300, Math.round(winH - 150)); // เหลือที่ให้เห็นผังนิดหน่อย จะได้รู้ว่ายังอยู่หน้าเดิม
+    var p = document.getElementById('bottomPanel');
+    var parent = p && p.parentElement;
+    var avail = 0;
+    if (parent && parent.getBoundingClientRect) {
+        var r = parent.getBoundingClientRect();
+        if (r && r.height) avail = r.height;
+    }
+    if (!avail) {
+        var winH = (typeof window !== 'undefined' && window.innerHeight) ? window.innerHeight : 900;
+        avail = winH - 90;
+    }
+    // เหลือที่ให้เห็นผังไว้ราว 110px จะได้รู้ว่ายังอยู่หน้าเดิม ไม่ใช่เปลี่ยนหน้าไปแล้ว
+    return Math.max(260, Math.round(avail - 110));
 }
 
 function toggleBottomPanelMax(silent) {

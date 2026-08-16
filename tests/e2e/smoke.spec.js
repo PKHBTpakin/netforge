@@ -335,6 +335,67 @@ test.describe('รูปแปลนอาคาร', () => {
     });
 });
 
+test.describe('โครงหน้าจอต้องไม่มีอะไรบังกัน', () => {
+
+    /* บั๊กที่เจอจากการใช้จริง และเทสชุดเดิมจับไม่ได้เลย:
+       แถบสถานะล่างเคยเป็น position:absolute bottom-0 จึงลอยทับเนื้อหาแถวล่างสุดราว 30px
+       ผู้ใช้เลื่อนจนสุดแล้วก็ยังอ่านบรรทัดท้ายไม่ได้ เพราะมันถูกบัง ไม่ใช่เพราะเลื่อนไม่ถึง
+       และความสูงพื้นที่ทำงานเคยตั้งเป็น calc(100vh - 56px) โดยเดาว่าแถบบนสูง 56px เป๊ะ
+       ซึ่งไม่จริงเมื่อปุ่มตัดขึ้นบรรทัดใหม่บนจอแคบ
+       เทสนี้วัดตำแหน่งจริงบนจอ จึงเป็นด่านเดียวที่จับเรื่องแบบนี้ได้ */
+
+    test('แถบสถานะไม่ทับแผงล่าง และทุกอย่างอยู่ในจอพอดี', async ({ page }) => {
+        await page.goto('/index.html');
+        await dismissOnboarding(page);
+        await page.evaluate(() => { loadExample('enterprise'); });
+
+        const box = await page.evaluate(() => {
+            const panel = document.getElementById('bottomPanel').getBoundingClientRect();
+            const status = document.getElementById('statusBar').parentElement.getBoundingClientRect();
+            return { panelBottom: panel.bottom, statusTop: status.top, statusBottom: status.bottom, winH: window.innerHeight };
+        });
+        expect(box.panelBottom, 'ขอบล่างของแผงต้องไม่เลยขอบบนของแถบสถานะ').toBeLessThanOrEqual(box.statusTop + 1);
+        expect(box.statusBottom, 'แถบสถานะต้องอยู่ในจอ ไม่ล้นลงไปข้างล่าง').toBeLessThanOrEqual(box.winH + 1);
+    });
+
+    test('ปุ่มบนแถบเครื่องมือตัดบรรทัดแล้วเนื้อหายังอยู่ในจอ', async ({ page }) => {
+        await page.goto('/index.html');
+        await dismissOnboarding(page);
+        // บีบหน้าต่างให้แคบจนปุ่มด้านบนต้องตัดขึ้นบรรทัดใหม่ ซึ่งเป็นเงื่อนไขที่ทำให้ของเดิมพัง
+        await page.setViewportSize({ width: 900, height: 700 });
+        await page.evaluate(() => { loadExample('enterprise'); });
+
+        const fits = await page.evaluate(() => {
+            const header = document.querySelector('header').getBoundingClientRect();
+            const status = document.getElementById('statusBar').parentElement.getBoundingClientRect();
+            return { headerH: header.height, statusBottom: status.bottom, winH: window.innerHeight };
+        });
+        expect(fits.headerH, 'ตั้งใจให้แถบบนตัดบรรทัดจริงในเทสนี้').toBeGreaterThan(56);
+        expect(fits.statusBottom, 'ถึงแถบบนจะสูงขึ้น แถบสถานะก็ยังต้องอยู่ในจอ').toBeLessThanOrEqual(fits.winH + 1);
+    });
+
+    test('เลื่อนจนสุดแล้วต้องเห็นบรรทัดสุดท้ายจริง ๆ', async ({ page }) => {
+        await page.goto('/index.html');
+        await dismissOnboarding(page);
+        await page.evaluate(() => { loadExample('branch2'); });   // มีตาราง WAN + คำอธิบายท้ายสุด
+
+        await page.locator('#btnPanelMax').click();
+        // เลื่อนกล่องเนื้อหาลงจนสุด แล้วดูว่าบรรทัดสุดท้ายโผล่พ้นแถบสถานะไหม
+        const visible = await page.evaluate(() => {
+            const box = document.getElementById('tab-table');
+            box.scrollTop = box.scrollHeight;
+            const kids = box.querySelectorAll('div');
+            const last = kids[kids.length - 1].getBoundingClientRect();
+            const status = document.getElementById('statusBar').parentElement.getBoundingClientRect();
+            return { lastBottom: last.bottom, boxBottom: box.getBoundingClientRect().bottom, statusTop: status.top };
+        });
+        expect(visible.lastBottom, 'บรรทัดสุดท้ายต้องไม่โดนแถบสถานะบัง')
+            .toBeLessThanOrEqual(visible.statusTop + 1);
+        expect(visible.lastBottom, 'บรรทัดสุดท้ายต้องอยู่ในกรอบที่เลื่อนถึง')
+            .toBeLessThanOrEqual(visible.boxBottom + 1);
+    });
+});
+
 test.describe('แผงล่างต้องอ่านข้อมูลได้ครบ', () => {
 
     // ปัญหาที่เจอจากการใช้จริง: แผงล่างสูงคงที่ ทำให้ตารางยาว ๆ ถูกตัดจนอ่านไม่ครบ
