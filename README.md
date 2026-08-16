@@ -313,11 +313,11 @@ node tests/run-all.js
 | `ui-stability.test.js` | ระบบธีม, ตำแหน่งโหนดคงที่ตอนสลับสี, จำลอง event จริงบน Canvas |
 | `regression-fixes.test.js` | บั๊ก 9 ข้อจากรอบรีวิว 30 ก.ค. 2569 |
 | `library-util.test.js` | การวิเคราะห์พื้นที่, Suggest Base, คลังโปรเจกต์, ลิงก์แชร์, Router สาขา + WAN, ย่อ/ขยายผัง |
-| `ux-features.test.js` | Undo/Redo, Export PNG/CSV/TXT, ทำซ้ำ/สลับลำดับแผนก, ชุดสี 12 สี |
+| `ux-features.test.js` | Undo/Redo, Export PNG/CSV/TXT, ทำซ้ำ/สลับลำดับแผนก, ชุดสี 12 สี, ความสูงแผงล่าง |
 | `cli-naming.test.js` | การแปลงชื่อแผนก/สาขาให้ IOS รับได้, ชื่อ pool ซ้ำ, คอมเมนต์ท้ายบรรทัด, คำเตือนรหัสผ่าน |
 | `scenarios.test.js` | ตัวอย่างพร้อมผังหลาย Router, Router ที่ยังไม่เชื่อม, `clock rate` ฝั่ง DCE, รูปแปลนอาคาร, โหมดฝึกทำโจทย์ |
 
-รวมทั้งหมด **513 assertions**
+รวมทั้งหมด **519 assertions**
 
 เทสยิงผ่านทางเข้าจริงที่ผู้ใช้กด (เช่นยิง event ผ่าน listener ที่ `setupCanvasEvents()` ลงทะเบียนไว้)
 ไม่ใช่เรียกฟังก์ชันภายในตรง ๆ

@@ -373,9 +373,31 @@ run('switchTab("tools");');
 check('panel: ออกจากแท็บฝึกทีหลังต้องไม่ไปย่อซ้ำจนเพี้ยน',
     run('isBottomPanelMaximized()') === false);
 
-check('panel: ความสูงตอนขยายเผื่อที่ให้เห็นผังไว้เสมอ',
+/* เดิมตอนกดขยาย ระบบกันที่ให้ผังไว้ 70-110px ด้วยความคิดว่า "ให้ยังเห็นผังอยู่บ้าง"
+   แต่ผังสูง 70px ก็ดูไม่รู้เรื่องอยู่ดี กลายเป็นกินที่ตารางที่ผู้ใช้กำลังพยายามอ่านไปเปล่า ๆ
+   ตอนนี้ให้กินพื้นที่ทำงานเกือบทั้งหมด เหลือไว้แค่พอให้ยังลากเส้นแบ่งกลับได้ */
+check('panel: กดขยายแล้วได้พื้นที่อ่านเกือบทั้งหน้า',
+    run('maxBottomPanelHeight()') > run('defaultBottomPanelHeight()'),
+    run('maxBottomPanelHeight()') + ' > ' + run('defaultBottomPanelHeight()'));
+
+check('panel: ขยายสุดแล้วยังต้องไม่ล้นออกนอกหน้าจอ',
     run('maxBottomPanelHeight()') < run('window.innerHeight'),
     run('maxBottomPanelHeight()') + ' < ' + run('window.innerHeight'));
+
+/* ผังถูกบีบจนเกือบหายตอนขยายแผง ถ้าย่อตำแหน่งโหนดตามไปด้วย พอกดย่อแผงกลับ
+   ผังที่ผู้ใช้ลากจัดไว้จะเพี้ยนถาวร เทสนี้จำลองพับเก็บแล้วกางกลับ ตำแหน่งต้องเท่าเดิม */
+check('panel: พับผังเก็บแล้วกางกลับ ตำแหน่งอุปกรณ์ต้องไม่เพี้ยน',
+    (function () {
+        run('topoNodes.departments[0].x = 321; topoNodes.departments[0].y = 234;');
+        const before = run('[topoNodes.departments[0].x, topoNodes.departments[0].y].join(",")');
+        const parent = sandbox.document.getElementById('topoCanvas').parentElement;
+        const tall = parent.getBoundingClientRect();
+        parent.getBoundingClientRect = () => ({ width: tall.width, height: 10, left: 0, top: 0 });
+        run('resizeCanvas();');
+        parent.getBoundingClientRect = () => tall;
+        run('resizeCanvas();');
+        return run('[topoNodes.departments[0].x, topoNodes.departments[0].y].join(",")') === before;
+    })());
 
 /* ความสูงเริ่มต้น — เดิมตายตัว 270px ซึ่งมาจากสมัยที่แผงมีแค่ตาราง IP ไม่กี่แถว
    พอมีแผงวิเคราะห์ ตาราง WAN และแท็บฝึกทำโจทย์ ผู้ใช้ต้องมานั่งลากทุกครั้งที่เปิดโปรแกรม */

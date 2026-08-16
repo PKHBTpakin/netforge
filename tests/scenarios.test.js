@@ -547,6 +547,47 @@ check('E16: ชื่อแผนกในโจทย์เป็นชื่�
         return true;
     })());
 
+/* ---------- E17-E20: หน้าฝึกทำโจทย์ต้องไม่ยาวเกินจำเป็น ----------
+   ผู้ใช้จริงรายงานว่าอ่านข้อมูลในแท็บฝึกทำโจทย์ไม่ครบ แม้จะขยายแผงล่างจนสุดแล้ว
+   สาเหตุที่แท้จริงไม่ใช่แผงเล็กเกินไป แต่คือตอนกดตรวจโดยยังไม่กรอกอะไรเลย
+   ระบบขึ้นคำอธิบายข้อความเดียวกันซ้ำทุกแถว (ระดับยาก = 7 บรรทัด) ยาวกว่าตัวตารางเอง
+   ทั้งที่ไม่ได้ให้ข้อมูลอะไรเพิ่มเลย เทสสี่ข้อนี้กันไม่ให้อาการนั้นกลับมา */
+
+function practiceHtml() {
+    run('renderPractice();');
+    return getElementById('practiceBody').innerHTML;
+}
+function countHints(html) {
+    return (html.match(/fa-lightbulb/g) || []).length;
+}
+
+run("startPractice('hard');");
+run('checkPracticeAnswers();');
+const blankHtml = practiceHtml();
+
+check('E17: กดตรวจทั้งที่ยังไม่กรอกอะไรเลย ต้องไม่ขึ้นคำอธิบายซ้ำทุกแถว',
+    countHints(blankHtml) === 0, countHints(blankHtml) + ' คำอธิบาย');
+
+check('E18: แทนที่จะซ้ำ ให้บอกตรง ๆ ครั้งเดียวว่ายังไม่ได้กรอก',
+    blankHtml.indexOf('ยังไม่ได้กรอกคำตอบสักช่อง') !== -1);
+
+check('E19: พอลงมือตอบแล้วผิด คำอธิบายต้องขึ้นเฉพาะแถวนั้น',
+    (function () {
+        const a = run('practiceState.problem.answer[0]');
+        run("onPracticeInput(" + a.id + ", 'network', '10.99.99.0');");
+        run('checkPracticeAnswers();');
+        return countHints(practiceHtml()) === 1;
+    })(), countHints(practiceHtml()) + ' คำอธิบาย');
+
+check('E20: ตอบผิดสองแผนก ก็ได้คำอธิบายสองแถว ไม่ใช่ทุกแถว',
+    (function () {
+        const b = run('practiceState.problem.answer[1]');
+        run("onPracticeInput(" + b.id + ", 'cidr', '/31');");
+        run('checkPracticeAnswers();');
+        const n = countHints(practiceHtml());
+        return n === 2 && run('practiceState.problem.departments.length') === 7;
+    })(), countHints(practiceHtml()) + ' คำอธิบาย จาก 7 แถว');
+
 /* ---------- สรุปผล ---------- */
 let pass = 0;
 results.forEach(r => {

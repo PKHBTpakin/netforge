@@ -281,8 +281,14 @@ function renderPractice() {
             '</td>';
         };
 
+        /* คำอธิบายจะขึ้นเฉพาะแถวที่ "ลงมือตอบแล้วแต่ผิด" เท่านั้น
+           แถวที่ปล่อยว่างทั้งแถวไม่ต้องขึ้น เพราะจะได้ข้อความเดียวกันซ้ำทุกแถว
+           ตอนกดตรวจโดยยังไม่กรอกอะไรเลย ซึ่งกินพื้นที่ไปหลายร้อยพิกเซลโดยไม่ให้ข้อมูลอะไรเพิ่ม
+           (โจทย์ระดับยากมี 7 แถว = คำอธิบายซ้ำ 7 บรรทัด ยาวกว่าตัวตารางเองอีก) */
+        var answeredSomething = ['network', 'cidr', 'first', 'last', 'broadcast']
+            .some(function (k) { return String(given[k] || '').trim() !== ''; });
         var hintRow = '';
-        if (practiceState.checked && res && res.hint) {
+        if (practiceState.checked && res && res.hint && answeredSomething) {
             hintRow = '<tr><td colspan="6" class="pb-2">' +
                 '<div class="text-[11px] rounded px-2 py-1.5" style="background:rgba(240,160,32,0.1);border:1px solid rgba(240,160,32,0.4);color:var(--text);">' +
                     '<i class="fas fa-lightbulb mr-1" aria-hidden="true" style="color:#f0a020;"></i>' + escapeHtml(res.hint) +
@@ -305,12 +311,21 @@ function renderPractice() {
     if (sc) {
         var pct = sc.total > 0 ? Math.round(sc.correct / sc.total * 100) : 0;
         var color = pct === 100 ? '#1F7A45' : (pct >= 60 ? '#b8790f' : 'var(--hot)');
+        /* ถ้ากดตรวจโดยยังไม่กรอกอะไรเลย ต้องบอกตรง ๆ ว่ายังไม่ได้ตอบ
+           ไม่ใช่บอกว่า "ดูคำอธิบายใต้แถวที่ผิด" ทั้งที่ตอนนี้ไม่มีคำอธิบายขึ้นสักแถว */
+        var blank = p.departments.every(function (d) {
+            var g = practiceState.answers[d.id] || {};
+            return ['network', 'cidr', 'first', 'last', 'broadcast']
+                .every(function (k) { return String(g[k] || '').trim() === ''; });
+        });
         scoreHtml =
             '<div class="rounded p-3 mb-3" style="background:var(--item-bg);border:1px solid var(--border);">' +
                 '<span class="text-[15px] font-bold" style="color:' + color + ';">ถูก ' + sc.correct + ' จาก ' + sc.total + ' ช่อง (' + pct + '%)</span>' +
-                (pct === 100
-                    ? '<span class="text-[12px] ml-2" style="color:#1F7A45;">ถูกหมดทุกช่อง ลองเพิ่มระดับความยากดูได้</span>'
-                    : '<span class="text-muted text-[12px] ml-2">ดูคำอธิบายใต้แถวที่ผิด แล้วแก้แล้วกดตรวจใหม่ได้</span>') +
+                (blank
+                    ? '<span class="text-muted text-[12px] ml-2">ยังไม่ได้กรอกคำตอบสักช่อง ลองเติมในตารางด้านล่างแล้วกดตรวจอีกครั้ง</span>'
+                    : pct === 100
+                        ? '<span class="text-[12px] ml-2" style="color:#1F7A45;">ถูกหมดทุกช่อง ลองเพิ่มระดับความยากดูได้</span>'
+                        : '<span class="text-muted text-[12px] ml-2">ดูคำอธิบายใต้แถวที่ผิด แล้วแก้แล้วกดตรวจใหม่ได้</span>') +
             '</div>';
     }
 
