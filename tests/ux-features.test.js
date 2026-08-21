@@ -644,6 +644,15 @@ check('ตัวควบคุมระบบ: ประกาศ color-scheme 
     /:root\s*\{[\s\S]*?color-scheme:\s*dark/.test(cssAll) &&
     /\[data-theme="light"\]\s*\{[\s\S]*?color-scheme:\s*light/.test(cssAll));
 
+/* ต้นเหตุที่แท้จริงของรายการสีเทา ไม่ใช่เรื่อง color-scheme แต่เป็นเรื่องพื้นกึ่งโปร่ง
+   .input-cyber ตั้งพื้นเป็น rgba(0,0,0,0.25) แล้ว Chrome เอาพื้นของ select
+   ไปวาดเป็นพื้นของรายการที่กางออกมาด้วย โดยซ้อนบนพื้นขาวเริ่มต้นของระบบ
+   255 x (1 - 0.25) = 191 ซึ่งตรงกับ rgb(191,191,191) ที่วัดได้จากภาพหน้าจอเป๊ะ
+   select จึงต้องใช้พื้นทึบ ส่วน input ชนิดอื่นใช้พื้นกึ่งโปร่งต่อได้เพราะไม่มีรายการกางออกมา */
+check('ตัวควบคุมระบบ: select ต้องใช้พื้นทึบ ไม่ใช่พื้นกึ่งโปร่ง',
+    /select\.input-cyber\s*\{[^}]*background-color:\s*var\(--card\)[^}]*\}/.test(cssAll),
+    /select\.input-cyber\s*\{[^}]*background-color:\s*var\(--card\)/.test(cssAll) ? 'ตั้งพื้นทึบแล้ว' : 'ยังไม่ได้ตั้ง');
+
 check('ตัวควบคุมระบบ: กำหนดสีรายการของ select ไว้เป็นชั้นสำรองด้วย',
     /\.input-cyber\s+option\s*\{[^}]*background-color:\s*var\(--card\)[^}]*\}/.test(cssAll) &&
     /\.input-cyber\s+option\s*\{[^}]*color:\s*var\(--text\)[^}]*\}/.test(cssAll));
