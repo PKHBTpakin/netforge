@@ -542,6 +542,42 @@ check('แถบซ้าย: โหมด IPv6 ต้องขึ้น prefix 
     })(),
     (deptHtml().match(/2001:db8[^<"]*/) || ['ไม่พบ'])[0]);
 
+/* ---------- หน้ากฎที่ใช้คำนวณ ----------
+   ที่มา: ผู้ใช้ถามว่าทำไม IPv6 ทุกวงถึงได้ /64 เท่ากันทั้งที่จำนวนเครื่องต่างกันมาก
+   คำตอบคือถูกต้องตาม RFC 4291 แต่โปรแกรมไม่ได้อธิบายไว้ตรงจุดที่คนจะสงสัย
+   และไม่มีที่ไหนบอกว่าช่วงเลขไหนควรใช้กับงานแบบไหน
+   จึงเพิ่มหน้ากฎที่รวมเฉพาะข้อที่มีผลกับตัวเลขที่ได้จริง พร้อมอ้างมาตรฐานกำกับทุกข้อ */
+
+const helpHtml = fs.readFileSync(path.join(PROJECT_ROOT, 'index.html'), 'utf8');
+
+check('คู่มือ: มีแท็บกฎที่ใช้คำนวณ และมีเนื้อหารองรับจริง',
+    helpHtml.indexOf("switchHelpTab('rules')") !== -1 && helpHtml.indexOf('id="help-rules"') !== -1);
+
+/* ทุกกฎต้องอ้างมาตรฐานกำกับ ไม่ใช่คำอธิบายลอย ๆ เพราะต้องใช้ตอบอาจารย์ได้ */
+const rulesPane = (helpHtml.match(/id="help-rules"[\s\S]*?\n                <div class="help-pane hidden" id="help-keys"/) || [''])[0];
+const rfcs = ['RFC 950', 'RFC 1878', 'RFC 4632', 'RFC 4291', 'RFC 1918', 'RFC 3849', 'RFC 5737'];
+const missingRfc = rfcs.filter(function (r) { return rulesPane.indexOf(r) === -1; });
+check('คู่มือ: กฎทุกข้ออ้างมาตรฐานกำกับครบ',
+    missingRfc.length === 0,
+    missingRfc.length ? 'ขาด ' + missingRfc.join(', ') : 'ครบ ' + rfcs.length + ' ฉบับ');
+
+/* ข้อที่ถูกถามบ่อยที่สุดต้องมีอยู่จริง ไม่ใช่แค่มีหน้าเปล่า */
+check('คู่มือ: อธิบายว่าโหมด IPv6 จำนวนเครื่องไม่มีผลกับขนาดวง',
+    rulesPane.indexOf('จำนวนเครื่องไม่มีผล') !== -1 && rulesPane.indexOf('/64') !== -1);
+
+check('คู่มือ: บอกช่วงเลขที่ควรใช้ ทั้งในองค์กรและในตัวอย่าง',
+    rulesPane.indexOf('192.168') !== -1 && rulesPane.indexOf('2001:db8') !== -1 && rulesPane.indexOf('192.0.2') !== -1);
+
+/* ข้อความใต้ช่อง Base ต้องเป็นข้อความจางที่อยู่ตลอด ไม่ใช่คำเตือนสีอันตราย
+   เพราะการกรอกช่วงอื่นไม่ได้ทำให้ผลคำนวณผิด ถ้าทำเป็นสีแดงจะสื่อผิด */
+const baseHints = (helpHtml.match(/class="base-hint"/g) || []).length;
+check('ช่อง Base: มีข้อความบอกช่วงมาตรฐานทั้งโหมด IPv4 และ IPv6',
+    baseHints === 2, baseHints + ' จุด');
+
+const cssTxt = fs.readFileSync(path.join(PROJECT_ROOT, 'css', 'style.css'), 'utf8');
+check('ช่อง Base: ข้อความนั้นใช้สีจาง ไม่ใช่สีอันตราย',
+    /\.base-hint\s*\{[^}]*var\(--subtle\)/.test(cssTxt) && !/\.base-hint\s*\{[^}]*var\(--hot\)/.test(cssTxt));
+
 /* ---------- สรุปผล ---------- */
 let pass = 0;
 results.forEach(r => {

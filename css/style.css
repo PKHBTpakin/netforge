@@ -231,6 +231,17 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
    ตัวแปร --ok ยังต้องแยกค่าตามธีม เพราะเขียวสดบนพื้นขาววัด contrast ได้แค่ 2.28:1 */
 .dept-item .dept-ok-mark { color: var(--ok); }
 
+/* ข้อความบอกช่วงเลขมาตรฐานใต้ช่อง Base
+   ตั้งใจให้จางและอยู่ตลอดเวลา ไม่ใช่คำเตือนที่เด้งขึ้นมาเมื่อกรอกผิด
+   เพราะการกรอกช่วงอื่นไม่ได้ทำให้ผลคำนวณผิด แค่ไม่ใช่ช่วงที่ควรใช้ในงานประเภทนี้
+   ถ้าทำเป็นสีแดงจะสื่อผิดว่าโปรแกรมทำงานพลาด ทั้งที่มันทำถูกทุกประการ */
+.base-hint {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--subtle);
+    margin: -2px 0 8px;
+}
+
 /* --- Detail Panel ซ่อน/แสดง --- */
 .detail-panel {
     transform: translateX(100%);

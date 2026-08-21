@@ -130,6 +130,7 @@
                 <button class="tab-btn help-tab active" data-help="start" onclick="switchHelpTab('start')">เริ่มต้น</button>
                 <button class="tab-btn help-tab" data-help="wan" onclick="switchHelpTab('wan')">หลายสาขา</button>
                 <button class="tab-btn help-tab" data-help="save" onclick="switchHelpTab('save')">บันทึก/แชร์</button>
+                <button class="tab-btn help-tab" data-help="rules" onclick="switchHelpTab('rules')">กฎที่ใช้คำนวณ</button>
                 <button class="tab-btn help-tab" data-help="keys" onclick="switchHelpTab('keys')">คีย์ลัด</button>
             </div>
 
@@ -197,6 +198,38 @@
                     </div>
                 </div>
 
+                <!-- กฎที่ใช้คำนวณ — เฉพาะข้อที่มีผลกับตัวเลขที่ได้จริง ไม่ใช่ข้อจำกัดทั่วไปของโปรแกรม
+                     เขียนแยกออกมาเพราะเป็นคำถามที่ถูกถามซ้ำที่สุด โดยเฉพาะข้อที่ว่าทำไม IPv6
+                     ทุกวงถึงได้ขนาดเท่ากันหมดทั้งที่จำนวนเครื่องต่างกันมาก
+                     แต่ละข้ออ้างมาตรฐานกำกับไว้ เพื่อให้ตอบได้ว่าไม่ใช่โปรแกรมคิดเอง -->
+                <div class="help-pane hidden" id="help-rules">
+                    <div class="space-y-4">
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-plus-minus"></i></div>
+                            <div><div class="onboard-step-title">ทุกวงต้องเผื่อไว้ 2 เบอร์เสมอ</div><div class="onboard-step-desc">เบอร์แรกของทุกวงใช้เป็นชื่อเรียกวงนั้น เบอร์สุดท้ายใช้ส่งข่าวถึงทุกเครื่องในวงพร้อมกัน สองเบอร์นี้ห้ามเอาไปตั้งให้เครื่องใด<br>แผนกที่ขอ 30 เครื่อง โปรแกรมจึงจองพื้นที่จริง 32 เบอร์ ไม่ใช่ 30<br><span class="text-subtle">อ้างอิง RFC 950</span></div></div></div>
+
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-square-root-variable"></i></div>
+                            <div><div class="onboard-step-title">ขนาดวงปัดขึ้นเป็นกำลังของสองเท่านั้น</div><div class="onboard-step-desc">ระบบเครือข่ายแบ่งพื้นที่ได้เฉพาะขนาด 2, 4, 8, 16, 32, 64 ไปเรื่อย ๆ<br>ต้องการจริง 40 เบอร์ จะได้ 64 ส่วนที่เกินมา 24 เบอร์คือที่แผงล่างเรียกว่า <b>เสียจากการปัดขนาด</b> ไม่ใช่ความผิดพลาด แต่เป็นสิ่งที่เลี่ยงไม่ได้<br><span class="text-subtle">อ้างอิง RFC 1878 และ RFC 4632</span></div></div></div>
+
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-arrow-down-wide-short"></i></div>
+                            <div><div class="onboard-step-title">ต้องเรียงจากแผนกใหญ่ไปเล็ก</div><div class="onboard-step-desc">ถ้าจัดแผนกเล็กก่อน ช่องว่างที่เหลือจะกระจัดกระจายจนแผนกใหญ่ลงไม่ได้ ทั้งที่พื้นที่รวมยังพอ<br>โปรแกรมเรียงให้เองเสมอ ลำดับที่คุณพิมพ์เข้าไปไม่มีผลกับผลลัพธ์</div></div></div>
+
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-equals"></i></div>
+                            <div><div class="onboard-step-title">IPv6 ทุกวงได้ /64 เท่ากันหมด จำนวนเครื่องไม่มีผล</div><div class="onboard-step-desc">ข้อนี้ต่างจาก IPv4 อย่างสิ้นเชิง แผนกที่มี 20 เครื่องกับแผนกที่มี 250 เครื่อง ได้พื้นที่เท่ากันเป๊ะ<br>เพราะการแจกเลขอัตโนมัติของ IPv6 กำหนดไว้ว่าวงต้องเป็น /64 พอดี ห้ามเล็กกว่านี้และไม่มีเหตุผลให้ใหญ่กว่านี้ หนึ่งวงรองรับได้ 18 ล้านล้านล้านเบอร์อยู่แล้ว<br>ช่อง Hosts ที่กรอกไว้จึงไม่ถูกนำมาคิดเลยในโหมด IPv6<br><span class="text-subtle">อ้างอิง RFC 4291</span></div></div></div>
+
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-house-laptop"></i></div>
+                            <div><div class="onboard-step-title">ช่วงเลขที่ควรใช้</div><div class="onboard-step-desc">โปรแกรมคำนวณให้ทุกช่วงที่กรอก แต่ไม่ใช่ทุกช่วงที่ควรหยิบมาใช้<br><b>เครือข่ายภายในองค์กร</b> ใช้ได้สามช่วงคือ 10.x.x.x, 172.16 ถึง 172.31.x.x และ 192.168.x.x นอกจากนี้เป็นเลขที่มีเจ้าของอยู่จริงบนอินเทอร์เน็ต<br><b>ตัวอย่างในรายงานหรือการสอน</b> ฝั่ง IPv6 ใช้ 2001:db8:: ส่วนฝั่ง IPv4 ใช้ 192.0.2.x, 198.51.100.x หรือ 203.0.113.x<br><span class="text-subtle">อ้างอิง RFC 1918, RFC 3849 และ RFC 5737</span></div></div></div>
+
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-link"></i></div>
+                            <div><div class="onboard-step-title">สายระหว่างสาขาใช้ /30</div><div class="onboard-step-desc">สายที่เชื่อม Router สองตัวมีปลายทางแค่สองข้าง บวกอีก 2 เบอร์ที่ต้องเผื่อ รวมเป็น 4 พอดี ซึ่งคือ /30<br>จองเล็กกว่านี้ไม่ได้ จองใหญ่กว่านี้ก็เสียเปล่า</div></div></div>
+
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-stopwatch"></i></div>
+                            <div><div class="onboard-step-title">คำสั่ง clock rate ใส่ได้ฝั่งเดียว</div><div class="onboard-step-desc">สายอนุกรมต้องมีฝั่งหนึ่งเป็นคนจ่ายสัญญาณนาฬิกา เรียกว่าฝั่ง DCE อีกฝั่งเป็นฝ่ายรับ<br>ถ้าฝั่งจ่ายไม่ได้ตั้งค่านี้ สายจะไม่ทำงานเลยทั้งที่เลข IP ถูกหมดแล้ว และไม่มีข้อความแจ้งเตือนใด ๆ ขึ้นมาบอก<br>โปรแกรมจงใจไม่ใส่ให้ทั้งสองฝั่ง ถึงแม้อุปกรณ์จะรับคำสั่งไว้เฉย ๆ ก็ตาม เพราะจะทำให้เข้าใจผิดว่าต้องใส่ทั้งคู่<br>หน่วยของตัวเลขนี้คือบิตต่อวินาที</div></div></div>
+
+                        <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-font"></i></div>
+                            <div><div class="onboard-step-title">ชื่อในคำสั่งต้องเป็นคำเดียวและเป็นภาษาอังกฤษ</div><div class="onboard-step-desc">อุปกรณ์ Cisco รับชื่อได้เฉพาะแบบนี้ ชื่อแผนกที่มีเว้นวรรคหรือเป็นภาษาไทยจะถูกปฏิเสธเงียบ ๆ โดยไม่ขึ้นข้อความบอก<br>โปรแกรมจึงแปลงชื่อให้เองเฉพาะตอนเอาไปใส่ในคำสั่ง แล้วเขียนชื่อจริงกำกับไว้ข้างบนเสมอ ส่วนชื่อบนหน้าจอและในตารางยังเป็นชื่อที่คุณพิมพ์</div></div></div>
+                    </div>
+                </div>
+
                 <div class="help-pane hidden" id="help-keys">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-2 text-[15px]">
                         <div class="flex justify-between py-1"><span class="text-muted">ย้อนกลับ</span><kbd>Ctrl + Z</kbd></div>
@@ -249,7 +282,7 @@
                 </div>
                 <h1 class="font-display text-base tracking-[3px] text-neon font-bold">NETFORGE</h1>
             </div>
-            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v3.2</span>
+            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v3.3</span>
         </div>
         <div class="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-start md:justify-end flex-wrap">
             <div class="relative flex-1 md:flex-none" id="exampleWrapper">
@@ -330,6 +363,10 @@
                         <input id="baseIpInput" aria-label="Base IP ของเครือข่าย (IPv4)" type="text" value="10.0.0.0" class="input-cyber flex-1 min-w-0" placeholder="Base IP" />
                         <input id="baseCidrInput" aria-label="จำนวนบิต CIDR ของ Base IPv4 ใส่ได้ 8 ถึง 30" type="number" value="24" min="8" max="30" class="input-cyber w-16 text-center flex-shrink-0" />
                     </div>
+                    <!-- ข้อความบอกช่วงมาตรฐาน ตั้งใจให้เป็นข้อความสีจางที่อยู่ตลอดเวลา ไม่ใช่คำเตือนที่เด้งขึ้นมา
+                         เพราะการกรอกช่วงอื่นไม่ใช่ข้อผิดพลาด โปรแกรมคำนวณให้ถูกต้องทุกช่วง
+                         แค่ไม่ใช่ช่วงที่ควรหยิบมาใช้ในงานประเภทนี้ ซึ่งเป็นคนละเรื่องกัน -->
+                    <div class="base-hint">ใช้ในองค์กร: 10.x · 172.16-31.x · 192.168.x &nbsp;|&nbsp; ใช้ในตัวอย่าง: 192.0.2.x</div>
                 </div>
                 <div id="v6Inputs" class="hidden">
                     <div class="flex gap-2 mb-2">
@@ -340,6 +377,9 @@
                         <label class="text-subtle text-[11px] tracking-wider flex-1">PREFIX ย่อย/แผนก</label>
                         <input id="newPrefixInput" aria-label="ความยาว Prefix ย่อยต่อแผนก" type="number" value="64" min="1" max="128" class="input-cyber w-16 text-center flex-shrink-0" />
                     </div>
+                    <!-- ฝั่ง IPv6 ต้องบอกสองเรื่อง คือช่วงที่ใช้ในตัวอย่าง และเรื่องที่ /64 ไม่ขึ้นกับจำนวนเครื่อง
+                         เรื่องหลังเป็นคำถามที่ถูกถามซ้ำที่สุด เพราะช่อง Hosts ยังอยู่บนหน้าจอแต่ไม่มีผลในโหมดนี้ -->
+                    <div class="base-hint">ใช้ในตัวอย่าง: 2001:db8:: &nbsp;|&nbsp; ทุกวงได้ /64 เท่ากัน จำนวนเครื่องไม่มีผล</div>
                 </div>
                 <div class="flex gap-1.5">
                     <button onclick="onBaseChange()" class="btn-neon flex-1 text-[13px] justify-center"><i class="fas fa-calculator mr-1"></i>Calculate</button>
