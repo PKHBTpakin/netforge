@@ -562,7 +562,8 @@ function buildExampleDropdown() {
         factory: 'fa-industry',
         enterprise: 'fa-city',
         branch2: 'fa-code-branch',
-        branch3: 'fa-sitemap'
+        branch3: 'fa-sitemap',
+        retail: 'fa-store'
     };
 
     var html = '';

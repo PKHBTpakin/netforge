@@ -588,6 +588,58 @@ check('E20: ตอบผิดสองแผนก ก็ได้คำอธ�
         return n === 2 && run('practiceState.problem.departments.length') === 7;
     })(), countHints(practiceHtml()) + ' คำอธิบาย จาก 7 แถว');
 
+/* ---------- E21-E25: ตัวอย่างร้านค้าปลีก และเพดานจริงของการขยายสาขา ----------
+   ที่มา: ผู้ใช้ถามว่าจะอ้างอิงองค์กรค้าปลีกที่มี 350 สาขาได้ไหม จึงต้องรู้ก่อนว่า
+   โปรแกรมรองรับได้จริงถึงไหน ตัวเลขในเทสชุดนี้คือตัวเลขที่วัดได้จริง ไม่ใช่ที่คาดว่าจะเป็น
+
+   ผลที่วัดได้ตอนทดสอบ 350 สาขา:
+     - WAN Pool ค่าเริ่มต้น 10.255.255.0/24 จองได้แค่ 64 ลิงก์ ต้องขยายเป็น /21 ถึงจะครบ 350
+     - พอร์ตที่สร้างให้จะไล่ไปถึง Serial0/349/0 ซึ่งไม่มีอยู่จริงบน Router รุ่นใด
+     - config ของ Router หลักยาว 2,855 บรรทัด (89 KB) วางลง Packet Tracer ไม่ไหว
+     - Router สาขาทั้ง 350 ตัวถูกวางทับกันที่จุดเดียว ผังกว้าง 0 px คือดูอะไรไม่ได้เลย
+     - เพดานที่แท้จริงคือ MAX_DEPARTMENTS ไม่ใช่จำนวน Router
+       เพราะสาขาที่ไม่มีแผนกอยู่ข้างหลัง จะไม่มีวงเครือข่ายให้ HQ สร้างเส้นทางไปหา */
+
+run("loadExample('retail');");
+
+check('E21: ตัวอย่างร้านค้าปลีกโหลดครบ และจัดสรรลงทุกแผนก',
+    run('state.departments.length') === 10 && run('state.failed.length') === 0,
+    run('state.departments.length') + ' แผนก จัดสรรไม่ลง ' + run('state.failed.length'));
+
+check('E22: สร้าง Router สาขา 3 ตัวพร้อมลิงก์ WAN ครบตั้งแต่โหลด',
+    run("topoNodes.manualNodes.filter(function(n){return n.type==='router-branch'}).length") === 3 &&
+    run('calculateWanLinks().length') === 3);
+
+check('E23: ทุกสาขาได้ขนาดวงเท่ากัน (โครงสร้างสาขาเหมือนกันจริง)',
+    (function () {
+        const cidrs = run("state.calculated.filter(function(d){return /^Store-/.test(d.name)}).map(function(d){return d.subnet.cidr})");
+        return cidrs.length === 6 && cidrs.every(function (c) { return c === 28; });
+    })(),
+    run("state.calculated.filter(function(d){return /^Store-/.test(d.name)}).map(function(d){return '/'+d.subnet.cidr}).join(' ')"));
+
+run("switchTab('cli'); renderCLI();");
+check('E24: HQ มีเส้นทางไปหาทุกวงที่อยู่หลังสาขา ครบ 6 เส้น',
+    (cliText(getElementById('cliRouterOutput').innerHTML).match(/ip route/g) || []).length === 6,
+    (cliText(getElementById('cliRouterOutput').innerHTML).match(/ip route/g) || []).length + ' เส้น');
+
+/* เพดานจริงของการขยายสาขา — ข้อนี้คือคำตอบของคำถาม "รองรับ 350 สาขาไหม"
+   วาง Router เพิ่มได้ไม่จำกัดจริง แต่สาขาที่ไม่มีแผนกอยู่ข้างหลังคือกล่องเปล่า
+   HQ จะไม่มีเส้นทางไปหาอะไรเลย จำนวนสาขาที่ "ใช้งานได้จริง" จึงถูกจำกัดด้วยจำนวนแผนก */
+check('E25: สาขาที่ยังไม่มีแผนกอยู่ข้างหลัง ต้องไม่ทำให้ HQ มีเส้นทางเพิ่ม',
+    (function () {
+        const before = (cliText(getElementById('cliRouterOutput').innerHTML).match(/ip route/g) || []).length;
+        run(`
+          var n = addManualNode(BranchRouterDevice, 400, 500);
+          n.label = 'Store-Empty';
+          topoNodes.links.push({ id: 'WX', fromId: 'router', toId: n.id });
+          refreshAll(true);
+        `);
+        run("switchTab('cli'); renderCLI();");
+        const after = (cliText(getElementById('cliRouterOutput').innerHTML).match(/ip route/g) || []).length;
+        return before === 6 && after === 6 && run('MAX_DEPARTMENTS') === 12;
+    })(),
+    'เพดานแผนก ' + run('MAX_DEPARTMENTS') + ' แผนก จึงมีสาขาที่มีเครือข่ายจริงได้สูงสุด 11 สาขา');
+
 /* ---------- สรุปผล ---------- */
 let pass = 0;
 results.forEach(r => {

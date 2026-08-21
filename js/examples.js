@@ -151,5 +151,41 @@ const EXAMPLES = {
             ],
             wan: [['router', 'n'], ['router', 's'], ['router', 'e']]
         }
+    },
+
+    /* ---------- ร้านค้าปลีกหลายสาขา ----------
+       ดัดแปลงจากลักษณะงานของธุรกิจค้าปลีกไอทีที่มีหน้าร้านกระจายทั่วประเทศ
+       ตัวเลขทุกตัวในชุดนี้เป็นข้อมูลสมมติทั้งหมด ไม่ได้มาจากเครือข่ายขององค์กรใด
+
+       ที่ต่างจากตัวอย่างชุดอื่น: ชุดนี้ทุกสาขามีโครงสร้างเหมือนกันเป๊ะ คือจุดขายกับหลังร้าน
+       จึงใช้อธิบายได้ว่าถ้าจะขยายไปหลายร้อยสาขา ต้องวางแผนช่วงหมายเลขอย่างไรตั้งแต่ต้น
+       และใช้ชี้ให้เห็นเพดานจริงของโปรแกรมได้ด้วย (ดูหัวข้อข้อจำกัดใน README) */
+    retail: {
+        label: 'ร้านค้าปลีก สำนักงานใหญ่ + 3 สาขา',
+        hint: 'ทุกสาขาโครงสร้างเหมือนกัน ใช้ดูว่าถ้าจะขยายเป็นหลายร้อยสาขาต้องวางแผนอย่างไร (ตัวเลขสมมติ)',
+        baseIp: '10.40.0.0',
+        baseCidr: 23,
+        departments: [
+            // สำนักงานใหญ่
+            { name: 'HQ-IT', hosts: 45 },
+            { name: 'HQ-Finance', hosts: 35 },
+            { name: 'HQ-Purchasing', hosts: 25 },
+            { name: 'HQ-Warehouse', hosts: 90 },
+            // หน้าร้านแต่ละสาขา ขนาดเท่ากันทุกสาขาโดยตั้งใจ
+            { name: 'Store-Ladprao-POS', hosts: 12 },
+            { name: 'Store-Ladprao-Office', hosts: 8 },
+            { name: 'Store-Rangsit-POS', hosts: 12 },
+            { name: 'Store-Rangsit-Office', hosts: 8 },
+            { name: 'Store-Korat-POS', hosts: 12 },
+            { name: 'Store-Korat-Office', hosts: 8 }
+        ],
+        topology: {
+            branches: [
+                { key: 'lp', label: 'Store-Ladprao', depts: ['Store-Ladprao-POS', 'Store-Ladprao-Office'] },
+                { key: 'rs', label: 'Store-Rangsit', depts: ['Store-Rangsit-POS', 'Store-Rangsit-Office'] },
+                { key: 'kr', label: 'Store-Korat',   depts: ['Store-Korat-POS', 'Store-Korat-Office'] }
+            ],
+            wan: [['router', 'lp'], ['router', 'rs'], ['router', 'kr']]
+        }
     }
 };
