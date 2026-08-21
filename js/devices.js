@@ -51,7 +51,7 @@ function getDeptColor(deptId) {
 // ----- สีของอุปกรณ์ตายตัว (Router/PC/Server) แยกชุด Dark/Light -----
 // ตัวที่ constructor ใช้จริงคือ ROUTER_COLOR/PC_COLOR/SERVER_COLOR (let เปลี่ยนค่าได้)
 // applyTheme() ใน ui.js จะสลับให้เมื่อ toggle โหมด
-const ROUTER_COLOR_DARK = '#4C8DFF';
+const ROUTER_COLOR_DARK = '#5C97FF'; // ต้องตรงกับ --neon ใน style.css เป๊ะ (legend dot ใช้ตัวแปร CSS)
 const PC_COLOR_DARK = '#22C55E';
 const SERVER_COLOR_DARK = '#EC4899';
 const ROUTER_COLOR_LIGHT = '#1841B8';

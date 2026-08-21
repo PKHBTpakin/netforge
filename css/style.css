@@ -4,18 +4,27 @@
 
 /* --- ตัวแปรสี --- */
 :root {
-    --neon: #4C8DFF;   /* สีเน้นหลัก (primary) — น้ำเงิน ใช้กับปุ่มหลัก/สถานะ active/Router */
+    --neon: #5C97FF;   /* สีเน้นหลัก (primary) — น้ำเงิน ใช้กับปุ่มหลัก/สถานะ active/Router
+                          เดิม #4C8DFF ได้ 5.44 ขณะที่โหมดสว่างได้ 8.44 ต่างกันถึง 3 เท่าตัว
+                          ค่าใหม่ได้ 6.07 เลือกค่านี้เพราะสว่างกว่านี้จะไปชนกับสีแผนก #A5B4FC จนแยกไม่ออกบนผัง
+                          (มีเทสคุมระยะห่างขั้นต่ำไว้ที่ 20 หน่วย ตอนลอง #6BA3FF ได้แค่ 16.2 จึงไม่ผ่าน)
+                          ต้องแก้ ROUTER_COLOR_DARK ใน devices.js คู่กันด้วย */
     --cyber: #94A3B8;  /* สีรอง (secondary/neutral) — เทาอมฟ้า ใช้กับปุ่ม/ข้อความรอง */
-    --hot: #F0575C;    /* สีอันตราย (danger) — ใช้เฉพาะ action ทำลายข้อมูล/error เท่านั้น */
+    --hot: #F78289;    /* สีอันตราย (danger) — ใช้เฉพาะ action ทำลายข้อมูล/error เท่านั้น
+                          เดิม #F0575C ได้ 5.16 ต่ำที่สุดในชุดทั้งที่เป็นสีที่ต้องเห็นชัดที่สุด
+                          ค่าใหม่ได้ 7.05 ใกล้เคียงกับโหมดสว่างที่ได้ 7.35 */
     --ok: #22C55E;     /* สีสำเร็จ (success) — ใช้กับแผนกที่ได้ช่วง IP แล้ว วัดบนพื้น --card ได้ 7.64:1 */
     --bg: #0f1115;
     --card: #171a21;
-    --border: #262a35;
+    --border: #3d4353; /* เดิม #262a35 วัดบนพื้นการ์ดได้แค่ 1.21 ขณะที่โหมดสว่างได้ 1.48
+                          โหมดสว่างตั้งใจให้เส้นขอบทำหน้าที่แบ่งชั้นแทนความสว่าง แต่โหมดมืดยังใช้ค่าเดิม
+                          ขอบจึงแทบมองไม่เห็นและทุกกล่องกลืนเป็นผืนเดียวกัน ค่าใหม่ได้ 1.76 */
     --text: #d8dae0;
 
     --muted: #9BA4B8;
     --label: #a8afc0;
-    --subtle: #8790A8;
+    --subtle: #A0A9C0; /* เดิม #8790A8 ได้ 5.46 ผ่านเกณฑ์แต่ต่ำสุดในชุด และใช้กับตัวอักษรเล็กที่สุด
+                          ค่าใหม่ได้ 7.40 ใกล้เคียงกับโหมดสว่างที่ได้ 7.54 */
 
     --input-bg: rgba(0,0,0,0.25);
     --item-bg: rgba(0,0,0,0.2);
@@ -138,19 +147,19 @@ button:focus-visible,
 
 /* --- ปุ่มต่างๆ --- */
 .btn-neon {
-    background: rgba(76,141,255,0.12); border: 1px solid var(--neon); color: var(--neon);
+    background: rgba(92,151,255,0.12); border: 1px solid var(--neon); color: var(--neon);
     padding: 6px 14px; border-radius: 4px; cursor: pointer;
     font-family: 'Share Tech Mono', monospace; font-size: 14px;
     transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px;
 }
-.btn-neon:hover { background: rgba(76,141,255,0.22); }
+.btn-neon:hover { background: rgba(92,151,255,0.22); }
 
 .btn-hot {
-    background: rgba(240,87,92,0.1); border: 1px solid var(--hot); color: var(--hot);
+    background: rgba(247,130,137,0.1); border: 1px solid var(--hot); color: var(--hot);
     padding: 4px 10px; border-radius: 4px; cursor: pointer;
     font-family: 'Share Tech Mono', monospace; font-size: 13px; transition: all 0.2s;
 }
-.btn-hot:hover { background: rgba(240,87,92,0.2); }
+.btn-hot:hover { background: rgba(247,130,137,0.2); }
 
 .btn-cyber {
     background: rgba(148,163,184,0.15); border: 1px solid var(--cyber); color: var(--cyber);
@@ -167,12 +176,12 @@ button.is-disabled, button:disabled {
 button.is-disabled:hover, button:disabled:hover { background: transparent; }
 
 .btn-example {
-    background: rgba(76,141,255,0.12); border: 1px solid var(--neon); color: var(--neon);
+    background: rgba(92,151,255,0.12); border: 1px solid var(--neon); color: var(--neon);
     padding: 4px 12px; border-radius: 4px; cursor: pointer;
     font-family: 'Share Tech Mono', monospace; font-size: 13px;
     transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px; position: relative;
 }
-.btn-example:hover { background: rgba(76,141,255,0.22); }
+.btn-example:hover { background: rgba(92,151,255,0.22); }
 
 /* --- หัวข้อส่วน --- */
 .section-label {
@@ -205,19 +214,19 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
     padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px;
     cursor: pointer; transition: all 0.2s; margin-bottom: 6px; background: var(--item-bg);
 }
-.dept-item:hover { border-color: rgba(76,141,255,0.35); }
+.dept-item:hover { border-color: rgba(92,151,255,0.35); }
 /* ปุ่มจัดการแผนก — ซ่อนไว้จนกว่าจะชี้ เพื่อไม่ให้รายการดูรก แต่ยังเข้าถึงด้วยคีย์บอร์ดได้เสมอ */
 .dept-actions { display: flex; gap: 8px; opacity: 0; transition: opacity 0.15s; }
 .dept-item:hover .dept-actions,
 .dept-item:focus-within .dept-actions { opacity: 1; }
 @media (hover: none) { .dept-actions { opacity: 1; } }
 .dept-item.selected {
-    border-color: var(--neon); background: rgba(76,141,255,0.08);
+    border-color: var(--neon); background: rgba(92,151,255,0.08);
 }
 /* แผนกที่ VLSM จัดสรรไม่สำเร็จ — ต้องเห็นชัดว่าไม่ได้อยู่ในแผนจริง ไม่ใช่หายเงียบ ๆ */
 .dept-item.dept-failed {
     border-color: var(--hot);
-    background: rgba(240,87,92,0.06);
+    background: rgba(247,130,137,0.06);
 }
 /* แผนกที่ได้ช่วงหมายเลขแล้วจริง คือกำลังถูกใช้งานอยู่ในแผนปัจจุบัน
    บอกด้วยไอคอนเขียวเล็ก ๆ หน้าชื่ออย่างเดียว ไม่ใส่กรอบและไม่ใส่พื้นสี
@@ -267,8 +276,8 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
     white-space: pre-line;
 }
 .toast.show { opacity: 1; transform: translateX(0); }
-.toast-success { background: rgba(76,141,255,0.1); border-color: var(--neon); color: var(--neon); }
-.toast-error { background: rgba(240,87,92,0.1); border-color: var(--hot); color: var(--hot); }
+.toast-success { background: rgba(92,151,255,0.1); border-color: var(--neon); color: var(--neon); }
+.toast-error { background: rgba(247,130,137,0.1); border-color: var(--hot); color: var(--hot); }
 .toast-info { background: rgba(148,163,184,0.15); border-color: var(--cyber); color: var(--cyber); }
 
 /* --- CLI Output --- */
@@ -293,7 +302,7 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
     text-align: center;
 }
 
-.cli-output .cmd { color: #4C8DFF; }
+.cli-output .cmd { color: var(--neon); } /* เดิมฝังค่า #4C8DFF ไว้ตรง ๆ จึงไม่ตามธีมและไม่ตามการปรับ contrast */
 .cli-output .comment { color: #9BA4B8; }
 .cli-output .value { color: #94A3B8; }
 
@@ -313,14 +322,14 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
     border-bottom: 1px solid rgba(38,42,53,0.6); display: flex; align-items: flex-start; gap: 10px;
 }
 .ex-item:last-child { border-bottom: none; }
-.ex-item:hover { background: rgba(76,141,255,0.08); }
+.ex-item:hover { background: rgba(92,151,255,0.08); }
 .ex-icon {
     width: 30px; height: 30px; border-radius: 6px; display: flex;
     align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; margin-top: 2px;
     /* ย้ายสีมาไว้ที่นี่ เดิมเขียนเป็น inline style ซ้ำกันทุกตัวใน buildExampleDropdown()
        ซึ่งค่าเหมือนกันหมดทั้ง 6 รายการ และไม่สลับตามธีมด้วย */
-    background: rgba(76,141,255,0.1);
-    border: 1px solid rgba(76,141,255,0.3);
+    background: rgba(92,151,255,0.1);
+    border: 1px solid rgba(92,151,255,0.3);
     color: var(--neon);
 }
 .ex-title { font-size: 14px; color: var(--text); font-weight: bold; }
@@ -368,12 +377,12 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
     border-radius: 4px;
     font-size: 11px;
     color: var(--neon);
-    background: rgba(76,141,255,0.1);
-    border: 1px solid rgba(76,141,255,0.3);
+    background: rgba(92,151,255,0.1);
+    border: 1px solid rgba(92,151,255,0.3);
     cursor: pointer;
     transition: all 0.15s;
 }
-.ex-nav-btn:hover { background: rgba(76,141,255,0.22); }
+.ex-nav-btn:hover { background: rgba(92,151,255,0.22); }
 .ex-nav-btn:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
 
 /* ป้ายเล็กท้ายชื่อตัวอย่าง บอกว่าชุดนี้มาพร้อมผัง Router หลายตัว
@@ -423,7 +432,7 @@ html[data-theme="light"] .ex-badge { color: #8a5709; }
 .label-tag { font-size: 12px; padding: 1px 6px; border-radius: 3px; display: inline-block; }
 
 /* --- Animation --- */
-@keyframes dept-flash { 0% { background: rgba(76,141,255,0.15); } 100% { background: transparent; } }
+@keyframes dept-flash { 0% { background: rgba(92,151,255,0.15); } 100% { background: transparent; } }
 .dept-flash { animation: dept-flash 0.8s ease-out; }
 
 /* --- Onboarding Modal: แสดงครั้งแรกที่เปิดแอป (ดูเหตุผลใน ui.js) --- */
@@ -447,7 +456,7 @@ html[data-theme="light"] .ex-badge { color: #8a5709; }
 .onboard-step-icon {
     width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(76,141,255,0.12); color: var(--neon); font-size: 17px;
+    background: rgba(92,151,255,0.12); color: var(--neon); font-size: 17px;
 }
 .onboard-step-title { font-size: 16.5px; font-weight: bold; color: var(--text); margin-bottom: 4px; }
 .onboard-step-desc { font-size: 15px; color: var(--muted); line-height: 1.75; }
@@ -473,7 +482,7 @@ kbd {
     background: transparent; border: none; color: var(--muted); cursor: pointer;
     padding: 4px 7px; border-radius: 4px; font-size: 12px; transition: all 0.15s;
 }
-.canvas-zoom button:hover { background: rgba(76,141,255,0.12); color: var(--neon); }
+.canvas-zoom button:hover { background: rgba(92,151,255,0.12); color: var(--neon); }
 .canvas-zoom span {
     font-size: 11px; color: var(--label); min-width: 40px; text-align: center;
     font-family: 'Share Tech Mono', monospace; user-select: none;

@@ -578,6 +578,57 @@ const cssTxt = fs.readFileSync(path.join(PROJECT_ROOT, 'css', 'style.css'), 'utf
 check('ช่อง Base: ข้อความนั้นใช้สีจาง ไม่ใช่สีอันตราย',
     /\.base-hint\s*\{[^}]*var\(--subtle\)/.test(cssTxt) && !/\.base-hint\s*\{[^}]*var\(--hot\)/.test(cssTxt));
 
+/* ---------- ช่องว่างของ contrast ระหว่างสองโหมด ----------
+   ที่มา: ผู้ใช้บอกว่าโหมดสว่างอ่านง่ายและสบายตากว่าโหมดมืดมาก
+   วัดค่าจริงแล้วพบว่าทุกสีผ่านเกณฑ์ AA ทั้งสองโหมดตามที่เคยอ้างไว้จริง
+   แต่โหมดสว่างสูงกว่าทุกตัว โดยเฉพาะสามตัวที่ใช้กับตัวอักษรเล็กที่สุด
+     subtle 5.46 เทียบกับ 7.54   hot 5.16 เทียบกับ 7.35   neon 5.44 เทียบกับ 8.44
+   และจุดที่ต่างกันมากที่สุดคือเส้นขอบ 1.21 เทียบกับ 1.48
+   โหมดสว่างตั้งใจให้เส้นขอบทำหน้าที่แบ่งชั้นแทนความสว่าง แต่โหมดมืดไม่เคยถูกปรับตาม
+   ขอบจึงแทบมองไม่เห็นและทุกกล่องกลืนเป็นผืนเดียวกัน ซึ่งเป็นสาเหตุที่ตาต้องทำงานหนักกว่า
+
+   เทสชุดนี้ตั้งเพดานขั้นต่ำไว้ เพื่อไม่ให้ค่าเหล่านี้ถูกปรับกลับลงไปโดยไม่ตั้งใจ */
+
+function cssVar(block, name) {
+    const m = block.match(new RegExp('--' + name + ':\\s*(#[0-9A-Fa-f]{6})'));
+    return m ? m[1] : null;
+}
+const cssAll = fs.readFileSync(path.join(PROJECT_ROOT, 'css', 'style.css'), 'utf8');
+const darkBlock = cssAll.slice(cssAll.indexOf(':root'), cssAll.indexOf('[data-theme="light"]'));
+const lightBlock = cssAll.slice(cssAll.indexOf('[data-theme="light"]'), cssAll.indexOf('* { box-sizing'));
+
+const dCard = cssVar(darkBlock, 'card'), lCard = cssVar(lightBlock, 'card');
+
+/* ตัวอักษรเล็กต้องไม่ต่ำกว่า 6.5 ในโหมดมืด สูงกว่าเกณฑ์ AA ที่ 4.5 พอสมควร
+   เพราะฟอนต์ในแอปเป็นโมโนสเปซเส้นบาง และตัวอักษรบางจุดเล็กถึง 11px */
+['subtle', 'hot', 'neon'].forEach(function (name) {
+    const c = contrast(cssVar(darkBlock, name), dCard);
+    check('สีโหมดมืด: ' + name + ' ต้องไม่ต่ำกว่า 6.0 บนพื้นการ์ด',
+        c >= 6.0, cssVar(darkBlock, name) + ' = ' + c.toFixed(2));
+});
+
+/* เส้นขอบไม่ใช่ตัวอักษร จึงไม่มีเกณฑ์ AA บังคับ แต่ถ้ามองไม่เห็นก็แบ่งชั้นไม่ได้
+   ตั้งขั้นต่ำไว้ที่ 1.5 ซึ่งเท่ากับที่โหมดสว่างทำได้อยู่แล้ว */
+const dBorder = contrast(cssVar(darkBlock, 'border'), dCard);
+const lBorder = contrast(cssVar(lightBlock, 'border'), lCard);
+check('สีโหมดมืด: เส้นขอบต้องเห็นได้ไม่แพ้โหมดสว่าง',
+    dBorder >= 1.5 && dBorder >= lBorder * 0.95,
+    'มืด ' + dBorder.toFixed(2) + ' / สว่าง ' + lBorder.toFixed(2));
+
+/* ค่าที่ฝังไว้ตรง ๆ ต้องตามตัวแปรเสมอ ไม่งั้นพื้นปุ่มกับขอบปุ่มจะคนละโทน */
+const neonRgb = cssVar(darkBlock, 'neon').replace('#', '').match(/../g).map(function (h) { return parseInt(h, 16); }).join(',');
+const strayNeon = (cssAll.match(/rgba\(\d+,\d+,\d+,[\d.]+\)/g) || [])
+    .filter(function (v) { return /rgba\((76,141,255|107,163,255)/.test(v); });
+check('สีโหมดมืด: ไม่เหลือค่าสีเน้นหลักชุดเก่าที่ฝังไว้ตรง ๆ',
+    strayNeon.length === 0 && cssAll.indexOf('rgba(' + neonRgb + ',') !== -1,
+    strayNeon.length ? strayNeon.join(' ') : 'ตรงกับตัวแปร rgba(' + neonRgb + ',...)');
+
+/* สีเน้นหลักฝั่ง CSS กับฝั่ง JS ต้องเป็นค่าเดียวกัน เพราะจุดสีในคำอธิบายผังใช้ตัวแปร CSS
+   แต่กล่อง Router บนผังวาดด้วยค่าจาก JS ถ้าไม่ตรงกันจะเห็นเป็นคนละสีบนหน้าจอเดียวกัน */
+check('สีโหมดมืด: ค่าสีเน้นหลักฝั่ง CSS กับฝั่ง JS ตรงกัน',
+    run('ROUTER_COLOR_DARK').toUpperCase() === cssVar(darkBlock, 'neon').toUpperCase(),
+    'JS ' + run('ROUTER_COLOR_DARK') + ' / CSS ' + cssVar(darkBlock, 'neon'));
+
 /* ---------- สรุปผล ---------- */
 let pass = 0;
 results.forEach(r => {
