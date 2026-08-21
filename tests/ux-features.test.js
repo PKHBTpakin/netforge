@@ -494,6 +494,54 @@ check('แผงล่าง: ความสูงตอนขยายต้�
         'return h ? (maxBottomPanelHeight() <= h) : true;})()'),
     run('maxBottomPanelHeight()') + ' px');
 
+/* ---------- แถบซ้าย: บอกว่าแผนกไหนเข้าแผนแล้ว และต้องตรงกับโหมดที่เปิดอยู่ ----------
+   ที่มา: ผู้ใช้ส่งวิดีโอมาแล้วขอให้แถบซ้ายบอกว่าแผนกไหนกำลังถูกใช้งานอยู่
+   ระหว่างดูวิดีโอพบบั๊กเพิ่มอีกข้อ คือตอนสลับไปโหมด IPv6 ตารางเปลี่ยนเป็น prefix ของ IPv6 แล้ว
+   แต่แถบซ้ายยังค้างเลข IPv4 เดิมอยู่ เพราะ renderSidebarDepts() อ่านจาก state.calculated ตรง ๆ
+   โดยไม่เคยเช็ค state.ipMode เลย ต่างจากแผงวิเคราะห์พื้นที่และตาราง WAN ที่เช็ค
+   ผลคือมีเลขสองชุดที่ไม่ตรงกันอยู่บนหน้าจอเดียวกันโดยไม่มีอะไรบอกว่าอันไหนคืออันจริง */
+
+run("loadExample('company'); setIpMode('v4'); renderSidebarDepts();");
+const deptHtml = () => getElementById('deptList').innerHTML;
+
+check('แถบซ้าย: แผนกที่ได้ช่วง IP แล้วต้องขึ้นสถานะเขียวครบทุกแผนก',
+    (function () {
+        const n = (deptHtml().match(/dept-ok/g) || []).length;
+        return n === run('state.departments.length') && n > 0;
+    })(),
+    (deptHtml().match(/dept-ok/g) || []).length + ' จาก ' + run('state.departments.length') + ' แผนก');
+
+check('แถบซ้าย: มีไอคอนกำกับหน้าชื่อเหมือนตอนจัดสรรไม่สำเร็จ ไม่ใช่มีแค่กรอบสี',
+    deptHtml().indexOf('fa-circle-check') !== -1 && deptHtml().indexOf('var(--ok)') !== -1);
+
+/* แผนกที่จัดสรรไม่ลงต้องขึ้นแดง ห้ามขึ้นเขียวพร้อมกัน ไม่งั้นอ่านผลผิดได้ */
+check('แถบซ้าย: แผนกที่จัดสรรไม่สำเร็จต้องขึ้นแดง ไม่ใช่เขียว',
+    (function () {
+        // ตั้ง Base ให้เล็กจนแผนกใหญ่ลงไม่ได้
+        run("state.baseCidr = 27; refreshAll(true); renderSidebarDepts();");
+        const h = deptHtml();
+        const failedCount = run('state.failed.length');
+        const okCount = (h.match(/dept-ok/g) || []).length;
+        const badCount = (h.match(/dept-failed/g) || []).length;
+        return failedCount > 0 && badCount === failedCount
+            && okCount === run('state.departments.length') - failedCount;
+    })(),
+    'จัดสรรไม่ลง ' + run('state.failed.length') + ' แผนก / ขึ้นแดง ' + (deptHtml().match(/dept-failed/g) || []).length);
+
+/* บั๊กที่เจอจากวิดีโอ — ข้อนี้ fail แน่นอนถ้าย้อนโค้ดกลับไปอ่าน state.calculated อย่างเดียว */
+check('แถบซ้าย: โหมด IPv6 ต้องขึ้น prefix ของ IPv6 ไม่ใช่เลข IPv4 ค้าง',
+    (function () {
+        run("loadExample('company'); setIpMode('v4'); refreshAll(true); renderSidebarDepts();");
+        const v4 = deptHtml();
+        run("setIpMode('v6'); state.baseIp6 = '2001:db8::'; state.basePrefix6 = 48; state.newPrefix6 = 64;");
+        run("calculateIPv6(); renderSidebarDepts();");
+        const v6 = deptHtml();
+        if (run('state.calculatedV6.length') === 0) return false;
+        // ต้องมีเลข IPv6 ขึ้นจริง และต้องไม่เหลือเลข IPv4 ค้างอยู่
+        return v6.indexOf('2001:db8') !== -1 && !/\b\d+\.\d+\.\d+\.\d+\//.test(v6) && v4 !== v6;
+    })(),
+    (deptHtml().match(/2001:db8[^<"]*/) || ['ไม่พบ'])[0]);
+
 /* ---------- สรุปผล ---------- */
 let pass = 0;
 results.forEach(r => {

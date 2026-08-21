@@ -46,16 +46,31 @@ function renderSidebarDepts() {
         return;
     }
 
+    /* รายการนี้เคยอ่านจาก state.calculated (ผล IPv4) ตรง ๆ โดยไม่ดูโหมดที่เปิดอยู่เลย
+       ผลคือพอสลับไปโหมด IPv6 ตารางเปลี่ยนเป็น prefix ของ IPv6 แล้ว แต่แถบซ้ายยังค้างเลข IPv4 เดิม
+       ผู้ใช้จึงเห็นเลขสองชุดที่ไม่ตรงกันอยู่บนหน้าจอเดียวกันโดยไม่มีอะไรบอกว่าอันไหนคืออันจริง */
+    const isV6 = state.ipMode === 'v6';
+
     el.innerHTML = state.departments.map(function(dept) {
-        const calc = state.calculated.find(function(c) { return c.id === dept.id; });
+        const calc = isV6
+            ? (state.calculatedV6 || []).find(function(c) { return c.id === dept.id; })
+            : state.calculated.find(function(c) { return c.id === dept.id; });
         const isSel = state.selectedDeptId === dept.id;
         const color = calc ? getDeptColor(dept.id) : 'var(--muted)';
-        const failed = (state.failed || []).find(function(f) { return f.id === dept.id; });
+        // การจัดสรรไม่สำเร็จเป็นเรื่องของ IPv4 เท่านั้น เพราะ IPv6 แบ่งเป็นก้อนเท่ากันหมด ไม่มีกรณีลงไม่พอดี
+        const failed = isV6 ? null : (state.failed || []).find(function(f) { return f.id === dept.id; });
+        // แผนกที่ได้ช่วงหมายเลขแล้วจริง = กำลังถูกใช้งานอยู่ในแผนปัจจุบัน
+        const allocated = !!calc && !failed;
         const safeName = escapeHtml(dept.name); // ใช้ทั้งในเนื้อหาและใน aria-label ด้านล่าง
-        return '<div class="dept-item ' + (isSel ? 'selected' : '') + (failed ? ' dept-failed' : '') + '" onclick="selectNode(' + dept.id + ',\'department\')" style="' + (isSel ? 'border-color:' + color : '') + '">' +
+        return '<div class="dept-item ' + (isSel ? 'selected' : '') +
+                (failed ? ' dept-failed' : (allocated ? ' dept-ok' : '')) +
+                '" onclick="selectNode(' + dept.id + ',\'department\')" style="' + (isSel ? 'border-color:' + color : '') + '">' +
             '<div class="flex items-center justify-between mb-1">' +
                 '<span class="text-[14px] font-bold" style="color:' + color + '">' +
-                    (failed ? '<i class="fas fa-triangle-exclamation text-hot mr-1"></i>' : '') + escapeHtml(dept.name) + '</span>' +
+                    (failed
+                        ? '<i class="fas fa-triangle-exclamation text-hot mr-1" aria-hidden="true"></i>'
+                        : (allocated ? '<i class="fas fa-circle-check mr-1" style="color:var(--ok)" aria-hidden="true"></i>' : '')) +
+                    escapeHtml(dept.name) + '</span>' +
                 '<span class="dept-actions">' +
                     // aria-label ต้องมีชื่อแผนกด้วย — ในรายการมีปุ่มถังขยะซ้ำกันทุกแถว
                     // ถ้าเขียนแค่ "ลบแผนกนี้" โปรแกรมอ่านหน้าจอจะอ่านเหมือนกันหมดจนแยกไม่ออกว่ากำลังจะลบอันไหน
@@ -67,7 +82,12 @@ function renderSidebarDepts() {
             '</div>' +
             '<div class="text-[12px] text-muted">' +
                 '<span>Hosts: ' + dept.hosts + '</span>' +
-                (calc ? '<span class="ml-2" style="color:' + color + '">' + calc.subnet.network + '/' + calc.subnet.cidr + '</span>' : '') +
+                // IPv6 เก็บผลไว้คนละช่องกับ IPv4 และเก็บเป็นข้อความสำเร็จรูปมาแล้ว (cidrText)
+                (calc
+                    ? '<span class="ml-2" style="color:' + color + '">' +
+                        (isV6 ? escapeHtml(calc.subnet6.cidrText) : calc.subnet.network + '/' + calc.subnet.cidr) +
+                      '</span>'
+                    : '') +
             '</div>' +
             // แผนกที่จัดสรรไม่สำเร็จเคยหายเงียบ ๆ เหลือแค่ toast 2.5 วินาที -> ค้างเหตุผลไว้ตรงนี้ถาวร
             (failed ? '<div class="text-[11px] text-hot mt-1 leading-snug">' + escapeHtml(failed.reason) + '</div>' : '') +
