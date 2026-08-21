@@ -38,6 +38,11 @@
     --pc-swatch: #22C55E;
     --server-swatch: #EC4899;
     --branch-swatch: #F59E0B; /* ต้องตรงกับ BRANCH_COLOR_DARK ใน devices.js */
+
+    /* บอกเบราว์เซอร์ว่าหน้านี้เป็นธีมมืด เพื่อให้ส่วนที่ระบบปฏิบัติการวาดเองใช้ชุดสีมืดตาม
+       ได้แก่ รายการที่กางออกมาของ select, ปุ่มลูกศรขึ้นลงของช่องตัวเลข และแถบเลื่อนภายในตัวควบคุม
+       ส่วนพวกนี้ CSS ของหน้าเว็บเข้าไปจัดสไตล์ไม่ได้ จึงต้องบอกด้วยวิธีนี้เท่านั้น */
+    color-scheme: dark;
 }
 
 /* --- Light Mode: ชุดสีที่สอง สลับด้วย document.documentElement.setAttribute('data-theme','light') --- */
@@ -75,6 +80,8 @@
     --pc-swatch: #0C5C2C;
     --server-swatch: #9E144D;
     --branch-swatch: #7A4405; /* ต้องตรงกับ BRANCH_COLOR_LIGHT ใน devices.js */
+
+    color-scheme: light;
 }
 
 * { box-sizing: border-box; }
@@ -130,6 +137,16 @@ body {
     border-color: var(--neon);
 }
 .input-cyber::placeholder { color: var(--subtle); }
+
+/* รายการที่กางออกมาของ select ถูกวาดโดยระบบปฏิบัติการ ไม่ใช่โดยหน้าเว็บ
+   ที่ผ่านมาจึงได้พื้นสีเทาอ่อนของค่าเริ่มต้น ขณะที่ตัวอักษรสืบทอดสีอ่อนมาจาก .input-cyber
+   วัดจากภาพหน้าจอจริงได้พื้น rgb(191,191,191) กับตัวอักษร rgb(216,218,224)
+   ซึ่งต่างกันแค่ประมาณ 1.1 ต่อ 1 คืออ่านไม่ออกเลย เห็นได้เฉพาะบรรทัดที่ถูกไฮไลต์อยู่
+   กำหนดสีให้ตรง ๆ ตรงนี้เพิ่มอีกชั้น เผื่อเบราว์เซอร์ที่ยังไม่รองรับ color-scheme */
+.input-cyber option {
+    background-color: var(--card);
+    color: var(--text);
+}
 
 /* --- Focus แบบมองเห็นได้ สำหรับผู้ใช้คีย์บอร์ด ---
    เดิม .input-cyber ตั้ง outline:none แล้วบอกตำแหน่ง focus ด้วยการเปลี่ยนสีขอบอย่างเดียว
