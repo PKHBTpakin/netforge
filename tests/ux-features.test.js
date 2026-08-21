@@ -423,6 +423,77 @@ check('panel: กด RESET แล้วความสูงกลับเป�
                run('getBottomPanelHeight()') === run('defaultBottomPanelHeight()');
     })(), run('getBottomPanelHeight()'));
 
+/* ---------- โครงหน้าเว็บ: กล่องที่เลื่อนได้ต้องยอมหดลงได้ด้วย ----------
+   ที่มา: ผู้ใช้รายงานสี่รอบว่าอ่านข้อมูลท้ายตารางไม่ได้ ผมแก้ไปสามรอบโดยไปปรับ "ความสูงของแผง"
+   ทุกครั้ง ซึ่งไม่ใช่ต้นเหตุเลย ต้นเหตุจริงคือกล่องที่ครอบผังกับแผงล่างไว้ ไม่ได้ใส่ min-h-0
+
+   กฎของ flexbox ที่เป็นต้นเหตุ: ลูกของ flex container มีค่า min-height เริ่มต้นเป็น auto
+   ซึ่งแปลว่า "ห้ามหดเล็กกว่าเนื้อหาข้างใน" พอแผงล่างถูกตั้งให้สูงขึ้น กล่องแม่จึงยืดตาม
+   แทนที่จะบีบให้ผังเล็กลง แล้วส่วนที่ยืดเกินขอบจอก็ถูก overflow-hidden ของกล่องชั้นบนตัดทิ้ง
+   ผลคือเนื้อหาหายไปเลย ไม่ใช่แค่ล้นแล้วเลื่อนดูได้ จึงไม่มีแถบเลื่อนขึ้นให้เห็นด้วย
+
+   เทสชุดนี้อ่าน index.html ตรง ๆ เพราะเป็นข้อผิดพลาดที่อยู่ในคลาส CSS ไม่ได้อยู่ในตรรกะ
+   เทสอื่นทั้ง 81 ข้อจึงผ่านหมดในขณะที่ผู้ใช้กำลังเห็นข้อความถูกตัดอยู่บนจอ */
+
+const indexHtml = fs.readFileSync(path.join(PROJECT_ROOT, 'index.html'), 'utf8');
+
+function classesOf(html) {
+    const out = [];
+    const re = /class="([^"]*)"/g;
+    let m;
+    while ((m = re.exec(html)) !== null) out.push({ cls: m[1], at: m.index });
+    return out;
+}
+const allClasses = classesOf(indexHtml);
+
+check('โครงหน้า: กล่องพื้นที่ทำงานที่ครอบผังกับแผงล่าง ต้องมี min-h-0',
+    (function () {
+        const box = allClasses.find(function (c) {
+            return c.cls.indexOf('flex-col') !== -1 && c.cls.indexOf('min-w-0') !== -1 && c.cls.indexOf('flex-1') !== -1;
+        });
+        return !!box && box.cls.indexOf('min-h-0') !== -1;
+    })());
+
+check('โครงหน้า: ผังต้องยอมหดได้เมื่อแผงล่างขยาย (md:min-h-0)',
+    (function () {
+        const canvasBox = allClasses.find(function (c) { return c.cls.indexOf('min-h-[350px]') !== -1; });
+        return !!canvasBox && canvasBox.cls.indexOf('md:min-h-0') !== -1;
+    })());
+
+/* กฎรวม: อะไรก็ตามที่ตั้ง overflow-y-auto คู่กับ flex-1 ต้องมี min-h-0 เสมอ
+   ไม่งั้นมันจะยืดตามเนื้อหาแทนที่จะเลื่อน ซึ่งเป็นบั๊กเดียวกันกับข้างบนทุกประการ
+   ข้อนี้เป็นแบบ "ต้องไม่มีอะไรผิดเลย" ไม่ใช่ "ต้องมีสิ่งนี้" จึงจับจุดที่ยังคิดไม่ถึงได้ด้วย */
+const scrollBoxesMissingMinH = allClasses.filter(function (c) {
+    return c.cls.indexOf('overflow-y-auto') !== -1
+        && c.cls.indexOf('flex-1') !== -1
+        && c.cls.indexOf('min-h-0') === -1;
+});
+check('โครงหน้า: ทุกกล่องที่เลื่อนได้และเป็น flex-1 ต้องมี min-h-0 ครบ',
+    scrollBoxesMissingMinH.length === 0,
+    scrollBoxesMissingMinH.length ? scrollBoxesMissingMinH.map(function (c) { return c.cls.slice(0, 60); }).join(' | ') : 'ครบทุกกล่อง');
+
+/* คลาสที่คุมโครงหน้าต้องมีอยู่จริงในไฟล์ CSS ที่ build แล้ว ไม่ใช่มีแค่ในโค้ด
+   ที่มา: ตอนแก้บั๊กแผงล่างรอบนี้ ผมใส่ md:min-h-0 ลงใน index.html แล้วคิดว่าจบ
+   แต่ css/tailwind.css ถูก build ไว้ล่วงหน้าและ commit ลง repo คลาสใหม่จึงยังไม่มีในไฟล์
+   ผลคือแก้แล้วเหมือนไม่ได้แก้ ซึ่งเป็นอาการเดียวกับบั๊ก bg-dark-900/90 ที่เคยเจอมาก่อน
+   CI มีขั้นตอนดักเรื่องนี้อยู่แล้ว แต่กว่าจะรู้ก็ต้อง push ขึ้นไปก่อน เทสข้อนี้จึงดักตั้งแต่ในเครื่อง */
+const builtCss = fs.readFileSync(path.join(PROJECT_ROOT, 'css', 'tailwind.css'), 'utf8');
+const layoutCriticalClasses = ['min-h-0', 'md\\:min-h-0', 'overflow-y-auto', 'md\\:overflow-hidden', 'flex-shrink-0'];
+const missingInCss = layoutCriticalClasses.filter(function (c) {
+    return builtCss.indexOf('.' + c + '{') === -1 && builtCss.indexOf('.' + c + ',') === -1
+        && builtCss.indexOf('.' + c + ' ') === -1;
+});
+check('CSS: คลาสที่คุมโครงหน้าต้องถูก build ลงไฟล์ CSS จริงครบทุกตัว',
+    missingInCss.length === 0,
+    missingInCss.length ? 'ขาด ' + missingInCss.join(', ') + ' (ต้องรัน npm run build:css)' : 'ครบทุกตัว');
+
+/* ความสูงตอนขยายต้องไม่เกินกล่องแม่ ไม่งั้นส่วนที่เกินจะถูกตัดทิ้งแบบเงียบ ๆ */
+check('แผงล่าง: ความสูงตอนขยายต้องไม่เกินความสูงของกล่องแม่',
+    run('(function(){var p=document.getElementById("bottomPanel");' +
+        'var par=p&&p.parentElement;var h=par&&par.getBoundingClientRect?par.getBoundingClientRect().height:0;' +
+        'return h ? (maxBottomPanelHeight() <= h) : true;})()'),
+    run('maxBottomPanelHeight()') + ' px');
+
 /* ---------- สรุปผล ---------- */
 let pass = 0;
 results.forEach(r => {

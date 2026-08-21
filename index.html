@@ -249,7 +249,7 @@
                 </div>
                 <h1 class="font-display text-base tracking-[3px] text-neon font-bold">NETFORGE</h1>
             </div>
-            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v2.7</span>
+            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v2.8</span>
         </div>
         <div class="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-start md:justify-end flex-wrap">
             <div class="relative flex-1 md:flex-none" id="exampleWrapper">
@@ -354,7 +354,8 @@
                 </div>
                 <button onclick="onAddDept()" class="btn-neon w-full text-[13px]"><i class="fas fa-plus mr-1"></i>เพิ่มแผนก</button>
             </div>
-            <div class="max-h-[300px] md:max-h-none flex-1 overflow-y-auto p-4 border-b md:border-b-0 border-dark-600">
+            <!-- min-h-0 จำเป็นคู่กับ overflow-y-auto เสมอ ไม่งั้นรายการแผนกยาว ๆ จะดันกล่องให้ยืดจนล้นออกนอกจอ -->
+            <div class="max-h-[300px] md:max-h-none flex-1 min-h-0 overflow-y-auto p-4 border-b md:border-b-0 border-dark-600">
                 <div class="section-label mb-2">DEPARTMENTS (<span id="deptCount">0</span>)</div>
                 <div id="deptList"></div>
             </div>
@@ -362,8 +363,17 @@
 
         <div id="resizerX" class="resizer-x hidden md:flex" title="ลากเพื่อปรับขนาด (ดับเบิลคลิกเพื่อรีเซ็ต)"><span class="resizer-grip"></span></div>
 
-        <div class="flex-1 flex flex-col min-w-0 h-[800px] md:h-auto flex-shrink-0">
-            <div class="flex-1 relative min-h-[350px] border-b md:border-b-0 border-dark-600">
+        <!-- min-h-0 ตรงนี้สำคัญมาก ห้ามลบ
+             กล่องนี้เป็น flex column ที่มีผังอยู่บนและแผงล่างอยู่ล่าง
+             ถ้าไม่ใส่ min-h-0 เบราว์เซอร์จะถือว่าความสูงต่ำสุดของกล่องเท่ากับความสูงของเนื้อหาข้างใน
+             พอแผงล่างถูกตั้งให้สูงขึ้น กล่องนี้จะยืดตามจนเลยขอบล่างของจอ
+             แล้วกล่องแม่ที่ตั้ง overflow-hidden ไว้จะตัดส่วนที่เลยออกทิ้ง
+             ผลคือท้ายตารางกับปุ่มด้านล่างหายไปเฉย ๆ เลื่อนลงไปดูก็ไม่ได้ เพราะถูกตัดไปแล้ว ไม่ใช่แค่ล้น -->
+        <div class="flex-1 flex flex-col min-w-0 min-h-0 h-[800px] md:h-auto flex-shrink-0">
+            <!-- md:min-h-0 ทำให้ผังยอมหดลงได้เมื่อแผงล่างขยาย
+                 เดิมล็อกไว้ที่ 350px ผังจึงไม่ยอมหด แล้วไปดันแผงล่างให้ตกขอบจอแทน
+                 บนจอมือถือยังคง 350px ไว้เหมือนเดิม เพราะที่นั่นเลื่อนทั้งหน้าได้อยู่แล้ว -->
+            <div class="flex-1 relative min-h-[350px] md:min-h-0 border-b md:border-b-0 border-dark-600">
                 <!-- เนื้อหาบน canvas เป็นพิกเซลล้วน โปรแกรมอ่านหน้าจอมองไม่เห็นอะไรเลย
                      จึงต้องบอกด้วย aria-label ว่านี่คืออะไร และชี้ทางไปยังตาราง IP ที่อ่านได้จริง -->
                 <canvas id="topoCanvas" class="w-full h-full block" role="img"
@@ -507,7 +517,8 @@
                 <div class="font-display text-[12px] tracking-[2px] text-neon"><i class="fas fa-edit mr-1"></i>NODE DETAILS</div>
                 <button onclick="closeDetailPanel()" class="text-muted hover:text-hot transition-colors p-2" aria-label="ปิดแผงรายละเอียด"><i class="fas fa-times fa-lg" aria-hidden="true"></i></button>
             </div>
-            <div id="detailContent" class="flex-1 overflow-y-auto p-4 pb-20"></div>
+            <!-- min-h-0 จำเป็นคู่กับ overflow-y-auto เสมอ ไม่งั้นกล่องจะยืดตามเนื้อหาแทนที่จะเลื่อน -->
+            <div id="detailContent" class="flex-1 min-h-0 overflow-y-auto p-4 pb-20"></div>
         </aside>
     </div>
 
