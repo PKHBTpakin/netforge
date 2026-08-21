@@ -114,7 +114,7 @@ run("loadExample('branch2');");
 check('A1: สร้าง Router สาขาครบตามที่ตัวอย่างกำหนด',
     run('getBranchRouters().length') === 2, run('getBranchRouters().length'));
 check('A2: ชื่อสาขาถูกตั้งตามตัวอย่าง ไม่ใช่ชื่อค่าเริ่มต้น',
-    run('getBranchRouters().map(function(r){return r.label}).sort().join("|")') === 'Branch-ChiangMai|Branch-KhonKaen',
+    run('getBranchRouters().map(function(r){return r.label}).sort().join("|")') === 'ChiangMai|KhonKaen',
     run('getBranchRouters().map(function(r){return r.label}).join(", ")'));
 check('A3: ลิงก์ WAN ถูกสร้างครบและได้ /30 คนละวง',
     run('state.wanLinks.length') === 2 &&
@@ -122,11 +122,11 @@ check('A3: ลิงก์ WAN ถูกสร้างครบและได�
     run('state.wanLinks.map(function(w){return w.network+"/30"}).join(", ")'));
 
 // ความเป็นเจ้าของแผนกคือหัวใจของตัวอย่างชุดนี้ — ถ้าผิด config ทุกตัวจะผิดตามหมด
-const cmDepts = run('getDeptsOfRouter(getBranchRouters().find(function(r){return r.label==="Branch-ChiangMai"}).id).map(function(d){return d.name}).sort().join("|")');
+const cmDepts = run('getDeptsOfRouter(getBranchRouters().find(function(r){return r.label==="ChiangMai"}).id).map(function(d){return d.name}).sort().join("|")');
 check('A4: สาขาเชียงใหม่ดูแล 2 แผนกตามที่ระบุ',
-    cmDepts === 'Branch-CM-Sales|Branch-CM-Stock', cmDepts);
-const kkDepts = run('getDeptsOfRouter(getBranchRouters().find(function(r){return r.label==="Branch-KhonKaen"}).id).map(function(d){return d.name}).join("|")');
-check('A5: สาขาขอนแก่นดูแล 1 แผนกตามที่ระบุ', kkDepts === 'Branch-KK-Sales', kkDepts);
+    cmDepts === 'CM-Sales|CM-Stock', cmDepts);
+const kkDepts = run('getDeptsOfRouter(getBranchRouters().find(function(r){return r.label==="KhonKaen"}).id).map(function(d){return d.name}).join("|")');
+check('A5: สาขาขอนแก่นดูแล 1 แผนกตามที่ระบุ', kkDepts === 'KK-Sales', kkDepts);
 
 const hqDepts = run('getDeptsOfRouter("router").map(function(d){return d.name}).sort().join("|")');
 check('A6: แผนกที่เหลือยังอยู่กับ Router หลัก (ไม่ถูกสาขาแย่งไปโดยไม่ได้ตั้งใจ)',
@@ -612,10 +612,10 @@ check('E22: สร้าง Router สาขา 3 ตัวพร้อมลิ
 
 check('E23: ทุกสาขาได้ขนาดวงเท่ากัน (โครงสร้างสาขาเหมือนกันจริง)',
     (function () {
-        const cidrs = run("state.calculated.filter(function(d){return /^Store-/.test(d.name)}).map(function(d){return d.subnet.cidr})");
+        const cidrs = run("state.calculated.filter(function(d){return /-(POS|Office)$/.test(d.name)}).map(function(d){return d.subnet.cidr})");
         return cidrs.length === 6 && cidrs.every(function (c) { return c === 28; });
     })(),
-    run("state.calculated.filter(function(d){return /^Store-/.test(d.name)}).map(function(d){return '/'+d.subnet.cidr}).join(' ')"));
+    run("state.calculated.filter(function(d){return /-(POS|Office)$/.test(d.name)}).map(function(d){return '/'+d.subnet.cidr}).join(' ')"));
 
 run("switchTab('cli'); renderCLI();");
 check('E24: HQ มีเส้นทางไปหาทุกวงที่อยู่หลังสาขา ครบ 6 เส้น',
@@ -639,6 +639,61 @@ check('E25: สาขาที่ยังไม่มีแผนกอยู�
         return before === 6 && after === 6 && run('MAX_DEPARTMENTS') === 12;
     })(),
     'เพดานแผนก ' + run('MAX_DEPARTMENTS') + ' แผนก จึงมีสาขาที่มีเครือข่ายจริงได้สูงสุด 11 สาขา');
+
+/* ---------- E26-E28: ชื่อบนผังต้องแยกออกจากกันได้ และภาษาต้องสม่ำเสมอ ----------
+   ที่มา: ผู้ใช้ส่งภาพผังมาแล้วบอกว่า "ไม่รู้ว่า branch ตัวไหนเป็นของตัวไหน เพราะชื่อไม่เหมือนกัน"
+   สาเหตุคือกล่องบนผังใส่ได้แค่ 10 ตัวอักษร แต่ชื่อที่ใช้ยาว 15-20 ตัว
+   โค้ดเดิมย่อโดยตัดจากท้ายแล้วเติมจุด ซึ่งตัดทิ้งเฉพาะส่วนที่ใช้แยกความต่างพอดี
+   ผลคือ Store-Ladprao-Office, Store-Rangsit-Office และ Store-Korat-Office
+   ออกมาเป็น Sto..ffice เหมือนกันทั้งสามใบ ดูผังแล้วแยกไม่ออกเลยว่าใบไหนเป็นของสาขาไหน
+
+   เทสข้อ E26 เป็นแบบ "ต้องไม่มีอะไรชนกันเลย" ซึ่งจับได้ทั้งชื่อที่มีอยู่ตอนนี้
+   และชื่อที่จะเพิ่มเข้ามาในอนาคต ไม่ต้องไล่เขียนเทสทีละคู่ */
+
+// จำลองการวัดความกว้างแบบฟอนต์โมโนสเปซ 14px ซึ่งเป็นฟอนต์จริงที่ใช้บนผัง
+const monoCtx = { measureText: (t) => ({ width: String(t).length * 8.4 }) };
+const DEPT_TEXT_W = 132 - 42;   // กล่องแผนกกว้าง 132 หักที่ของไอคอนออก
+
+const collisions = [];
+Object.keys(run('EXAMPLES')).forEach(function (key) {
+    const names = run('EXAMPLES["' + key + '"].departments.map(function(d){return d.name})');
+    const seen = {};
+    names.forEach(function (n) {
+        const shown = run('wrapLabel')(monoCtx, n, DEPT_TEXT_W, 2).join('↓');
+        if (seen[shown]) collisions.push(key + ': ' + seen[shown] + ' กับ ' + n + ' -> "' + shown.replace('↓', ' / ') + '"');
+        seen[shown] = n;
+    });
+});
+check('E26: ไม่มีชื่อแผนกคู่ไหนในตัวอย่างเดียวกันที่แสดงบนผังออกมาเหมือนกัน',
+    collisions.length === 0,
+    collisions.length ? collisions.join('  |  ') : 'ตรวจครบทุกชุดตัวอย่าง ไม่มีคู่ไหนชนกัน');
+
+/* ชื่อยาวต้องขึ้นสองบรรทัดแทนการย่อทิ้ง และต้องพยายามตัดที่ขีดกลางก่อน
+   เพราะชื่ออุปกรณ์เครือข่ายใช้ขีดคั่นส่วนที่มีความหมาย ตัดตรงนั้นแล้วยังอ่านรู้เรื่องทั้งสองบรรทัด */
+check('E27: ชื่อยาวขึ้นสองบรรทัดโดยตัดที่ขีดกลาง ไม่ใช่ตัดกลางคำ',
+    (function () {
+        const w = run('wrapLabel');
+        const a = w(monoCtx, 'Ladprao-Office', DEPT_TEXT_W, 2);
+        const b = w(monoCtx, 'North-Warehouse', DEPT_TEXT_W, 2);
+        return a.length === 2 && a[0] === 'Ladprao' && a[1] === 'Office'
+            && b.length === 2 && b[0] === 'North' && b[1] === 'Warehouse';
+    })(),
+    run('wrapLabel')(monoCtx, 'Ladprao-Office', DEPT_TEXT_W, 2).join(' / '));
+
+/* ภาษาของป้ายชื่อชุดตัวอย่าง — ตอนนี้กำหนดให้เป็นภาษาไทยทั้งหมดก่อน
+   ส่วนชื่อแผนกยังเป็นภาษาอังกฤษ เพราะถูกนำไปสร้างเป็นคำสั่ง Cisco ซึ่งรับเฉพาะตัวอักษรอังกฤษ
+   ถ้าเปลี่ยนชื่อแผนกเป็นไทย toCiscoName() จะตัดจนเหลือค่าว่างแล้วใช้ชื่อสำรอง DEPT-<id> แทน */
+const notThai = Object.keys(run('EXAMPLES')).filter(function (k) {
+    return !/[฀-๿]/.test(run('EXAMPLES["' + k + '"].label'));
+});
+check('E28: ป้ายชื่อชุดตัวอย่างทุกชุดเป็นภาษาไทย',
+    notThai.length === 0,
+    notThai.length ? 'ยังเป็นอังกฤษ: ' + notThai.join(', ') : 'ครบทั้ง ' + Object.keys(run('EXAMPLES')).length + ' ชุด');
+
+const noHint = Object.keys(run('EXAMPLES')).filter(function (k) { return !run('EXAMPLES["' + k + '"].hint'); });
+check('E29: ทุกชุดตัวอย่างมีคำอธิบายกำกับว่าใช้ดูอะไร',
+    noHint.length === 0,
+    noHint.length ? 'ยังไม่มีคำอธิบาย: ' + noHint.join(', ') : 'ครบทุกชุด');
 
 /* ---------- สรุปผล ---------- */
 let pass = 0;

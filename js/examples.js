@@ -22,7 +22,8 @@
 
 const EXAMPLES = {
     company: {
-        label: 'Corporate Network',
+        label: 'สำนักงานบริษัททั่วไป',
+        hint: 'องค์กรขนาดกลาง 6 แผนก Router ตัวเดียว เหมาะกับการเริ่มต้นทำความเข้าใจ VLSM',
         baseIp: '172.16.0.0',
         baseCidr: 23,
         departments: [
@@ -35,7 +36,8 @@ const EXAMPLES = {
         ]
     },
     school: {
-        label: 'School / University',
+        label: 'โรงเรียนหรือมหาวิทยาลัย',
+        hint: 'ห้องเรียนสองห้องขนาดเท่ากัน ใช้ดูว่าแผนกขนาดเท่ากันได้ช่วงต่อกันพอดีอย่างไร',
         baseIp: '192.168.0.0',
         baseCidr: 22,
         departments: [
@@ -47,7 +49,8 @@ const EXAMPLES = {
         ]
     },
     hospital: {
-        label: 'Hospital Network',
+        label: 'โรงพยาบาล',
+        hint: 'มีทั้งแผนกเล็กมากและ WiFi ผู้ป่วย 100 เครื่อง ใช้ดูว่า VLSM ประหยัดพื้นที่กว่าการแบ่งเท่ากันแค่ไหน',
         baseIp: '10.10.0.0',
         baseCidr: 21,
         departments: [
@@ -61,7 +64,8 @@ const EXAMPLES = {
         ]
     },
     small: {
-        label: 'Small Office (SMB)',
+        label: 'สำนักงานขนาดเล็ก',
+        hint: 'สามแผนกบน /24 เดียว เล็กที่สุดในชุดตัวอย่าง เหมาะกับการลองครั้งแรก',
         baseIp: '192.168.1.0',
         baseCidr: 24,
         departments: [
@@ -71,11 +75,12 @@ const EXAMPLES = {
         ]
     },
     factory: {
-        label: 'Smart Factory',
+        label: 'โรงงานอัจฉริยะ',
+        hint: 'มีเซนเซอร์ 120 ตัวและกล้องวงจรปิด 40 ตัว ใช้ดูกรณีที่อุปกรณ์มากกว่าคน',
         baseIp: '10.50.0.0',
         baseCidr: 21,
         departments: [
-            { name: 'Production-Line', hosts: 60 },
+            { name: 'Production', hosts: 60 },
             { name: 'QA-Dept', hosts: 20 },
             { name: 'Warehouse', hosts: 15 },
             { name: 'Office', hosts: 25 },
@@ -84,7 +89,8 @@ const EXAMPLES = {
         ]
     },
     enterprise: {
-        label: 'Enterprise HQ (8 Depts)',
+        label: 'องค์กรขนาดใหญ่ 8 แผนก',
+        hint: 'แผนกใหญ่สุด 200 เครื่อง เล็กสุด 25 เครื่อง ใช้ดูการเรียงจากใหญ่ไปเล็ก',
         baseIp: '172.20.0.0',
         baseCidr: 22,
         departments: [
@@ -102,8 +108,8 @@ const EXAMPLES = {
     /* ---------- ตัวอย่างที่มาพร้อมผังหลาย Router ---------- */
 
     branch2: {
-        label: 'สำนักงานใหญ่ + 2 สาขา',
-        hint: 'ตัวอย่างการต่อ Router หลายตัว — ดูแท็บ CLI Config แล้วสลับดูทีละ Router',
+        label: 'สำนักงานใหญ่ กับ 2 สาขา',
+        hint: 'ตัวอย่างการต่อ Router หลายตัว เปิดแท็บคำสั่งแล้วสลับดูทีละตัวได้',
         baseIp: '10.20.0.0',
         baseCidr: 22,
         departments: [
@@ -112,14 +118,14 @@ const EXAMPLES = {
             { name: 'HQ-IT', hosts: 30 },
             { name: 'Data-Center', hosts: 40 },
             // ย้ายไปอยู่หลังสาขา
-            { name: 'Branch-CM-Sales', hosts: 25 },
-            { name: 'Branch-CM-Stock', hosts: 15 },
-            { name: 'Branch-KK-Sales', hosts: 20 }
+            { name: 'CM-Sales', hosts: 25 },
+            { name: 'CM-Stock', hosts: 15 },
+            { name: 'KK-Sales', hosts: 20 }
         ],
         topology: {
             branches: [
-                { key: 'cm', label: 'Branch-ChiangMai', depts: ['Branch-CM-Sales', 'Branch-CM-Stock'] },
-                { key: 'kk', label: 'Branch-KhonKaen', depts: ['Branch-KK-Sales'] }
+                { key: 'cm', label: 'ChiangMai', depts: ['CM-Sales', 'CM-Stock'] },
+                { key: 'kk', label: 'KhonKaen', depts: ['KK-Sales'] }
             ],
             // ต่อแบบดาว: ทั้งสองสาขาต่อตรงเข้า Router หลัก
             // สาขาได้ default route กลับ HQ / HQ ได้ static route เจาะจงไปหาแต่ละสาขา
@@ -129,14 +135,14 @@ const EXAMPLES = {
     },
 
     branch3: {
-        label: 'บริษัท 3 สาขา (ผังครบ)',
-        hint: 'สาขาละ 1-2 แผนก ต่อดาวเข้าศูนย์กลาง — ตัวอย่างที่ใกล้เคียงงานจริงที่สุด',
+        label: 'บริษัท 3 สาขา ผังครบ',
+        hint: 'สาขาละ 1 ถึง 2 แผนก ต่อแบบดาวเข้าศูนย์กลาง เป็นชุดที่ใกล้เคียงงานจริงที่สุด',
         baseIp: '172.31.0.0',
         baseCidr: 21,
         departments: [
             { name: 'HQ-Management', hosts: 20 },
             { name: 'HQ-Finance', hosts: 30 },
-            { name: 'HQ-Server-Farm', hosts: 100 },
+            { name: 'HQ-Servers', hosts: 100 },
             { name: 'North-Office', hosts: 40 },
             { name: 'North-Warehouse', hosts: 25 },
             { name: 'South-Office', hosts: 35 },
@@ -162,7 +168,7 @@ const EXAMPLES = {
        และใช้ชี้ให้เห็นเพดานจริงของโปรแกรมได้ด้วย (ดูหัวข้อข้อจำกัดใน README) */
     retail: {
         label: 'ร้านค้าปลีก สำนักงานใหญ่ + 3 สาขา',
-        hint: 'ทุกสาขาโครงสร้างเหมือนกัน ใช้ดูว่าถ้าจะขยายเป็นหลายร้อยสาขาต้องวางแผนอย่างไร (ตัวเลขสมมติ)',
+        hint: 'ทุกสาขาโครงสร้างเหมือนกัน ใช้ดูว่าถ้าจะขยายเป็นหลายร้อยสาขาต้องวางแผนอย่างไร ตัวเลขทั้งหมดสมมติ',
         baseIp: '10.40.0.0',
         baseCidr: 23,
         departments: [
@@ -172,18 +178,18 @@ const EXAMPLES = {
             { name: 'HQ-Purchasing', hosts: 25 },
             { name: 'HQ-Warehouse', hosts: 90 },
             // หน้าร้านแต่ละสาขา ขนาดเท่ากันทุกสาขาโดยตั้งใจ
-            { name: 'Store-Ladprao-POS', hosts: 12 },
-            { name: 'Store-Ladprao-Office', hosts: 8 },
-            { name: 'Store-Rangsit-POS', hosts: 12 },
-            { name: 'Store-Rangsit-Office', hosts: 8 },
-            { name: 'Store-Korat-POS', hosts: 12 },
-            { name: 'Store-Korat-Office', hosts: 8 }
+            { name: 'Ladprao-POS', hosts: 12 },
+            { name: 'Ladprao-Office', hosts: 8 },
+            { name: 'Rangsit-POS', hosts: 12 },
+            { name: 'Rangsit-Office', hosts: 8 },
+            { name: 'Korat-POS', hosts: 12 },
+            { name: 'Korat-Office', hosts: 8 }
         ],
         topology: {
             branches: [
-                { key: 'lp', label: 'Store-Ladprao', depts: ['Store-Ladprao-POS', 'Store-Ladprao-Office'] },
-                { key: 'rs', label: 'Store-Rangsit', depts: ['Store-Rangsit-POS', 'Store-Rangsit-Office'] },
-                { key: 'kr', label: 'Store-Korat',   depts: ['Store-Korat-POS', 'Store-Korat-Office'] }
+                { key: 'lp', label: 'Ladprao', depts: ['Ladprao-POS', 'Ladprao-Office'] },
+                { key: 'rs', label: 'Rangsit', depts: ['Rangsit-POS', 'Rangsit-Office'] },
+                { key: 'kr', label: 'Korat',   depts: ['Korat-POS', 'Korat-Office'] }
             ],
             wan: [['router', 'lp'], ['router', 'rs'], ['router', 'kr']]
         }

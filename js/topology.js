@@ -532,17 +532,75 @@ function drawNodeBox(node, icon, borderColor, isSelected, isHover, isWarning) {
     ctx.font = '14px "Share Tech Mono"';
     ctx.textAlign = 'left';
     const labelX = x + 34, maxTextW = node.w - 42;
-    let label = node.label;
-    if (ctx.measureText(label).width > maxTextW) {
-        while (ctx.measureText(label + '...').width > maxTextW && label.length > 0) label = label.slice(0, -1);
-        label += '...';
-    }
-    ctx.fillText(label, labelX, node.y - (node.subnetInfo ? 7 : 0));
+
+    /* ชื่อยาวให้ขึ้นสองบรรทัดแทนการย่อทิ้ง
+       กล่องแผนกใส่ได้บรรทัดละ 10 ตัวอักษร แต่ชื่อที่ใช้กันจริงยาว 15-20 ตัว
+       ถ้าย่อบรรทัดเดียว ชื่อที่ต่างกันจะออกมาเหมือนกันหมด เช่น Store-Ladprao-Office
+       กับ Store-Rangsit-Office ได้ Sto..ffice เท่ากันทั้งคู่ ซึ่งดูผังแล้วแยกไม่ออกเลย */
+    const lines = wrapLabel(ctx, node.label, maxTextW, 2);
+
+    // จัดชุดข้อความให้อยู่กลางกล่องเสมอ ไม่ว่าชื่อจะกินหนึ่งหรือสองบรรทัด
+    const LINE_H = 13, SUB_H = node.subnetInfo ? 16 : 0;
+    const blockH = lines.length * LINE_H + SUB_H;
+    let ty = node.y - blockH / 2 + LINE_H / 2;
+    for (const ln of lines) { ctx.fillText(ln, labelX, ty); ty += LINE_H; }
+
     if (node.subnetInfo) {
         ctx.fillStyle = borderColor; // เดิมลดความทึบด้วย 'aa' (~67%) แต่ทำให้ contrast หลังผสมกับพื้นหลังตกต่ำกว่า 4.5:1 ทุกสี -> ใช้สีเต็มความทึบเหมือน label หลัก
         ctx.font = '11px "Share Tech Mono"';
-        ctx.fillText(node.subnetInfo, labelX, node.y + 9);
+        ctx.fillText(node.subnetInfo, labelX, ty + 2);
     }
+}
+
+/* ---------- ย่อชื่อให้พอดีกล่อง โดยตัดจากตรงกลาง ----------
+   เดิมตัดจากท้ายแล้วเติมจุดสามจุด ซึ่งพังกับวิธีตั้งชื่อที่ใช้กันจริงในงานเครือข่าย
+   เพราะคนตั้งชื่อโดยเอาส่วนที่เหมือนกันไว้หน้า แล้วเอาส่วนที่ต่างกันไว้ท้าย
+   การตัดท้ายจึงตัดทิ้งเฉพาะส่วนที่ใช้แยกความต่าง เหลือแต่ส่วนที่เหมือนกันหมด
+
+   ตัวอย่างจริงที่ผู้ใช้เจอ กล่องสามใบบนผังขึ้นว่า SW-Bran.. เหมือนกันทั้งสามใบ
+   ทั้งที่ชื่อจริงคือ SW-Branch-CM-Sales, SW-Branch-CM-Stock และ SW-Branch-KK-Sales
+
+   ตัดจากกลางแทน เก็บทั้งหัวและท้ายไว้ แบ่งพื้นที่ให้ท้ายมากกว่าหัวเล็กน้อย
+   เพราะท้ายคือส่วนที่บอกความต่าง ผลที่ได้คือ SW-..Sales กับ SW-..Stock ซึ่งแยกออกจากกันได้ */
+function fitLabel(ctx, text, maxW) {
+    var s = String(text == null ? '' : text);
+    if (ctx.measureText(s).width <= maxW) return s;
+
+    var ELL = '..';   // ใช้จุดสองจุด ไม่ใช่อักขระ … เพราะฟอนต์โมโนสเปซบางตัวไม่มีอักขระนั้น
+    for (var keep = s.length - 1; keep >= 2; keep--) {
+        var head = Math.max(1, Math.floor(keep * 0.4));
+        var tail = keep - head;
+        var candidate = s.slice(0, head) + ELL + s.slice(s.length - tail);
+        if (ctx.measureText(candidate).width <= maxW) return candidate;
+    }
+    return ELL;
+}
+
+/* ---------- ตัดชื่อยาวให้ขึ้นหลายบรรทัด ----------
+   พยายามตัดที่ขีดกลางก่อนเสมอ เพราะชื่ออุปกรณ์เครือข่ายใช้ขีดคั่นส่วนที่มีความหมาย
+   เช่น Store-Ladprao-Office ตัดเป็น Store-Ladprao / Office แล้วยังอ่านรู้เรื่องทั้งสองบรรทัด
+   ถ้าตัดตรงกลางคำจะได้ Store-Ladp / rao-Office ซึ่งอ่านยากกว่ามาก
+
+   เลือกขีดที่อยู่ท้ายสุดเท่าที่บรรทัดแรกยังใส่ได้ เพื่อให้บรรทัดแรกกินเนื้อหาได้มากที่สุด
+   ถ้าไม่มีขีดที่ใช้ได้เลย จึงค่อยตัดตรง ๆ ตามจำนวนตัวอักษรที่พอดี */
+function wrapLabel(ctx, text, maxW, maxLines) {
+    var s = String(text == null ? '' : text);
+    if (ctx.measureText(s).width <= maxW) return [s];
+    if (!maxLines || maxLines < 2) return [fitLabel(ctx, s, maxW)];
+
+    for (var i = s.length - 1; i > 0; i--) {
+        if (s.charAt(i) !== '-') continue;
+        if (ctx.measureText(s.slice(0, i)).width <= maxW) {
+            return [s.slice(0, i), fitLabel(ctx, s.slice(i + 1), maxW)];
+        }
+    }
+
+    /* ไม่มีขีดให้ตัดเลย จึงตัดครึ่งให้สองบรรทัดยาวใกล้เคียงกัน
+       ถ้าตัดให้บรรทัดแรกเต็มพอดี คำที่ยาวเกินนิดเดียวจะเหลือท้ายแค่ตัวเดียว
+       เช่น Engineering ได้ Engineerin กับ g ซึ่งอ่านแล้วสะดุด สู้ Engine กับ ering ไม่ได้ */
+    var half = Math.ceil(s.length / 2);
+    while (half > 1 && ctx.measureText(s.slice(0, half)).width > maxW) half--;
+    return [s.slice(0, half), fitLabel(ctx, s.slice(half), maxW)];
 }
 
 function drawRouterNode() {
