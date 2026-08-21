@@ -63,13 +63,13 @@ function renderSidebarDepts() {
         const allocated = !!calc && !failed;
         const safeName = escapeHtml(dept.name); // ใช้ทั้งในเนื้อหาและใน aria-label ด้านล่าง
         return '<div class="dept-item ' + (isSel ? 'selected' : '') +
-                (failed ? ' dept-failed' : (allocated ? ' dept-ok' : '')) +
+                (failed ? ' dept-failed' : '') +
                 '" onclick="selectNode(' + dept.id + ',\'department\')" style="' + (isSel ? 'border-color:' + color : '') + '">' +
             '<div class="flex items-center justify-between mb-1">' +
                 '<span class="text-[14px] font-bold" style="color:' + color + '">' +
                     (failed
                         ? '<i class="fas fa-triangle-exclamation text-hot mr-1" aria-hidden="true"></i>'
-                        : (allocated ? '<i class="fas fa-circle-check mr-1" style="color:var(--ok)" aria-hidden="true"></i>' : '')) +
+                        : (allocated ? '<i class="fas fa-circle-check dept-ok-mark mr-1" title="แผนกนี้ได้ช่วง IP แล้ว" aria-hidden="true"></i>' : '')) +
                     escapeHtml(dept.name) + '</span>' +
                 '<span class="dept-actions">' +
                     // aria-label ต้องมีชื่อแผนกด้วย — ในรายการมีปุ่มถังขยะซ้ำกันทุกแถว
@@ -432,14 +432,17 @@ function renderWanTable() {
             '</div>' +
 
             '<div class="flex items-center gap-2 mt-2 flex-wrap">' +
-                '<label class="text-subtle text-[11px]" for="wanClockRate">ความเร็วสัญญาณนาฬิกา</label>' +
+                /* ต้องบอกหน่วยทุกที่ที่ตัวเลขนี้โผล่ เดิมมีแต่ตัวเลขเปล่า เช่น 128,000
+                   ซึ่งอ่านแล้วเดาไม่ออกว่าเป็นบิตต่อวินาที ไบต์ต่อวินาที หรือกิโลบิตต่อวินาที
+                   คำสั่ง clock rate ของ Cisco รับเป็นบิตต่อวินาที (bps) เสมอ */
+                '<label class="text-subtle text-[11px]" for="wanClockRate">ความเร็วสัญญาณนาฬิกา (bps)</label>' +
                 '<select id="wanClockRate" class="input-cyber text-[12px] py-1" onchange="onWanClockRateChange(this.value)" ' +
-                    'aria-label="ความเร็วสัญญาณนาฬิกาของสายอนุกรม">' +
+                    'aria-label="ความเร็วสัญญาณนาฬิกาของสายอนุกรม หน่วยบิตต่อวินาที">' +
                     WAN_CLOCK_RATES.map(function(r) {
-                        return '<option value="' + r + '"' + (r === getWanClockRate() ? ' selected' : '') + '>' + r.toLocaleString() + '</option>';
+                        return '<option value="' + r + '"' + (r === getWanClockRate() ? ' selected' : '') + '>' + r.toLocaleString() + ' bps</option>';
                     }).join('') +
                 '</select>' +
-                '<span class="text-subtle text-[11px]">ค่ามาตรฐานที่ใช้ในห้องแล็บคือ 64,000</span>' +
+                '<span class="text-subtle text-[11px]">bps คือบิตต่อวินาที ค่ามาตรฐานที่ใช้ในห้องแล็บคือ 64,000 bps</span>' +
             '</div>' +
         '</div>';
 }
@@ -453,7 +456,7 @@ function onWanClockRateChange(value) {
     if (typeof pushHistory === 'function') pushHistory('เปลี่ยนความเร็วสัญญาณนาฬิกา');
     state.wanClockRate = v;
     refreshAll();
-    showToast('เปลี่ยนความเร็วสัญญาณนาฬิกาเป็น ' + v.toLocaleString() + ' แล้ว มีผลกับสายอนุกรมทุกเส้น', 'info');
+    showToast('เปลี่ยนความเร็วสัญญาณนาฬิกาเป็น ' + v.toLocaleString() + ' bps แล้ว มีผลกับสายอนุกรมทุกเส้น', 'info');
 }
 
 function onSuggestBase() {

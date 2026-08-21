@@ -506,13 +506,13 @@ const deptHtml = () => getElementById('deptList').innerHTML;
 
 check('แถบซ้าย: แผนกที่ได้ช่วง IP แล้วต้องขึ้นสถานะเขียวครบทุกแผนก',
     (function () {
-        const n = (deptHtml().match(/dept-ok/g) || []).length;
+        const n = (deptHtml().match(/dept-ok-mark/g) || []).length;
         return n === run('state.departments.length') && n > 0;
     })(),
-    (deptHtml().match(/dept-ok/g) || []).length + ' จาก ' + run('state.departments.length') + ' แผนก');
+    (deptHtml().match(/dept-ok-mark/g) || []).length + ' จาก ' + run('state.departments.length') + ' แผนก');
 
 check('แถบซ้าย: มีไอคอนกำกับหน้าชื่อเหมือนตอนจัดสรรไม่สำเร็จ ไม่ใช่มีแค่กรอบสี',
-    deptHtml().indexOf('fa-circle-check') !== -1 && deptHtml().indexOf('var(--ok)') !== -1);
+    deptHtml().indexOf('fa-circle-check') !== -1 && deptHtml().indexOf('dept-ok-mark') !== -1);
 
 /* แผนกที่จัดสรรไม่ลงต้องขึ้นแดง ห้ามขึ้นเขียวพร้อมกัน ไม่งั้นอ่านผลผิดได้ */
 check('แถบซ้าย: แผนกที่จัดสรรไม่สำเร็จต้องขึ้นแดง ไม่ใช่เขียว',
@@ -521,7 +521,7 @@ check('แถบซ้าย: แผนกที่จัดสรรไม่�
         run("state.baseCidr = 27; refreshAll(true); renderSidebarDepts();");
         const h = deptHtml();
         const failedCount = run('state.failed.length');
-        const okCount = (h.match(/dept-ok/g) || []).length;
+        const okCount = (h.match(/dept-ok-mark/g) || []).length;
         const badCount = (h.match(/dept-failed/g) || []).length;
         return failedCount > 0 && badCount === failedCount
             && okCount === run('state.departments.length') - failedCount;
