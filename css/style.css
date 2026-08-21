@@ -277,7 +277,10 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
 .example-dropdown {
     position: absolute; top: 100%; right: 0; margin-top: 6px; min-width: 280px;
     background: var(--card); border: 1px solid var(--border); border-radius: 8px;
-    box-shadow: 0 8px 30px var(--shadow); z-index: 9998; overflow: hidden;
+    box-shadow: 0 8px 30px var(--shadow); z-index: 9998;
+    /* เดิมเป็น overflow: hidden เฉย ๆ ทำให้เนื้อหาที่ยาวเกินจอถูกตัดหายไปโดยไม่มีแถบเลื่อน
+       ใส่เพดานความสูงคู่กับ overflow-y: auto ไว้เป็นตาข่ายกันพลาด เผื่อวันหนึ่งเนื้อหายาวขึ้นอีก */
+    max-height: min(72vh, 560px); overflow-x: hidden; overflow-y: auto;
     opacity: 0; transform: translateY(-8px); pointer-events: none; transition: all 0.2s;
 }
 .example-dropdown.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
@@ -298,6 +301,56 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
 }
 .ex-title { font-size: 14px; color: var(--text); font-weight: bold; }
 .ex-desc { font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
+/* ---------- แถบรายละเอียดและแถบเปลี่ยนหน้าของเมนูตัวอย่าง ----------
+   เมนูเดิมแสดงทั้ง 9 ชุดพร้อมกัน แต่ละชุดมีคำอธิบาย รายชื่อแผนก และบรรทัด Base ครบ
+   รวมแล้วสูง 1,202px ขณะที่จอมีที่ให้ราว 950px และกล่องเมนูตั้ง overflow: hidden ไว้
+   ส่วนที่เกินจึงถูกตัดทิ้งไปเลย ชุดสุดท้ายกดเลือกไม่ได้และไม่มีแถบเลื่อนขึ้นให้เห็นด้วย
+
+   ตอนนี้แบ่งเป็นหน้าละ 3 ชุด แล้วย้ายรายชื่อแผนกกับ Base มาไว้ในแถบล่างที่ขึ้นตอนชี้เมาส์
+   ตั้งความสูงคงที่ให้แถบนี้ เพื่อไม่ให้รายการด้านบนขยับตอนเลื่อนเมาส์ไปมาระหว่างชุด */
+.ex-detail {
+    min-height: 46px;
+    padding: 8px 14px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--muted);
+    background: var(--item-bg);
+    border-top: 1px solid var(--border);
+    word-break: break-word;
+}
+.ex-detail-label {
+    color: var(--neon);
+    font-weight: bold;
+    margin-right: 2px;
+}
+.ex-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    border-top: 1px solid var(--border);
+    background: var(--card);
+}
+.ex-nav-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+}
+.ex-nav-btn {
+    width: 28px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--neon);
+    background: rgba(76,141,255,0.1);
+    border: 1px solid rgba(76,141,255,0.3);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.ex-nav-btn:hover { background: rgba(76,141,255,0.22); }
+.ex-nav-btn:focus-visible { outline: 2px solid var(--neon); outline-offset: 2px; }
 
 /* ป้ายเล็กท้ายชื่อตัวอย่าง บอกว่าชุดนี้มาพร้อมผัง Router หลายตัว
    ธีมของแอปสลับด้วยแอตทริบิวต์ html[data-theme="light"] (ไม่ใช่คลาส) — ค่าเริ่มต้นคือธีมมืด

@@ -695,6 +695,62 @@ check('E29: ทุกชุดตัวอย่างมีคำอธิบ�
     noHint.length === 0,
     noHint.length ? 'ยังไม่มีคำอธิบาย: ' + noHint.join(', ') : 'ครบทุกชุด');
 
+/* ---------- E30-E34: เมนูตัวอย่างแบบแบ่งหน้า ----------
+   ที่มา: พอมี 9 ชุด เมนูสูงรวม 1,202px แต่จอมีที่ให้ราว 950px
+   และ .example-dropdown ตั้ง overflow: hidden ไว้ ส่วนที่เกินจึงถูกตัดทิ้ง
+   ไม่ใช่แค่ล้นแล้วเลื่อนดูได้ ผลคือชุดสุดท้ายกดเลือกไม่ได้เลยและไม่มีอะไรบอก
+
+   E33 คือข้อที่สำคัญที่สุด เพราะถามว่า "ทุกชุดยังเข้าถึงได้จริงไหม"
+   ซึ่งเป็นคำถามที่ถ้าเคยถามไว้ตั้งแต่แรก จะจับบั๊กเดิมได้ทันทีที่เพิ่มชุดที่ 9 */
+
+run('examplePage = 0; buildExampleDropdown();');
+const menuHtml = () => getElementById('exampleDropdown').innerHTML;
+const itemsOnPage = () => (menuHtml().match(/class="ex-item"/g) || []).length;
+
+check('E30: เมนูแสดงทีละ 3 ชุด ไม่ใช่ทั้งหมดพร้อมกัน',
+    itemsOnPage() === 3 && run('EX_PER_PAGE') === 3,
+    'หน้านี้มี ' + itemsOnPage() + ' ชุด');
+
+check('E31: กดถัดไปแล้วเปลี่ยนหน้าจริง และวนกลับมาต้นเมื่อเลยชุดสุดท้าย',
+    (function () {
+        const first = menuHtml();
+        run('changeExamplePage(1);');
+        const second = menuHtml();
+        if (first === second) return false;
+        const total = Math.ceil(Object.keys(run('EXAMPLES')).length / run('EX_PER_PAGE'));
+        run('changeExamplePage(' + (total - 1) + ');');   // เดินต่อจนครบรอบ
+        return menuHtml() === first && run('examplePage') === 0;
+    })());
+
+check('E32: ชี้เมาส์ที่ชุดตัวอย่างแล้วขึ้นรายชื่อแผนกและช่วง IP ตั้งต้น',
+    (function () {
+        run("showExampleDetail('retail');");
+        const d = getElementById('exampleDetail').innerHTML;
+        return d.indexOf('HQ-IT') !== -1 && d.indexOf('10.40.0.0/23') !== -1;
+    })(),
+    getElementById('exampleDetail').innerHTML.replace(/<[^>]*>/g, '').slice(0, 60));
+
+/* ข้อนี้เป็นแบบ "ต้องครบ ไม่มีตกหล่น" จึงคุมทุกชุดที่จะเพิ่มเข้ามาในอนาคตด้วย */
+check('E33: เดินครบทุกหน้าแล้วต้องเจอชุดตัวอย่างครบทุกชุด ไม่มีชุดไหนกดไม่ถึง',
+    (function () {
+        const all = Object.keys(run('EXAMPLES'));
+        const total = Math.ceil(all.length / run('EX_PER_PAGE'));
+        const found = new Set();
+        run('examplePage = 0; buildExampleDropdown();');
+        for (let i = 0; i < total; i++) {
+            const html = menuHtml();
+            all.forEach(function (k) { if (html.indexOf("loadExample('" + k + "')") !== -1) found.add(k); });
+            run('changeExamplePage(1);');
+        }
+        return found.size === all.length;
+    })(),
+    'ตรวจครบ ' + Object.keys(run('EXAMPLES')).length + ' ชุด');
+
+check('E34: มีปุ่มเปลี่ยนหน้าและป้ายบอกว่ากำลังดูชุดที่เท่าไร',
+    menuHtml().indexOf('changeExamplePage(-1)') !== -1 &&
+    menuHtml().indexOf('changeExamplePage(1)') !== -1 &&
+    /จาก \d+/.test(menuHtml()));
+
 /* ---------- สรุปผล ---------- */
 let pass = 0;
 results.forEach(r => {

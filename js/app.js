@@ -552,6 +552,13 @@ function tryRestoreAutosave() {
 }
 
 // สร้าง dropdown HTML
+/* จำนวนชุดตัวอย่างต่อหนึ่งหน้าของเมนู
+   3 ชุดทำให้เมนูสูงราว 300px ซึ่งพอดีกับจอทุกขนาดรวมถึงโน้ตบุ๊กจอเตี้ย
+   และยังเห็นได้พร้อมกันมากพอที่จะเทียบกันได้ ไม่ใช่ทีละชุด */
+var EX_PER_PAGE = 3;
+var examplePage = 0;
+var EX_DETAIL_HINT = 'ชี้เมาส์ค้างที่ชุดตัวอย่างเพื่อดูรายชื่อแผนกและช่วง IP ตั้งต้น';
+
 function buildExampleDropdown() {
     // เก็บแค่ไอคอน — สีเคยเขียนซ้ำเหมือนกันทั้ง 6 บรรทัด ทำให้ดูเหมือนตั้งได้รายตัวทั้งที่ไม่เคยต่างกันเลย
     var icons = {
@@ -566,8 +573,17 @@ function buildExampleDropdown() {
         retail: 'fa-store'
     };
 
+    var keys = Object.keys(EXAMPLES);
+    var totalPages = Math.max(1, Math.ceil(keys.length / EX_PER_PAGE));
+    // กันหน้าค้างเกินขอบเมื่อจำนวนชุดตัวอย่างเปลี่ยน
+    if (examplePage >= totalPages) examplePage = 0;
+    if (examplePage < 0) examplePage = totalPages - 1;
+
+    var start = examplePage * EX_PER_PAGE;
+    var pageKeys = keys.slice(start, start + EX_PER_PAGE);
+
     var html = '';
-    Object.keys(EXAMPLES).forEach(function(key) {
+    pageKeys.forEach(function(key) {
         var ex = EXAMPLES[key];
         // เดิมไม่มี fallback: เพิ่มตัวอย่างใหม่แล้วลืมเติมไอคอน -> ic เป็น undefined -> throw
         // ตรงกลาง buildExampleDropdown() ซึ่งถูกเรียกจาก init() ผลคือ **แอปไม่ขึ้นทั้งหน้า**
@@ -575,21 +591,58 @@ function buildExampleDropdown() {
         var icon = icons[key] || 'fa-diagram-project';
         var branchCount = ex.topology && Array.isArray(ex.topology.branches) ? ex.topology.branches.length : 0;
 
-        html += '<div class="ex-item" onclick="loadExample(\'' + key + '\')">' +
+        // รายชื่อแผนกกับ Base ไม่ได้อยู่ในรายการแล้ว ย้ายไปขึ้นในแถบล่างตอนชี้เมาส์
+        // เพราะสองอย่างนั้นกินที่ 50-90px ต่อชุด ซึ่งเป็นสาเหตุที่เมนูยาวเกินจอ
+        html += '<div class="ex-item" tabindex="0"' +
+            ' onclick="loadExample(\'' + key + '\')"' +
+            ' onmouseenter="showExampleDetail(\'' + key + '\')"' +
+            ' onfocus="showExampleDetail(\'' + key + '\')"' +
+            ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();loadExample(\'' + key + '\');}">' +
             '<div class="ex-icon"><i class="fas ' + icon + '" aria-hidden="true"></i></div>' +
-            '<div><div class="ex-title">' + escapeHtml(ex.label) +
+            '<div class="min-w-0"><div class="ex-title">' + escapeHtml(ex.label) +
                 // ป้ายบอกว่าตัวอย่างนี้มาพร้อมผังหลาย Router — เป็นเหตุผลหลักที่คนเลือกตัวอย่างพวกนี้
                 (branchCount > 0
                     ? ' <span class="ex-badge">' + branchCount + ' สาขา</span>'
                     : '') + '</div>' +
-            '<div class="ex-desc">' +
-                (ex.hint ? escapeHtml(ex.hint) + '<br>' : '') +
-                escapeHtml(ex.departments.map(function(d) { return d.name; }).join(', ')) +
-                '<br>Base: ' + ex.baseIp + '/' + ex.baseCidr +
-            '</div></div>' +
-            '</div>';
+            (ex.hint ? '<div class="ex-desc">' + escapeHtml(ex.hint) + '</div>' : '') +
+            '</div></div>';
     });
+
+    // แถบรายละเอียด ความสูงคงที่ ไม่ให้รายการด้านบนขยับตอนชี้เมาส์ไปมา
+    html += '<div class="ex-detail" id="exampleDetail">' + EX_DETAIL_HINT + '</div>';
+
+    // แถบเปลี่ยนหน้า — หยุด event ไม่ให้ทะลุไปโดนตัวรายการหรือทำให้เมนูปิด
+    html += '<div class="ex-nav" onclick="event.stopPropagation()">' +
+        '<button type="button" class="ex-nav-btn" onclick="changeExamplePage(-1)" title="ชุดก่อนหน้า" aria-label="ชุดตัวอย่างก่อนหน้า">' +
+            '<i class="fas fa-chevron-left" aria-hidden="true"></i></button>' +
+        '<span class="ex-nav-label" role="status" aria-live="polite">' +
+            (start + 1) + '–' + (start + pageKeys.length) + ' จาก ' + keys.length + '</span>' +
+        '<button type="button" class="ex-nav-btn" onclick="changeExamplePage(1)" title="ชุดถัดไป" aria-label="ชุดตัวอย่างถัดไป">' +
+            '<i class="fas fa-chevron-right" aria-hidden="true"></i></button>' +
+        '</div>';
+
     document.getElementById('exampleDropdown').innerHTML = html;
+}
+
+/* ---------- เปลี่ยนหน้าและแถบรายละเอียดของเมนูตัวอย่าง ----------
+   เมนูเดิมแสดงทั้ง 9 ชุดพร้อมกัน แต่ละชุดมีทั้งคำอธิบาย รายชื่อแผนก และบรรทัด Base
+   รวมแล้วสูง 1,202px ขณะที่จอมีที่ให้ราว 950px และ .example-dropdown ตั้ง overflow: hidden ไว้
+   ส่วนที่เกินจึงถูกตัดทิ้ง ไม่ใช่แค่ล้นแล้วเลื่อนดูได้ ผลคือชุดสุดท้ายกดเลือกไม่ได้เลย */
+function changeExamplePage(delta) {
+    var total = Math.max(1, Math.ceil(Object.keys(EXAMPLES).length / EX_PER_PAGE));
+    // วนกลับมาต้นเมื่อเลยขอบ ทั้งสองทิศทาง
+    examplePage = ((examplePage + delta) % total + total) % total;
+    buildExampleDropdown();
+}
+
+function showExampleDetail(key) {
+    var el = document.getElementById('exampleDetail');
+    var ex = EXAMPLES[key];
+    if (!el) return;
+    if (!ex) { el.innerHTML = EX_DETAIL_HINT; return; }
+    el.innerHTML = '<span class="ex-detail-label">แผนก</span> ' +
+        escapeHtml(ex.departments.map(function(d) { return d.name; }).join(', ')) +
+        ' <span class="ex-detail-label">Base</span> ' + escapeHtml(ex.baseIp + '/' + ex.baseCidr);
 }
 
 // Toast
