@@ -7,7 +7,7 @@
 const { execFileSync } = require('child_process');
 const path = require('path');
 
-const FILES = ['save-load.test.js', 'ui-stability.test.js', 'regression-fixes.test.js', 'library-util.test.js', 'ux-features.test.js', 'cli-naming.test.js', 'scenarios.test.js'];
+const FILES = ['save-load.test.js', 'ui-stability.test.js', 'regression-fixes.test.js', 'library-util.test.js', 'ux-features.test.js', 'cli-naming.test.js', 'scenarios.test.js', 'labguide.test.js'];
 
 let failed = 0, totalPass = 0, totalAll = 0;
 

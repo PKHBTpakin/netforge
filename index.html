@@ -282,7 +282,7 @@
                 </div>
                 <h1 class="font-display text-base tracking-[3px] text-neon font-bold">NETFORGE</h1>
             </div>
-            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v3.6</span>
+            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v3.7</span>
         </div>
         <div class="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-start md:justify-end flex-wrap">
             <div class="relative flex-1 md:flex-none" id="exampleWrapper">
@@ -315,6 +315,14 @@
                     <i class="fas fa-file-export mr-1"></i>EXPORT <i class="fas fa-caret-down ml-1 text-[11px]"></i>
                 </button>
                 <div id="exportDropdown" class="example-dropdown w-[280px] left-0 md:left-auto md:right-0">
+                    <div class="ex-item" onclick="closeExportMenu();exportLabHtml()">
+                        <div class="ex-icon" style="background:rgba(240,87,92,0.12);border:1px solid rgba(240,87,92,0.35);color:#F0575C;"><i class="fas fa-book-open"></i></div>
+                        <div><div class="ex-title">คู่มือทำ Lab (.html)</div><div class="ex-desc">เปิดในเบราว์เซอร์ มีปุ่มคัดลอกทุกบล็อก<br>บอกวิธีตั้ง IP ของ PC และ Gateway ครบ</div></div>
+                    </div>
+                    <div class="ex-item" onclick="closeExportMenu();exportLabMd()">
+                        <div class="ex-icon" style="background:rgba(240,87,92,0.12);border:1px solid rgba(240,87,92,0.35);color:#F0575C;"><i class="fas fa-file-pen"></i></div>
+                        <div><div class="ex-title">คู่มือทำ Lab (.md)</div><div class="ex-desc">เนื้อหาเดียวกับ .html<br>สำหรับนำไปทำเอกสารต่อ</div></div>
+                    </div>
                     <div class="ex-item" onclick="closeExportMenu();exportTopologyPNG()">
                         <div class="ex-icon" style="background:rgba(76,141,255,0.1);border:1px solid rgba(76,141,255,0.3);color:#4C8DFF;"><i class="fas fa-image"></i></div>
                         <div><div class="ex-title">รูปผัง (.png)</div><div class="ex-desc">ความละเอียด 2 เท่า ครอบเฉพาะอุปกรณ์<br>แปะลงรายงาน/สไลด์ได้ทันที</div></div>
@@ -483,6 +491,7 @@
                                 <tr class="text-neon text-left">
                                     <th class="pb-2 pr-3">#</th><th class="pb-2 pr-3">Department</th><th class="pb-2 pr-3">Hosts</th>
                                     <th class="pb-2 pr-3">Network</th><th class="pb-2 pr-3">Broadcast</th><th class="pb-2 pr-3">Usable Range</th>
+                                    <th class="pb-2 pr-3" title="เลขแรกของช่วง ใช้เป็น Default Gateway ให้เครื่องลูกข่ายในแผนกนี้">Gateway</th>
                                     <th class="pb-2 pr-3">Subnet Mask</th><th class="pb-2 pr-3">CIDR</th><th class="pb-2">Wildcard</th>
                                 </tr>
                             </thead>
@@ -584,6 +593,7 @@
     <script src="js/library.js"></script>
     <script src="js/history.js"></script>
     <script src="js/export.js"></script>
+    <script src="js/labguide.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

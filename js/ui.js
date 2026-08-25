@@ -128,6 +128,7 @@ function renderTable() {
     thead.innerHTML = '<tr class="text-neon text-left">' +
         '<th class="pb-2 pr-3">#</th><th class="pb-2 pr-3">Department</th><th class="pb-2 pr-3">Hosts</th>' +
         '<th class="pb-2 pr-3">Network</th><th class="pb-2 pr-3">Broadcast</th><th class="pb-2 pr-3">Usable Range</th>' +
+        '<th class="pb-2 pr-3" title="เลขแรกของช่วง ใช้เป็น Default Gateway ให้เครื่องลูกข่ายในแผนกนี้">Gateway</th>' +
         '<th class="pb-2 pr-3">Subnet Mask</th><th class="pb-2 pr-3">CIDR</th><th class="pb-2">Wildcard</th></tr>';
     if (state.calculated.length === 0) {
         // ถ้าทุกแผนกจัดสรรไม่สำเร็จ ต้องยังเห็นแถวเหตุผล ไม่ใช่ขึ้นว่า "เพิ่มแผนกก่อน" ทั้งที่เพิ่มไปแล้ว
@@ -150,6 +151,7 @@ function renderTable() {
             '<td class="py-2 pr-3 text-neon">' + s.network + '/' + s.cidr + '</td>' +
             '<td class="py-2 pr-3 text-hot">' + s.broadcast + '</td>' +
             '<td class="py-2 pr-3 text-cyber">' + s.firstUsable + ' — ' + s.lastUsable + '</td>' +
+            '<td class="py-2 pr-3 font-bold" style="color:' + color + '">' + s.firstUsable + '</td>' +
             '<td class="py-2 pr-3">' + s.netmask + '</td>' +
             '<td class="py-2 pr-3">/' + s.cidr + '</td>' +
             '<td class="py-2">' + s.wildcard + '</td>' +
@@ -167,7 +169,7 @@ function renderFailedRowsHTML() {
             '<td class="py-2 pr-3 text-hot"><i class="fas fa-triangle-exclamation"></i></td>' +
             '<td class="py-2 pr-3 font-bold text-hot">' + escapeHtml(f.name) + '</td>' +
             '<td class="py-2 pr-3 text-hot">' + f.hosts + '</td>' +
-            '<td class="py-2 text-hot text-[12px]" colspan="6">จัดสรรไม่สำเร็จ — ' + escapeHtml(f.reason) + '</td>' +
+            '<td class="py-2 text-hot text-[12px]" colspan="7">จัดสรรไม่สำเร็จ — ' + escapeHtml(f.reason) + '</td>' +
         '</tr>';
     }).join('');
 }
