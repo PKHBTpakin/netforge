@@ -172,24 +172,25 @@ function labMarkdown() {
 
     /* ----- ตารางแผนก ----- */
     push('## ตารางการแบ่ง Subnet', '',
-         '| VLAN | Department | Hosts | Network | Usable Range | Gateway | Subnet Mask | Router |',
+         '| VLAN | Department | Hosts | Network | Gateway (Host แรก) | Host สุดท้าย | Subnet Mask | Router |',
          '|---|---|---|---|---|---|---|---|');
     d.depts.forEach(function (x) {
         push('| ' + x.vlan + ' | ' + x.name + ' | ' + x.hosts + ' | ' + x.network + '/' + x.cidr +
-             ' | ' + x.firstHost + ' – ' + x.lastHost + ' | **' + x.gateway + '** | ' +
+             ' | **' + x.gateway + '** | ' + x.lastHost + ' | ' +
              x.netmask + ' | ' + x.router + ' |');
     });
-    push('');
+    push('', 'Gateway ของแต่ละแผนกคือ Host หมายเลขแรกของวงนั้น ซึ่ง configuration ' +
+             'กำหนดให้ sub-interface ของ Router ไว้แล้ว', '');
 
     /* ----- ตารางตั้งค่าเครื่องลูกข่าย ----- */
     push('## การตั้งค่าเครื่องลูกข่าย (PC)', '',
          'ใน Packet Tracer คลิกที่ PC แล้วไปที่แท็บ **Desktop** เลือก **IP Configuration**', '',
          'configuration ที่โปรแกรมสร้างให้มี DHCP pool อยู่แล้วทุกแผนก ' +
          'จึงเลือก **DHCP** ได้เลย ไม่ต้องกรอกเอง', '',
-         '| Department | เลือกโหมด | IP ที่ควรได้ | Subnet Mask | Default Gateway |',
-         '|---|---|---|---|---|');
+         '| Department | เลือกโหมด | IP เริ่มต้น | IP สุดท้าย | Subnet Mask | Default Gateway |',
+         '|---|---|---|---|---|---|');
     d.depts.forEach(function (x) {
-        push('| ' + x.name + ' | DHCP | ' + x.dhcpFrom + ' – ' + x.dhcpTo + ' | ' +
+        push('| ' + x.name + ' | DHCP | ' + x.dhcpFrom + ' | ' + x.dhcpTo + ' | ' +
              x.netmask + ' | ' + x.gateway + ' |');
     });
     push('',
@@ -302,25 +303,27 @@ function labHtml() {
 
     /* ตารางแผนก */
     p('<h2>ตารางการแบ่ง Subnet</h2><table><tr><th>VLAN</th><th>Department</th><th>Hosts</th>',
-      '<th>Network</th><th>Usable Range</th><th>Gateway</th><th>Subnet Mask</th><th>Router</th></tr>');
+      '<th>Network</th><th>Gateway<br><span style="font-weight:400;font-size:13px">Host แรก</span></th>',
+      '<th>Host สุดท้าย</th><th>Subnet Mask</th><th>Router</th></tr>');
     d.depts.forEach(function (x) {
         p('<tr><td>', x.vlan, '</td><td>', labEsc(x.name), '</td><td>', x.hosts, '</td><td>',
-          labEsc(x.network + '/' + x.cidr), '</td><td>', labEsc(x.firstHost + ' – ' + x.lastHost),
-          '</td><td><b>', labEsc(x.gateway), '</b></td><td>', labEsc(x.netmask), '</td><td>',
+          labEsc(x.network + '/' + x.cidr), '</td><td><b>', labEsc(x.gateway), '</b></td><td>',
+          labEsc(x.lastHost), '</td><td>', labEsc(x.netmask), '</td><td>',
           labEsc(x.router), '</td></tr>');
     });
-    p('</table>');
+    p('</table><p style="color:#5A5A5A;font-size:15px">Gateway ของแต่ละแผนกคือ Host หมายเลขแรก',
+      'ของวงนั้น ซึ่ง configuration กำหนดให้ sub-interface ของ Router ไว้แล้ว</p>');
 
     /* ตาราง PC */
     p('<h2>การตั้งค่าเครื่องลูกข่าย (PC)</h2>',
       '<div class="note">ใน Packet Tracer คลิกที่ PC ไปที่แท็บ <b>Desktop</b> เลือก ',
       '<b>IP Configuration</b> แล้วเลือก <b>DHCP</b><br>',
       'configuration ที่โปรแกรมสร้างมี DHCP pool ครบทุกแผนกอยู่แล้ว จึงไม่ต้องกรอกเอง</div>',
-      '<table><tr><th>Department</th><th>เลือกโหมด</th><th>IP ที่ควรได้</th>',
+      '<table><tr><th>Department</th><th>เลือกโหมด</th><th>IP เริ่มต้น</th><th>IP สุดท้าย</th>',
       '<th>Subnet Mask</th><th>Default Gateway</th></tr>');
     d.depts.forEach(function (x) {
-        p('<tr><td>', labEsc(x.name), '</td><td>DHCP</td><td>',
-          labEsc(x.dhcpFrom + ' – ' + x.dhcpTo), '</td><td>', labEsc(x.netmask),
+        p('<tr><td>', labEsc(x.name), '</td><td>DHCP</td><td>', labEsc(x.dhcpFrom),
+          '</td><td>', labEsc(x.dhcpTo), '</td><td>', labEsc(x.netmask),
           '</td><td><b>', labEsc(x.gateway), '</b></td></tr>');
     });
     p('</table>',

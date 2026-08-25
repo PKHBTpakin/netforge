@@ -201,10 +201,21 @@ check('C4b: gateway ของทุกแผนกอยู่ในตารา
 // ช่วงที่ DHCP แจกต้องเริ่มถัดจาก gateway ไม่ใช่ที่ gateway
 // เพราะ configuration กัน gateway ออกด้วย ip dhcp excluded-address ไว้แล้ว
 const dhcpStartsAtGateway = cliIps.filter(function (ip) {
-    return md.indexOf('| DHCP | ' + ip + ' –') !== -1;
+    return md.indexOf('| DHCP | ' + ip + ' |') !== -1;
 });
 check('C5: ช่วง DHCP ไม่เริ่มที่หมายเลข Gateway',
     dhcpStartsAtGateway.length === 0, dhcpStartsAtGateway.join(', '));
+
+// ค่าช่วงต้องแยกเป็นคนละคอลัมน์ ห้ามรวมไว้ช่องเดียวคั่นด้วยขีด
+// เพราะเมื่อคอลัมน์แคบแล้วตัดบรรทัด ขีดจะค้างท้ายบรรทัดจนอ่านเหมือนเป็นเลขคนละตัว
+// (ผู้ใช้เจอปัญหานี้จริงตอนเปิดไฟล์ .md ในโปรแกรมแก้ไขข้อความ)
+const dashRanges = (md.match(/\| \d+\.\d+\.\d+\.\d+ [–-] \d+\.\d+\.\d+\.\d+ \|/g) || []);
+check('C6: ไม่มีช่องไหนรวมค่าช่วงไว้ในคอลัมน์เดียว',
+    dashRanges.length === 0, dashRanges.slice(0, 3).join(' | '));
+check('C7: ตาราง PC แยกคอลัมน์ IP เริ่มต้นกับ IP สุดท้าย',
+    md.indexOf('| IP เริ่มต้น | IP สุดท้าย |') !== -1);
+check('C8: ตารางแบ่ง subnet ระบุชัดว่า Gateway คือ Host แรก',
+    md.indexOf('Gateway (Host แรก)') !== -1 && md.indexOf('| Host สุดท้าย |') !== -1);
 
 /* ===== D. ไฟล์ HTML ===== */
 
