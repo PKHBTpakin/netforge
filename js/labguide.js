@@ -179,7 +179,7 @@ function labMarkdown() {
              ' | **' + x.gateway + '** | ' + x.lastHost + ' | ' +
              x.netmask + ' | ' + x.router + ' |');
     });
-    push('', 'Gateway ของแต่ละแผนกคือ Host หมายเลขแรกของวงนั้น ซึ่ง configuration ' +
+    push('', 'Gateway ของแต่ละแผนกคือ Host หมายเลขแรกของ subnet นั้น ซึ่ง configuration ' +
              'กำหนดให้ sub-interface ของ Router ไว้แล้ว', '');
 
     /* ----- ตารางตั้งค่าเครื่องลูกข่าย ----- */
@@ -312,7 +312,7 @@ function labHtml() {
           labEsc(x.router), '</td></tr>');
     });
     p('</table><p style="color:#5A5A5A;font-size:15px">Gateway ของแต่ละแผนกคือ Host หมายเลขแรก',
-      'ของวงนั้น ซึ่ง configuration กำหนดให้ sub-interface ของ Router ไว้แล้ว</p>');
+      'ของ subnet นั้น ซึ่ง configuration กำหนดให้ sub-interface ของ Router ไว้แล้ว</p>');
 
     /* ตาราง PC */
     p('<h2>การตั้งค่าเครื่องลูกข่าย (PC)</h2>',

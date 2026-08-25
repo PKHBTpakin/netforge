@@ -49,7 +49,7 @@ function normalizeNetwork(ip, cidr) {
    ที่ใช้ตอนนี้ "โดยตั้งใจ" เพื่อเผื่อขยาย การไล่ % ให้สูงจึงอาจสอนสิ่งที่ผิด
    3 ส่วนที่แยก:
      used     = host ที่ขอจริง + network + broadcast ของแต่ละ subnet
-     rounding = ส่วนที่เสียไปจากการปัดขนาด subnet ขึ้นเป็นกำลังสอง (เลี่ยงไม่ได้ในระบบเลขฐานสอง)
+     rounding = ส่วนที่เสียไปจากการปัดขนาด subnet ขึ้นเป็น 2 ยกกำลัง n (เลี่ยงไม่ได้ในระบบเลขฐานสอง)
      reserve  = ส่วนที่เหลือใน Base Block ยังไม่ถูกแตะ = พื้นที่สำรองเผื่อโต
    ============================================ */
 
@@ -95,7 +95,7 @@ function calculateUtilization() {
         roundingPct: pct(rounding),
         reservePct: pct(reserve < 0 ? 0 : reserve),
         allocated: a.allocated,
-        // เพดานทางทฤษฎี: ต่อให้เลือก Base พอดีเป๊ะ ก็ยังใช้ได้ไม่เกินสัดส่วนนี้เพราะการปัดกำลังสอง
+        // เพดานทางทฤษฎี: ต่อให้เลือก Base พอดีเป๊ะ ก็ยังใช้ได้ไม่เกินสัดส่วนนี้เพราะการปัดขึ้นเป็น 2 ยกกำลัง n
         ceilingPct: a.allocated > 0 ? (a.requested / a.allocated * 100) : 0,
         suggestedCidr: suggestBaseCidr(state.calculated)
     };

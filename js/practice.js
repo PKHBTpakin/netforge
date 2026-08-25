@@ -147,26 +147,26 @@ function practiceHintFor(ans, given, fields) {
 
     if (!fields.cidr) {
         if (isFinite(gotCidr) && gotCidr > ans.subnet.cidr) {
-            return 'ขนาดที่ให้เล็กเกินไป แผนกนี้ขอ ' + ans.hosts + ' เครื่อง ต้องบวกอีก 2 เบอร์ให้ Network กับ Broadcast รวมเป็น ' +
-                   (ans.hosts + 2) + ' แล้วปัดขึ้นเป็นกำลังสองได้ ' + wantSize + ' เบอร์ ซึ่งตรงกับ /' + ans.subnet.cidr;
+            return 'ขนาดที่ให้เล็กเกินไป แผนกนี้ขอ ' + ans.hosts + ' เครื่อง ต้องบวกอีก 2 IP ให้ Network Address กับ Broadcast Address รวมเป็น ' +
+                   (ans.hosts + 2) + ' แล้วปัดขึ้นเป็นขนาดที่ subnet มีให้เลือก คือ ' + wantSize + ' IP ซึ่งตรงกับ /' + ans.subnet.cidr;
         }
         if (isFinite(gotCidr) && gotCidr < ans.subnet.cidr) {
-            return 'ขนาดที่ให้ใหญ่เกินจำเป็น ' + (ans.hosts + 2) + ' เบอร์ปัดขึ้นเป็นกำลังสองได้ ' + wantSize +
+            return 'ขนาดที่ให้ใหญ่เกินจำเป็น ' + (ans.hosts + 2) + ' IP ปัดขึ้นเป็นขนาดที่ subnet มีให้เลือก ได้ ' + wantSize +
                    ' พอดี ไม่ต้องเผื่อไปถึงขนาดถัดไป';
         }
         return 'ยังไม่ได้กรอกขนาด หรือกรอกในรูปแบบที่อ่านไม่ออก ให้ใส่เป็นตัวเลขหลังเครื่องหมายทับ เช่น 27';
     }
 
     if (!fields.network) {
-        return 'ขนาดถูกแล้ว แต่จุดเริ่มไม่ถูก แผนกนี้ต้องเริ่มที่เบอร์ถัดจาก Broadcast ของแผนกก่อนหน้าพอดี ' +
+        return 'ขนาดถูกแล้ว แต่จุดเริ่มไม่ถูก แผนกนี้ต้องเริ่มที่ IP ถัดจาก Broadcast Address ของแผนกก่อนหน้าพอดี ' +
                'ห้ามเว้นช่องว่างและห้ามทับกัน คำตอบที่ถูกคือ ' + ans.subnet.network;
     }
     if (!fields.broadcast) {
-        return 'Broadcast คือเบอร์สุดท้ายของกลุ่ม หาได้จากเบอร์เริ่มบวกขนาดแล้วลบหนึ่ง คือ ' +
+        return 'Broadcast Address คือ IP หมายเลขสุดท้ายของ subnet หาได้จาก Network Address บวกขนาดแล้วลบหนึ่ง คือ ' +
                ans.subnet.network + ' บวก ' + wantSize + ' ลบ 1 เท่ากับ ' + ans.subnet.broadcast;
     }
     if (!fields.first || !fields.last) {
-        return 'ช่วงที่จ่ายให้เครื่องได้คือถัดจาก Network หนึ่งเบอร์ ไปจนถึงก่อน Broadcast หนึ่งเบอร์ ' +
+        return 'ช่วงที่จ่ายให้เครื่องได้คือถัดจาก Network Address ไปหนึ่งหมายเลข จนถึงก่อน Broadcast Address หนึ่งหมายเลข ' +
                'ในที่นี้คือ ' + ans.subnet.firstUsable + ' ถึง ' + ans.subnet.lastUsable;
     }
     return null;
@@ -301,8 +301,8 @@ function renderPractice() {
                 '<div class="text-subtle text-[11px]">' + d.hosts + ' เครื่อง</div></td>' +
             cell('network', 'Network', ans.subnet.network) +
             cell('cidr', '/xx', '/' + ans.subnet.cidr) +
-            cell('first', 'เบอร์แรกที่ใช้ได้', ans.subnet.firstUsable) +
-            cell('last', 'เบอร์สุดท้ายที่ใช้ได้', ans.subnet.lastUsable) +
+            cell('first', 'Host แรกที่ใช้ได้', ans.subnet.firstUsable) +
+            cell('last', 'Host สุดท้ายที่ใช้ได้', ans.subnet.lastUsable) +
             cell('broadcast', 'Broadcast', ans.subnet.broadcast) +
         '</tr>' + hintRow;
     }).join('');
@@ -343,7 +343,7 @@ function renderPractice() {
         '<div class="overflow-x-auto"><table class="w-full text-[13px] min-w-[820px]">' +
         '<thead><tr class="text-neon text-left">' +
             '<th class="pb-2 pr-2">แผนก</th><th class="pb-2 pr-2">Network</th><th class="pb-2 pr-2">ขนาด</th>' +
-            '<th class="pb-2 pr-2">เบอร์แรกที่ใช้ได้</th><th class="pb-2 pr-2">เบอร์สุดท้ายที่ใช้ได้</th><th class="pb-2">Broadcast</th>' +
+            '<th class="pb-2 pr-2">Host แรกที่ใช้ได้</th><th class="pb-2 pr-2">Host สุดท้ายที่ใช้ได้</th><th class="pb-2">Broadcast</th>' +
         '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
 
         '<div class="flex gap-2 mt-3 flex-wrap">' +
@@ -382,7 +382,7 @@ function renderPracticeSteps() {
         '<th class="pb-1 pr-2">ต้องการจริง</th><th class="pb-1 pr-2">ขนาดที่ได้</th><th class="pb-1 pr-2">คือ</th>' +
         '<th class="pb-1">ช่วงที่ได้</th></tr></thead><tbody>' + lines + '</tbody></table></div>' +
         '<div class="text-subtle text-[11px] mt-2 leading-relaxed">' +
-            'สังเกตว่าแผนกถัดไปเริ่มที่เบอร์ถัดจาก Broadcast ของแผนกก่อนหน้าพอดีทุกครั้ง ไม่มีการเว้นช่องว่าง ' +
+            'สังเกตว่าแผนกถัดไปเริ่มที่ IP ถัดจาก Broadcast Address ของแผนกก่อนหน้าพอดีทุกครั้ง ไม่มีการเว้นช่องว่าง ' +
             'และการเรียงจากใหญ่ไปเล็กคือสิ่งที่ทำให้ไม่เกิดช่องว่างแทรกที่ใช้ต่อไม่ได้' +
         '</div></div>';
 }

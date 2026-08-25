@@ -173,13 +173,13 @@
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-network-wired"></i></div>
                             <div><div class="onboard-step-title">1. วาง Router ของสาขา</div><div class="onboard-step-desc">กดปุ่ม <b>Router</b> ที่มุมขวาบนของผัง แล้วคลิกตรงตำแหน่งที่อยากวาง<br>ตอนนี้ Router ตัวนั้นจะมีกรอบสีเหลืองและเครื่องหมายตกใจกำกับไว้ แปลว่ายังใช้งานไม่ได้</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-link"></i></div>
-                            <div><div class="onboard-step-title">2. ลากสายไปเชื่อมกับ Router-01 <span style="color:#f0a020;">(ห้ามข้ามขั้นตอนนี้)</span></div><div class="onboard-step-desc">กดปุ่ม <b>Connect</b> แล้วคลิก Router สองตัวที่จะเชื่อมกัน<br>โปรแกรมจะแบ่งเลข IP ให้สายเส้นนี้เอง โดยใช้ขนาด <b>/30</b> ซึ่งให้เลขใช้ได้พอดี 2 เบอร์ ตรงกับที่ต้องใช้สองฝั่ง<br>เมื่อเชื่อมสำเร็จ กรอบสีเหลืองจะหายไป และดูเลข IP ของทั้งสองฝั่งได้ที่ตาราง WAN ในแท็บ IP TABLE</div></div></div>
+                            <div><div class="onboard-step-title">2. ลากสายไปเชื่อมกับ Router-01 <span style="color:#f0a020;">(ห้ามข้ามขั้นตอนนี้)</span></div><div class="onboard-step-desc">กดปุ่ม <b>Connect</b> แล้วคลิก Router สองตัวที่จะเชื่อมกัน<br>โปรแกรมจะแบ่งเลข IP ให้สายเส้นนี้เอง โดยใช้ขนาด <b>/30</b> ซึ่งเหลือ IP ใช้งานได้พอดี 2 หมายเลข ตรงกับที่ต้องใช้สองฝั่ง<br>เมื่อเชื่อมสำเร็จ กรอบสีเหลืองจะหายไป และดูเลข IP ของทั้งสองฝั่งได้ที่ตาราง WAN ในแท็บ IP TABLE</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-arrows-turn-right"></i></div>
                             <div><div class="onboard-step-title">3. ย้ายแผนกไปอยู่กับสาขา</div><div class="onboard-step-desc">อยากให้แผนกไหนย้ายไปอยู่กับสาขา ก็ลากสายจาก Router สาขาไปหา <b>Switch</b> ของแผนกนั้น<br>สายเดิมที่ต่อกับ Router ตัวหลักจะถูกตัดออกให้เอง ไม่ต้องไปลบ</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-terminal"></i></div>
                             <div><div class="onboard-step-title">4. ดูคำสั่งของ Router แต่ละตัว</div><div class="onboard-step-desc">ในแท็บ CLI CONFIG มีปุ่มให้เลือกดูทีละตัว เพราะแต่ละ Router ตั้งค่าไม่เหมือนกัน<br>สำนักงานใหญ่จะได้เส้นทางที่ระบุชัดเจนว่าจะไปหาแต่ละสาขาทางไหน ส่วนสาขาจะได้เส้นทางแบบส่งกลับมาที่สำนักงานใหญ่ทางเดียว เพราะสาขามีทางออกอยู่ทางเดียวอยู่แล้ว</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-clock"></i></div>
-                            <div><div class="onboard-step-title">5. เรื่องสัญญาณนาฬิกาของสายอนุกรม</div><div class="onboard-step-desc">สายอนุกรมต้องมีฝั่งหนึ่งเป็นคนจ่ายสัญญาณนาฬิกา เรียกว่าฝั่ง <b>DCE</b> ซึ่งเป็นฝั่งเดียวที่ต้องมีคำสั่ง <b>clock rate</b> ถ้าฝั่งนั้นไม่ได้ตั้ง สายจะไม่ขึ้นเลยทั้งที่ IP ถูกหมดแล้ว<br>โปรแกรมสร้างคำสั่งนี้ให้แล้ว โดยเดาว่า Router หลักเป็นฝั่ง DCE ถ้าของจริงเสียบสายกลับด้าน กดปุ่มสลับได้ที่คอลัมน์สุดท้ายของตาราง WAN ใต้แท็บ IP TABLE</div></div></div>
+                            <div><div class="onboard-step-title">5. สาย Serial ต้องตั้ง clock rate ที่ฝั่ง DCE</div><div class="onboard-step-desc">สาย Serial ที่เชื่อม Router สองตัว ฝั่งหนึ่งเป็น <b>DCE</b> อีกฝั่งเป็น <b>DTE</b> เฉพาะฝั่ง DCE ที่ต้องมีคำสั่ง <b>clock rate</b> ถ้าไม่ใส่ ลิงก์จะไม่ขึ้นเลยทั้งที่ IP ถูกหมดแล้ว<br>ใน Packet Tracer ฝั่ง DCE คืออุปกรณ์ตัวที่คุณคลิกก่อน ตอนลากสาย <b>Serial DCE</b><br>โปรแกรมสร้างคำสั่งนี้ให้แล้ว โดยตั้งให้ Router หลักเป็นฝั่ง DCE ถ้าของจริงเสียบกลับด้าน กดปุ่มสลับได้ที่คอลัมน์สุดท้ายของตาราง WAN ใต้แท็บ IP TABLE</div></div></div>
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-sitemap"></i></div>
                             <div><div class="onboard-step-title">ข้อควรรู้เรื่องรูปแบบการต่อ</div><div class="onboard-step-desc">เพิ่มสาขาได้ไม่จำกัด แต่ควรต่อแบบให้ทุกสาขาวิ่งเข้าหา Router ตัวหลักโดยตรง<br>ยังไม่รองรับการต่อแบบเรียงต่อกันเป็นทอด ๆ เช่นสำนักงานใหญ่ต่อไปสาขา A แล้วสาขา A ต่อไปสาขา B อีกที เพราะโปรแกรมสร้างเส้นทางให้เฉพาะอุปกรณ์ที่ต่อสายถึงกันโดยตรงเท่านั้น ถ้าต่อแบบนั้นสาขาที่อยู่ปลายสุดจะติดต่อกับสำนักงานใหญ่ไม่ได้</div></div></div>
                     </div>
@@ -200,30 +200,30 @@
 
                 <!-- กฎที่ใช้คำนวณ — เฉพาะข้อที่มีผลกับตัวเลขที่ได้จริง ไม่ใช่ข้อจำกัดทั่วไปของโปรแกรม
                      เขียนแยกออกมาเพราะเป็นคำถามที่ถูกถามซ้ำที่สุด โดยเฉพาะข้อที่ว่าทำไม IPv6
-                     ทุกวงถึงได้ขนาดเท่ากันหมดทั้งที่จำนวนเครื่องต่างกันมาก
+                     ทุก subnet ถึงได้ขนาดเท่ากันหมดทั้งที่จำนวนเครื่องต่างกันมาก
                      แต่ละข้ออ้างมาตรฐานกำกับไว้ เพื่อให้ตอบได้ว่าไม่ใช่โปรแกรมคิดเอง -->
                 <div class="help-pane hidden" id="help-rules">
                     <div class="space-y-4">
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-plus-minus"></i></div>
-                            <div><div class="onboard-step-title">ทุกวงต้องเผื่อไว้ 2 เบอร์เสมอ</div><div class="onboard-step-desc">เบอร์แรกของทุกวงใช้เป็นชื่อเรียกวงนั้น เบอร์สุดท้ายใช้ส่งข่าวถึงทุกเครื่องในวงพร้อมกัน สองเบอร์นี้ห้ามเอาไปตั้งให้เครื่องใด<br>แผนกที่ขอ 30 เครื่อง โปรแกรมจึงจองพื้นที่จริง 32 เบอร์ ไม่ใช่ 30<br><span class="text-subtle">อ้างอิง RFC 950</span></div></div></div>
+                            <div><div class="onboard-step-title">ทุก subnet เสีย IP ไป 2 หมายเลขเสมอ</div><div class="onboard-step-desc">IP หมายเลขแรกของ subnet คือ <b>Network Address</b> ใช้เป็นชื่อเรียก subnet นั้น หมายเลขสุดท้ายคือ <b>Broadcast Address</b> ใช้ส่งข้อมูลถึงทุกเครื่องใน subnet เดียวกันพร้อมกัน สองหมายเลขนี้นำไปตั้งให้เครื่องใดไม่ได้<br>แผนกที่ขอ 30 เครื่อง โปรแกรมจึงจอง subnet ขนาด 32 IP ไม่ใช่ 30<br><span class="text-subtle">อ้างอิง RFC 950</span></div></div></div>
 
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-square-root-variable"></i></div>
-                            <div><div class="onboard-step-title">ขนาดวงปัดขึ้นเป็นกำลังของสองเท่านั้น</div><div class="onboard-step-desc">ระบบเครือข่ายแบ่งพื้นที่ได้เฉพาะขนาด 2, 4, 8, 16, 32, 64 ไปเรื่อย ๆ<br>ต้องการจริง 40 เบอร์ จะได้ 64 ส่วนที่เกินมา 24 เบอร์คือที่แผงล่างเรียกว่า <b>เสียจากการปัดขนาด</b> ไม่ใช่ความผิดพลาด แต่เป็นสิ่งที่เลี่ยงไม่ได้<br><span class="text-subtle">อ้างอิง RFC 1878 และ RFC 4632</span></div></div></div>
+                            <div><div class="onboard-step-title">ขนาด subnet มีให้เลือกแค่ 2, 4, 8, 16, 32, 64 ไปเรื่อย ๆ</div><div class="onboard-step-desc">subnet แบ่งได้เฉพาะขนาดเหล่านี้ ขนาดอื่นอย่าง 40 หรือ 100 ไม่มีให้เลือก<br>แผนกที่ต้องการ 40 IP จึงได้ subnet ขนาด 64 ส่วนที่เหลือ 24 IP คือช่องที่แผงล่างเขียนว่า <b>เสียจากการปัดขนาด</b> เป็นเรื่องปกติของ VLSM ไม่ใช่ความผิดพลาด<br><span class="text-subtle">อ้างอิง RFC 1878 และ RFC 4632</span></div></div></div>
 
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-arrow-down-wide-short"></i></div>
                             <div><div class="onboard-step-title">ต้องเรียงจากแผนกใหญ่ไปเล็ก</div><div class="onboard-step-desc">ถ้าจัดแผนกเล็กก่อน ช่องว่างที่เหลือจะกระจัดกระจายจนแผนกใหญ่ลงไม่ได้ ทั้งที่พื้นที่รวมยังพอ<br>โปรแกรมเรียงให้เองเสมอ ลำดับที่คุณพิมพ์เข้าไปไม่มีผลกับผลลัพธ์</div></div></div>
 
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-equals"></i></div>
-                            <div><div class="onboard-step-title">IPv6 ทุกวงได้ /64 เท่ากันหมด จำนวนเครื่องไม่มีผล</div><div class="onboard-step-desc">ข้อนี้ต่างจาก IPv4 อย่างสิ้นเชิง แผนกที่มี 20 เครื่องกับแผนกที่มี 250 เครื่อง ได้พื้นที่เท่ากันเป๊ะ<br>เพราะการแจกเลขอัตโนมัติของ IPv6 กำหนดไว้ว่าวงต้องเป็น /64 พอดี ห้ามเล็กกว่านี้และไม่มีเหตุผลให้ใหญ่กว่านี้ หนึ่งวงรองรับได้ 18 ล้านล้านล้านเบอร์อยู่แล้ว<br>ช่อง Hosts ที่กรอกไว้จึงไม่ถูกนำมาคิดเลยในโหมด IPv6<br><span class="text-subtle">อ้างอิง RFC 4291</span></div></div></div>
+                            <div><div class="onboard-step-title">IPv6 ทุก subnet ได้ /64 เท่ากันหมด จำนวนเครื่องไม่มีผล</div><div class="onboard-step-desc">ข้อนี้ต่างจาก IPv4 อย่างสิ้นเชิง แผนกที่มี 20 เครื่องกับแผนกที่มี 250 เครื่อง ได้ subnet ขนาดเท่ากันเป๊ะ<br>เพราะ <b>SLAAC</b> ซึ่งเป็นวิธีที่ IPv6 ใช้แจก IP ให้เครื่องลูกข่ายเอง กำหนดว่า subnet ต้องเป็น /64 พอดี เล็กกว่านี้ SLAAC จะไม่ทำงาน และไม่มีเหตุผลให้ใหญ่กว่านี้ เพราะ /64 เดียวรองรับได้ 18 ล้านล้านล้าน IP อยู่แล้ว<br>ช่อง Hosts ที่กรอกไว้จึงไม่ถูกนำมาคิดเลยในโหมด IPv6<br><span class="text-subtle">อ้างอิง RFC 4291</span></div></div></div>
 
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-house-laptop"></i></div>
                             <div><div class="onboard-step-title">ช่วงเลขที่ควรใช้</div><div class="onboard-step-desc">โปรแกรมคำนวณให้ทุกช่วงที่กรอก แต่ไม่ใช่ทุกช่วงที่ควรหยิบมาใช้<br><b>เครือข่ายภายในองค์กร</b> ใช้ได้สามช่วงคือ 10.x.x.x, 172.16 ถึง 172.31.x.x และ 192.168.x.x นอกจากนี้เป็นเลขที่มีเจ้าของอยู่จริงบนอินเทอร์เน็ต<br><b>ตัวอย่างในรายงานหรือการสอน</b> ฝั่ง IPv6 ใช้ 2001:db8:: ส่วนฝั่ง IPv4 ใช้ 192.0.2.x, 198.51.100.x หรือ 203.0.113.x<br><span class="text-subtle">อ้างอิง RFC 1918, RFC 3849 และ RFC 5737</span></div></div></div>
 
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-link"></i></div>
-                            <div><div class="onboard-step-title">สายระหว่างสาขาใช้ /30</div><div class="onboard-step-desc">สายที่เชื่อม Router สองตัวมีปลายทางแค่สองข้าง บวกอีก 2 เบอร์ที่ต้องเผื่อ รวมเป็น 4 พอดี ซึ่งคือ /30<br>จองเล็กกว่านี้ไม่ได้ จองใหญ่กว่านี้ก็เสียเปล่า</div></div></div>
+                            <div><div class="onboard-step-title">สายระหว่างสาขาใช้ /30</div><div class="onboard-step-desc">สายที่เชื่อม Router สองตัวมีปลายทางแค่สองข้าง บวก Network Address กับ Broadcast Address อีก 2 รวมเป็น 4 IP พอดี ซึ่งก็คือ /30<br>จองเล็กกว่านี้ไม่ได้ จองใหญ่กว่านี้ก็เสียเปล่า</div></div></div>
 
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-stopwatch"></i></div>
-                            <div><div class="onboard-step-title">คำสั่ง clock rate ใส่ได้ฝั่งเดียว</div><div class="onboard-step-desc">สายอนุกรมต้องมีฝั่งหนึ่งเป็นคนจ่ายสัญญาณนาฬิกา เรียกว่าฝั่ง DCE อีกฝั่งเป็นฝ่ายรับ<br>ถ้าฝั่งจ่ายไม่ได้ตั้งค่านี้ สายจะไม่ทำงานเลยทั้งที่เลข IP ถูกหมดแล้ว และไม่มีข้อความแจ้งเตือนใด ๆ ขึ้นมาบอก<br>โปรแกรมจงใจไม่ใส่ให้ทั้งสองฝั่ง ถึงแม้อุปกรณ์จะรับคำสั่งไว้เฉย ๆ ก็ตาม เพราะจะทำให้เข้าใจผิดว่าต้องใส่ทั้งคู่<br>หน่วยของตัวเลขนี้คือบิตต่อวินาที</div></div></div>
+                            <div><div class="onboard-step-title">คำสั่ง clock rate ใส่ที่ฝั่ง DCE ฝั่งเดียว</div><div class="onboard-step-desc">สาย Serial ที่เชื่อม Router สองตัว ฝั่งหนึ่งเป็น <b>DCE</b> อีกฝั่งเป็น <b>DTE</b> เฉพาะฝั่ง DCE เท่านั้นที่ต้องมีคำสั่ง clock rate<br>ถ้าฝั่ง DCE ไม่ได้ตั้งค่านี้ ลิงก์จะไม่ขึ้นเลย ทั้งที่ IP ถูกหมดแล้ว และไม่มีข้อความแจ้งเตือนใด ๆ ขึ้นมาบอก<br>โปรแกรมจงใจไม่ใส่ให้ทั้งสองฝั่ง ถึงแม้อุปกรณ์จะรับคำสั่งไว้เฉย ๆ ก็ตาม เพราะจะทำให้เข้าใจผิดว่าต้องใส่ทั้งคู่<br>ตัวเลขที่ใส่มีหน่วยเป็น bps</div></div></div>
 
                         <div class="onboard-step"><div class="onboard-step-icon"><i class="fas fa-font"></i></div>
                             <div><div class="onboard-step-title">ชื่อในคำสั่งต้องเป็นคำเดียวและเป็นภาษาอังกฤษ</div><div class="onboard-step-desc">อุปกรณ์ Cisco รับชื่อได้เฉพาะแบบนี้ ชื่อแผนกที่มีเว้นวรรคหรือเป็นภาษาไทยจะถูกปฏิเสธเงียบ ๆ โดยไม่ขึ้นข้อความบอก<br>โปรแกรมจึงแปลงชื่อให้เองเฉพาะตอนเอาไปใส่ในคำสั่ง แล้วเขียนชื่อจริงกำกับไว้ข้างบนเสมอ ส่วนชื่อบนหน้าจอและในตารางยังเป็นชื่อที่คุณพิมพ์</div></div></div>
@@ -282,7 +282,7 @@
                 </div>
                 <h1 class="font-display text-base tracking-[3px] text-neon font-bold">NETFORGE</h1>
             </div>
-            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v3.7</span>
+            <span class="text-[12px] text-subtle tracking-widest ml-1 hidden sm:inline">v3.7.1</span>
         </div>
         <div class="flex items-center gap-2 md:gap-3 w-full md:w-auto justify-start md:justify-end flex-wrap">
             <div class="relative flex-1 md:flex-none" id="exampleWrapper">
@@ -387,7 +387,7 @@
                     </div>
                     <!-- ฝั่ง IPv6 ต้องบอกสองเรื่อง คือช่วงที่ใช้ในตัวอย่าง และเรื่องที่ /64 ไม่ขึ้นกับจำนวนเครื่อง
                          เรื่องหลังเป็นคำถามที่ถูกถามซ้ำที่สุด เพราะช่อง Hosts ยังอยู่บนหน้าจอแต่ไม่มีผลในโหมดนี้ -->
-                    <div class="base-hint">ใช้ในตัวอย่าง: 2001:db8:: &nbsp;|&nbsp; ทุกวงได้ /64 เท่ากัน จำนวนเครื่องไม่มีผล</div>
+                    <div class="base-hint">ใช้ในตัวอย่าง: 2001:db8:: &nbsp;|&nbsp; ทุก subnet ได้ /64 เท่ากัน จำนวนเครื่องไม่มีผล</div>
                 </div>
                 <div class="flex gap-1.5">
                     <button onclick="onBaseChange()" class="btn-neon flex-1 text-[13px] justify-center"><i class="fas fa-calculator mr-1"></i>Calculate</button>

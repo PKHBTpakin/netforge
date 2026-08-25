@@ -233,7 +233,7 @@ function renderUtilization() {
         '<div class="glow-border rounded-lg p-3">' +
             '<div class="flex items-baseline justify-between mb-2 flex-wrap gap-1">' +
                 '<span class="section-label" style="border:none;padding:0;">IP ในช่วง ' + state.baseIp + '/' + state.baseCidr + ' ถูกใช้ไปกับอะไรบ้าง</span>' +
-                '<span class="text-[12px] text-muted">มีทั้งหมด ' + fmt(u.total) + ' เบอร์</span>' +
+                '<span class="text-[12px] text-muted">มีทั้งหมด ' + fmt(u.total) + ' IP</span>' +
             '</div>' +
 
             // แถบสัดส่วน 3 ส่วน — ใช้ flex-grow ตาม % จริง ไม่ใช่ width คงที่
@@ -273,7 +273,7 @@ function renderUtilization() {
    คำถามที่ผู้ใช้อยากรู้ในโหมดนี้ต่างจาก IPv4 คนละเรื่อง:
      IPv4 ถาม "พื้นที่พอไหม เหลือเท่าไหร่" เพราะ address มีจำกัดจริง
      IPv6 ถาม "แบ่งได้กี่ subnet และขนาด prefix ที่ใช้ถูกต้องตามมาตรฐานไหม"
-   จำนวน host ไม่ใช่ข้อจำกัดใน IPv6 เลย (/64 หนึ่งวงรองรับได้มากกว่าจำนวนอุปกรณ์ทั้งโลกหลายเท่า)
+   จำนวน host ไม่ใช่ข้อจำกัดใน IPv6 เลย (/64 เดียวรองรับได้มากกว่าจำนวนอุปกรณ์ทั้งโลกหลายเท่า)
    จึงรายงานเรื่องนั้นให้ชัดแทนที่จะปล่อยพื้นที่ว่าง */
 function renderUtilizationV6(el) {
     if (state.calculatedV6.length === 0) {
@@ -331,7 +331,7 @@ function renderUtilizationV6(el) {
         '</div>';
 }
 
-// "โควตาที่ได้ฟรี" — subnet ที่จองให้มักรองรับได้มากกว่าที่ขอ เพราะปัดขึ้นกำลังสอง
+// "โควตาที่ได้ฟรี" — subnet ที่จองให้มักรองรับได้มากกว่าที่ขอ เพราะปัดขึ้นเป็น 2 ยกกำลัง n
 // บอกผู้ใช้ว่าเพิ่มเครื่องได้อีกกี่ตัวโดยไม่ต้องเปลี่ยนแผนเลย เป็นข้อมูลที่มีอยู่แล้วแต่ไม่เคยถูกแสดง
 function renderHeadroomHTML() {
     var rows = state.calculated.map(function (d) {
@@ -400,9 +400,9 @@ function renderWanTable() {
             '<div class="overflow-x-auto"><table class="w-full text-[13px] min-w-[640px]">' +
             '<thead><tr class="text-neon text-left"><th class="pb-2 pr-3">Subnet</th><th class="pb-2 pr-3">Netmask</th>' +
             '<th class="pb-2 pr-3">ปลายทาง A</th><th class="pb-2 pr-3">ปลายทาง B</th>' +
-            '<th class="pb-2">ฝั่งจ่ายสัญญาณนาฬิกา</th></tr></thead><tbody>' +
+            '<th class="pb-2">ฝั่ง DCE</th></tr></thead><tbody>' +
             links.map(function(w) {
-                // ป้าย DCE ติดกับปลายที่จ่ายสัญญาณนาฬิกา เพื่อให้เห็นทันทีว่าคำสั่ง clock rate จะไปอยู่ที่ Router ตัวไหน
+                // ป้าย DCE ติดกับปลายที่เป็น DCE เพื่อให้เห็นทันทีว่าคำสั่ง clock rate จะไปอยู่ที่ Router ตัวไหน
                 var tag = function(end) {
                     return w.dceId === end.id
                         ? ' <span class="label-tag" style="background:rgba(240,160,32,0.15);border:1px solid rgba(240,160,32,0.5);color:#b8790f;">DCE</span>'
@@ -417,7 +417,7 @@ function renderWanTable() {
                     '<td class="py-2 pr-3"><span class="text-cyber">' + w.ends[1].ip + '</span> ' +
                         '<span class="text-muted text-[12px]">' + escapeHtml(w.ends[1].label) + '</span>' + tag(w.ends[1]) + '</td>' +
                     '<td class="py-2"><button onclick="toggleWanDce(\'' + w.linkId + '\')" class="btn-cyber text-[11px] px-2 py-0.5" ' +
-                        'title="สลับให้อีกฝั่งเป็นตัวจ่ายสัญญาณนาฬิกาแทน">' +
+                        'title="สลับให้อีกฝั่งเป็น DCE แทน คำสั่ง clock rate จะย้ายตามไปด้วย">' +
                         '<i class="fas fa-right-left mr-1" aria-hidden="true"></i>' + escapeHtml(dceEnd.label) + '</button></td>' +
                 '</tr>';
             }).join('') +
@@ -427,9 +427,9 @@ function renderWanTable() {
 
             // อธิบายเรื่อง DCE ไว้ตรงนี้ เพราะเป็นจุดที่ทำให้สายไม่ขึ้นบ่อยที่สุดตอนต่อในห้องแล็บ
             '<div class="text-[11px] text-subtle mt-1 leading-relaxed">' +
-                'สายอนุกรมต้องมีฝั่งหนึ่งเป็นคนจ่ายสัญญาณนาฬิกา เรียกว่าฝั่ง <b>DCE</b> ซึ่งเป็นฝั่งเดียวที่ต้องมีคำสั่ง ' +
-                '<span class="font-mono">clock rate</span> ในคอนฟิก ถ้าฝั่งนั้นไม่ได้ตั้ง สายจะไม่ขึ้นทั้งที่ IP ถูกหมดแล้ว' +
-                '<br>ฝั่งไหนเป็น DCE ขึ้นกับว่าเสียบปลายสายด้านไหนเข้ากับอุปกรณ์ตัวไหน โปรแกรมเดาให้ว่าเป็น Router หลัก ' +
+                'สาย Serial ที่เชื่อม Router สองตัว ฝั่งหนึ่งเป็น <b>DCE</b> อีกฝั่งเป็น <b>DTE</b> เฉพาะฝั่ง DCE เท่านั้นที่ต้องมีคำสั่ง ' +
+                '<span class="font-mono">clock rate</span> ในคอนฟิก ถ้าฝั่ง DCE ไม่ได้ตั้ง ลิงก์จะไม่ขึ้นทั้งที่ IP ถูกหมดแล้ว' +
+                '<br>ใน Packet Tracer ฝั่ง DCE คืออุปกรณ์ตัวที่คลิกก่อนตอนลากสาย <b>Serial DCE</b> โปรแกรมตั้งให้เป็น Router หลักไว้ ' +
                 'ถ้าของจริงเสียบกลับด้าน กดปุ่มในคอลัมน์สุดท้ายเพื่อสลับได้เลย' +
             '</div>' +
 
@@ -437,9 +437,9 @@ function renderWanTable() {
                 /* ต้องบอกหน่วยทุกที่ที่ตัวเลขนี้โผล่ เดิมมีแต่ตัวเลขเปล่า เช่น 128,000
                    ซึ่งอ่านแล้วเดาไม่ออกว่าเป็นบิตต่อวินาที ไบต์ต่อวินาที หรือกิโลบิตต่อวินาที
                    คำสั่ง clock rate ของ Cisco รับเป็นบิตต่อวินาที (bps) เสมอ */
-                '<label class="text-subtle text-[11px]" for="wanClockRate">ความเร็วสัญญาณนาฬิกา (bps)</label>' +
+                '<label class="text-subtle text-[11px]" for="wanClockRate">ค่า clock rate (bps)</label>' +
                 '<select id="wanClockRate" class="input-cyber text-[12px] py-1" onchange="onWanClockRateChange(this.value)" ' +
-                    'aria-label="ความเร็วสัญญาณนาฬิกาของสายอนุกรม หน่วยบิตต่อวินาที">' +
+                    'aria-label="ค่า clock rate ของสาย Serial หน่วยเป็นบิตต่อวินาที">' +
                     WAN_CLOCK_RATES.map(function(r) {
                         return '<option value="' + r + '"' + (r === getWanClockRate() ? ' selected' : '') + '>' + r.toLocaleString() + ' bps</option>';
                     }).join('') +
@@ -449,16 +449,16 @@ function renderWanTable() {
         '</div>';
 }
 
-// เปลี่ยนความเร็วสัญญาณนาฬิกาของสายอนุกรมทุกเส้นพร้อมกัน
+// เปลี่ยนค่า clock rate ของสาย Serial ทุกเส้นพร้อมกัน
 // ตั้งเป็นค่าเดียวทั้งโปรเจกต์โดยตั้งใจ เพราะในห้องแล็บใช้ค่าเดียวกันทุกเส้นอยู่แล้ว
 // และการให้ตั้งแยกทีละเส้นจะเพิ่มช่องให้ตั้งไม่ตรงกันจนสายไม่ขึ้นโดยไม่จำเป็น
 function onWanClockRateChange(value) {
     var v = Number(value);
     if (WAN_CLOCK_RATES.indexOf(v) === -1) return;
-    if (typeof pushHistory === 'function') pushHistory('เปลี่ยนความเร็วสัญญาณนาฬิกา');
+    if (typeof pushHistory === 'function') pushHistory('เปลี่ยนค่า clock rate');
     state.wanClockRate = v;
     refreshAll();
-    showToast('เปลี่ยนความเร็วสัญญาณนาฬิกาเป็น ' + v.toLocaleString() + ' bps แล้ว มีผลกับสายอนุกรมทุกเส้น', 'info');
+    showToast('เปลี่ยน clock rate เป็น ' + v.toLocaleString() + ' bps แล้ว มีผลกับสาย Serial ทุกเส้น', 'info');
 }
 
 function onSuggestBase() {
@@ -1451,9 +1451,9 @@ function onSuggestIp(id) {
     if (typeof pushHistory === 'function') pushHistory('แนะนำ IP');
     try {
         var node = topoNodes.manualNodes.find(function(n) { return n.id === id; });
-        if (!node || !node.linkedDeptId) { showToast('ต้องลากสายเชื่อมอุปกรณ์นี้เข้ากับ Switch ของแผนกก่อน โปรแกรมถึงจะรู้ว่าควรแนะนำ IP เบอร์ไหน', 'error'); return; }
+        if (!node || !node.linkedDeptId) { showToast('ต้องลากสายเชื่อมอุปกรณ์นี้เข้ากับ Switch ของแผนกก่อน โปรแกรมถึงจะรู้ว่าควรแนะนำ IP หมายเลขไหน', 'error'); return; }
         var ip = suggestNextIp(node.linkedDeptId);
-        if (!ip) { showToast('IP ในแผนกนี้ถูกใช้หมดแล้ว ไม่เหลือเบอร์ว่างให้แนะนำ', 'error'); return; }
+        if (!ip) { showToast('IP ในแผนกนี้ถูกใช้หมดแล้ว ไม่เหลือหมายเลขว่างให้แนะนำ', 'error'); return; }
         node.ip = ip;
         renderDetailPanel();
         showToast('แนะนำ IP: ' + ip, 'success');

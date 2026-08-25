@@ -33,8 +33,8 @@ var state = {
     wanBase: WAN_DEFAULT_BASE,   // Pool สำหรับจอง /30 ให้ลิงก์ระหว่าง Router
     wanCidr: WAN_DEFAULT_CIDR,
     wanLinks: [],                // ผลคำนวณ calculateWanLinks() เติมให้ทุกครั้งที่ refreshAll()
-    wanDce: {},                  // linkId -> id ของปลายที่เป็นฝั่งจ่ายสัญญาณนาฬิกา (ว่างไว้ = ให้โปรแกรมเดาให้)
-    wanClockRate: 64000,         // ความเร็วสัญญาณนาฬิกาที่ใส่ในคำสั่ง clock rate ของฝั่ง DCE
+    wanDce: {},                  // linkId -> id ของปลายที่เป็นฝั่ง DCE (ว่างไว้ = ให้โปรแกรมเดาให้)
+    wanClockRate: 64000,         // ค่า clock rate ของฝั่ง DCE หน่วยเป็น bps
 
     // ----- รูปแปลนอาคารที่วางไว้ใต้ผัง — ดู js/backdrop.js -----
     // { src, x, y, scale, opacity, locked } | null  (src เป็น data URI ของ JPEG ที่ย่อแล้ว)

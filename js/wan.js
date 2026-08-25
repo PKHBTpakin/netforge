@@ -166,8 +166,8 @@ function calculateWanLinks() {
     return results;
 }
 
-/* ---------- ฝั่ง DCE ของสายอนุกรม ----------
-   สายอนุกรมแบบเชื่อมตรงสองจุดต้องมีฝั่งหนึ่งเป็นคนจ่ายสัญญาณนาฬิกา เรียกว่าฝั่ง DCE
+/* ---------- ฝั่ง DCE ของสาย Serial ----------
+   สาย Serial แบบ point-to-point มีฝั่งหนึ่งเป็น DCE อีกฝั่งเป็น DTE เฉพาะฝั่ง DCE ที่ต้องมี clock rate
    อีกฝั่งเป็นฝ่ายรับ เรียกว่า DTE ฝั่ง DCE เท่านั้นที่ต้องตั้งคำสั่ง clock rate
 
    ประเด็นสำคัญ: "ฝั่งไหนเป็น DCE" ไม่ใช่สิ่งที่คำนวณจากผังได้ มันขึ้นกับว่าปลายสายฝั่งไหน
@@ -197,11 +197,11 @@ function toggleWanDce(linkId) {
     state.wanDce[linkId] = other.id;
     if (typeof refreshAll === 'function') refreshAll();
     if (typeof showToast === 'function') {
-        showToast('ย้ายฝั่งจ่ายสัญญาณนาฬิกาไปที่ ' + other.label + ' แล้ว คำสั่ง clock rate จะย้ายตามไปด้วย', 'info');
+        showToast('ย้ายฝั่ง DCE ไปที่ ' + other.label + ' แล้ว คำสั่ง clock rate จะย้ายตามไปด้วย', 'info');
     }
 }
 
-// ความเร็วสัญญาณนาฬิกาที่จะใส่ในคำสั่ง clock rate
+// ค่าที่จะใส่ในคำสั่ง clock rate หน่วยเป็น bps
 // 64000 เป็นค่ามาตรฐานที่ใช้กันในห้องแล็บและ Packet Tracer รับได้แน่นอน
 function getWanClockRate() {
     var v = Number(state.wanClockRate);

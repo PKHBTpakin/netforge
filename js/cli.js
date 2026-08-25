@@ -96,7 +96,7 @@ function buildWanSectionHTML(myWan, myRoutes, target) {
                 ' <span class="cmd">description</span> <span class="value">WAN to ' + escapeHtml(wl.peerLabel) + '</span>\n' +
                 ' <span class="cmd">ip address</span> <span class="value">' + wl.myIp + ' ' + wl.link.netmask + '</span>\n';
 
-            /* สายอนุกรมต้องมีฝั่งหนึ่งจ่ายสัญญาณนาฬิกา (ฝั่ง DCE) อีกฝั่งเป็นฝ่ายรับ (ฝั่ง DTE)
+            /* สาย Serial มีฝั่งหนึ่งเป็น DCE อีกฝั่งเป็น DTE เฉพาะฝั่ง DCE ที่ต้องมี clock rate
                ถ้าฝั่ง DCE ไม่ตั้ง clock rate สายจะไม่ขึ้นเลย ทั้งที่ใส่ IP ถูกทุกอย่างแล้ว
                ซึ่งเป็นอาการที่หาสาเหตุยากมากเพราะไม่มี error อะไรขึ้นมาบอก
                ฝั่งไหนเป็น DCE ขึ้นกับการเสียบสายจริง ไม่ใช่เรื่องที่คำนวณจากผังได้
@@ -107,9 +107,9 @@ function buildWanSectionHTML(myWan, myRoutes, target) {
             out += ' <span class="cmd">no shutdown</span>\n';
 
             if (wl.isDce) {
-                out += '<span class="comment">!   ฝั่งนี้เป็น DCE คือฝั่งที่จ่ายสัญญาณนาฬิกา จึงต้องมี clock rate</span>\n';
+                out += '<span class="comment">!   ฝั่งนี้เป็น DCE จึงต้องมี clock rate</span>\n';
             } else {
-                out += '<span class="comment">!   ฝั่งนี้เป็น DTE คือฝั่งรับสัญญาณนาฬิกา จึงไม่ต้องมี clock rate</span>\n' +
+                out += '<span class="comment">!   ฝั่งนี้เป็น DTE จึงไม่ต้องมี clock rate</span>\n' +
                        '<span class="comment">!   ถ้าเสียบสายกลับด้าน ให้ไปสลับฝั่ง DCE ที่ตาราง WAN ใต้แท็บ IP TABLE</span>\n';
             }
             out += '<span class="comment">!   ปลายทาง ' + escapeHtml(wl.peerLabel) + ' = ' + wl.peerIp + ' (subnet ' + wl.link.network + '/30)</span>\n\n';
@@ -117,7 +117,7 @@ function buildWanSectionHTML(myWan, myRoutes, target) {
     }
 
     // สาขาที่มีทางออกทางเดียว (stub network) ใช้ default route เป็นมาตรฐานปฏิบัติ
-    // อ่านง่ายกว่าและไม่ต้องแก้ทุกครั้งที่สำนักงานใหญ่เพิ่มวงใหม่
+    // อ่านง่ายกว่าและไม่ต้องแก้ทุกครั้งที่สำนักงานใหญ่เพิ่ม subnet ใหม่
     // ส่วนสำนักงานใหญ่ต้องรู้เส้นทางเจาะจงของแต่ละสาขา เพราะมีหลายทางให้เลือก
     // หมายเหตุกำกับแต่ละเส้นทางต้องอยู่ "บรรทัดของตัวเอง" เหนือคำสั่ง ห้ามต่อท้าย
     // IOS ไม่มีคอมเมนต์ท้ายบรรทัด — `!` เป็นคอมเมนต์เฉพาะตอนขึ้นต้นบรรทัดเท่านั้น
@@ -225,7 +225,7 @@ function renderCLI() {
 
     // ต้องใช้ myDepts ไม่ใช่ state.calculated ทั้งหมด
     // ไม่งั้น Router สาขาจะแจก DHCP และกัน address ของเครือข่ายที่ตัวเองไม่ได้ดูแล
-    // ซึ่งบนอุปกรณ์จริงคือการตั้งค่าที่ผิด และทำให้เครื่องปลายทางได้ IP ผิดวง
+    // ซึ่งบนอุปกรณ์จริงคือการตั้งค่าที่ผิด และทำให้เครื่องปลายทางได้ IP ผิด subnet
     if (myDepts.length > 0) {
         cliRouter += '<span class="comment">! --- DHCP Pools (IPv4) ---</span>\n' +
             '<span class="comment">! excluded-address ต้องแยกบรรทัดละช่วง — IOS รับได้แค่ low [high] ต่อหนึ่งคำสั่ง</span>\n';
