@@ -162,14 +162,14 @@ function check(label, cond, detail) { results.push({ label, pass: !!cond, detail
     check('toggle 1: localStorage persisted dark', localStorageStore['netforge_theme'] === 'dark');
     check('toggle 1: <html data-theme> cleared (dark = no attr per applyTheme logic)', vm.runInContext("document.documentElement.getAttribute('data-theme')", context) === '');
     check('toggle 1: #btnTheme now offers LIGHT', /LIGHT/.test(vm.runInContext("document.getElementById('btnTheme').innerHTML", context)));
-    check('toggle 1: toast announces Dark Mode', capturedToasts.some(t => /Dark Mode/.test(t.msg)), JSON.stringify(capturedToasts));
+    check('toggle 1: toast แจ้งว่าสลับเป็นโหมดมืด', capturedToasts.some(t => /โหมดมืด/.test(t.msg)), JSON.stringify(capturedToasts));
 
     capturedToasts = [];
     vm.runInContext('toggleTheme()', context);
     check('toggle 2 (round-trip): state -> light', vm.runInContext('state.theme', context) === 'light');
     check('toggle 2: DEPT_COLORS -> LIGHT', vm.runInContext('DEPT_COLORS === DEPT_COLORS_LIGHT', context));
     check('toggle 2: localStorage persisted light', localStorageStore['netforge_theme'] === 'light');
-    check('toggle 2: toast announces Light Mode', capturedToasts.some(t => /Light Mode/.test(t.msg)), JSON.stringify(capturedToasts));
+    check('toggle 2: toast แจ้งว่าสลับเป็นโหมดสว่าง', capturedToasts.some(t => /โหมดสว่าง/.test(t.msg)), JSON.stringify(capturedToasts));
 
     localStorageBroken = true;
     let toggleThrew = false;

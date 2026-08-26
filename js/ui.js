@@ -521,7 +521,7 @@ function suggestBaseV6Info() {
         // 4. ปัด Base ลงหาขอบ Block (ทำหลังสุด เพราะ basePrefix อาจเพิ่งเปลี่ยนในขั้น 3)
         var normalized = normalizeIpv6Network(base, basePrefix);
         if (normalized !== null && normalized !== base) {
-            changes.push('ปัด Base เป็นขอบ Block: ' + normalized + '/' + basePrefix);
+            changes.push('ปัด Base IPv6 ให้ตรงกับจุดเริ่มต้นของก้อน: ' + normalized + '/' + basePrefix);
             base = normalized;
         }
 
@@ -830,7 +830,7 @@ function onBaseChangeV6() {
     try {
         refreshAll();
         document.getElementById('statusBar').textContent = 'IPv6 Base: ' + ip + '/' + prefix + ' → /' + newPrefix + ' | ' + state.calculatedV6.length + ' subnets allocated';
-        if (v6Adjusted) showToast('ปรับ Base เป็นขอบ Block: ' + ip + '/' + prefix, 'info');
+        if (v6Adjusted) showToast('ปรับ Base IPv6 ให้ตรงกับจุดเริ่มต้นของก้อนแล้ว: ' + ip + '/' + prefix, 'info');
         else showToast('คำนวณ IPv6 เรียบร้อยแล้ว', 'success');
     } catch (err) {
         console.error('onBaseChangeV6 error:', err);
@@ -892,7 +892,7 @@ function applyTheme(mode) {
 
 function toggleTheme() {
     applyTheme(state.theme === 'light' ? 'dark' : 'light');
-    showToast('สลับเป็น ' + (state.theme === 'light' ? 'Light Mode' : 'Dark Mode'), 'info');
+    showToast('สลับเป็น' + (state.theme === 'light' ? 'โหมดสว่าง' : 'โหมดมืด'), 'info');
 }
 
 function updateThemeButton() {
@@ -1020,7 +1020,7 @@ function onRemoveDept(id) {
         }
         refreshAll();
         if (typeof detachManualNodesFromDept === 'function') detachManualNodesFromDept(id);
-        showToast('ลบ ' + (dept ? dept.name : 'dept') + ' แล้ว ถ้าลบผิดกด Ctrl+Z เพื่อเอากลับคืนได้', 'info');
+        showToast((dept ? 'ลบ ' + dept.name + ' แล้ว' : 'ลบแผนกแล้ว') + ' ถ้าลบผิดกด Ctrl+Z เพื่อเอากลับคืนได้', 'info');
     } catch (err) {
         console.error('onRemoveDept error:', err);
         showToast('ลบแผนกไม่สำเร็จ', 'error');
@@ -1251,7 +1251,7 @@ function initResizers() {
         resizerX.addEventListener('dblclick', function() {
             setSidebarWidth(DEFAULT_SIDEBAR_W);
             if (typeof resizeCanvas === 'function') resizeCanvas();
-            if (typeof showToast === 'function') showToast('รีเซ็ตขนาด Sidebar แล้ว', 'info');
+            if (typeof showToast === 'function') showToast('ปรับความกว้างแถบด้านซ้ายกลับเป็นค่าเริ่มต้นแล้ว', 'info');
         });
     }
 
@@ -1356,7 +1356,7 @@ function togglePlacingMode(type) {
         state.placingType = (state.placingType === type) ? null : type; // กดปุ่มเดิมซ้ำ = ยกเลิกโหมด
         updateModeButtons();
         document.getElementById('statusBar').textContent = state.placingType
-            ? 'คลิกตำแหน่งบน Canvas เพื่อวาง ' + (type === 'pc' ? 'PC' : type === 'router-branch' ? 'Router สาขา' : 'Server')
+            ? 'คลิกตำแหน่งบนผังเพื่อวาง ' + (type === 'pc' ? 'PC' : type === 'router-branch' ? 'Router สาขา' : 'Server')
             : 'Ready';
     } catch (err) {
         console.error('togglePlacingMode error:', err);

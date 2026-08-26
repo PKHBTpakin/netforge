@@ -428,8 +428,8 @@
                         aria-label="ผัง Topology ของเครือข่าย แสดง Router สวิตช์ของแต่ละแผนก และอุปกรณ์ที่เชื่อมอยู่ ข้อมูลเดียวกันนี้อ่านเป็นข้อความได้ที่ตาราง IP Table ด้านล่าง"></canvas>
                 <div class="absolute top-3 left-3 font-display text-[10px] md:text-[12px] tracking-[2px] text-cyber opacity-90 font-bold bg-app-50 p-1 rounded">ผังเครือข่าย คลิกที่อุปกรณ์เพื่อดูรายละเอียด ลากเพื่อย้ายตำแหน่ง</div>
                 <div class="absolute top-3 right-3 flex gap-1.5 z-10">
-                    <button id="btnAddPc" onclick="togglePlacingMode('pc')" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกบน Canvas เพื่อวาง PC"><i class="fas fa-desktop mr-1"></i>PC</button>
-                    <button id="btnAddServer" onclick="togglePlacingMode('server')" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกบน Canvas เพื่อวาง Server"><i class="fas fa-server mr-1"></i>Server</button>
+                    <button id="btnAddPc" onclick="togglePlacingMode('pc')" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกบนผังเพื่อวาง PC"><i class="fas fa-desktop mr-1"></i>PC</button>
+                    <button id="btnAddServer" onclick="togglePlacingMode('server')" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกบนผังเพื่อวาง Server"><i class="fas fa-server mr-1"></i>Server</button>
                     <button id="btnAddRouter" onclick="togglePlacingMode('router-branch')" class="btn-cyber text-[12px] px-2 py-1" title="วาง Router สาขา แล้วลากเชื่อมกับ Router หลักเพื่อสร้างลิงก์ WAN"><i class="fas fa-network-wired mr-1"></i>Router</button>
                     <button id="btnConnect" onclick="toggleConnectMode()" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกอุปกรณ์ 2 ตัวเพื่อเชื่อมสาย"><i class="fas fa-link mr-1"></i>Connect</button>
                     <button id="btnBackdrop" onclick="openBackdropPanel()" class="btn-cyber text-[12px] px-2 py-1" title="ใส่รูปแปลนอาคารไว้ใต้ผัง แล้วลากอุปกรณ์ไปวางตรงตำแหน่งจริง"><i class="fas fa-image mr-1"></i>แปลน</button>
@@ -458,7 +458,7 @@
                     <button onclick="resetView()" title="กลับไปขนาด 100% ตำแหน่งเริ่มต้น" aria-label="รีเซ็ตมุมมองกลับ 100 เปอร์เซ็นต์"><i class="fas fa-rotate-left" aria-hidden="true"></i></button>
                 </div>
 
-                <div class="canvas-legend" title="ความหมายสีบน Topology Canvas">
+                <div class="canvas-legend" title="ความหมายสีบนผังเครือข่าย">
                     <div class="legend-item"><span class="legend-dot" style="background:var(--neon)"></span>Router</div>
                     <div class="legend-item"><span class="legend-dot-multi"><span style="background:#14B8A6"></span><span style="background:#A78BFA"></span><span style="background:#F59E0B"></span></span>Switch / แผนก (สีต่างกันตาม VLAN)</div>
                     <div class="legend-item"><span class="legend-dot" style="background:var(--pc-swatch)"></span>PC</div>
@@ -563,7 +563,7 @@
 
         <aside id="detailPanel" class="detail-panel fixed inset-y-0 right-0 z-50 mt-[100px] md:mt-0 w-full sm:w-[320px] md:relative flex-shrink-0 border-l border-dark-600 flex flex-col shadow-2xl md:shadow-none" style="background: var(--card);">
             <div class="p-4 border-b border-dark-600 flex items-center justify-between bg-app-90 backdrop-blur">
-                <div class="font-display text-[12px] tracking-[2px] text-neon"><i class="fas fa-edit mr-1"></i>NODE DETAILS</div>
+                <div class="font-display text-[12px] tracking-[2px] text-neon"><i class="fas fa-edit mr-1"></i>รายละเอียดอุปกรณ์</div>
                 <button onclick="closeDetailPanel()" class="text-muted hover:text-hot transition-colors p-2" aria-label="ปิดแผงรายละเอียด"><i class="fas fa-times fa-lg" aria-hidden="true"></i></button>
             </div>
             <!-- min-h-0 จำเป็นคู่กับ overflow-y-auto เสมอ ไม่งั้นกล่องจะยืดตามเนื้อหาแทนที่จะเลื่อน -->
