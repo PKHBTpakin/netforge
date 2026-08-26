@@ -126,7 +126,7 @@ function exportTopologyPNG(scale) {
         }
     } catch (err) {
         console.error('exportTopologyPNG error:', err);
-        showToast('บันทึกรูปไม่สำเร็จ', 'error');
+        showToast('โปรแกรมบันทึกรูปผังไม่สำเร็จ ลองย่อขนาดผังลงแล้วกดใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -213,7 +213,7 @@ function exportTableCSV() {
         showToast('บันทึกตารางเป็นไฟล์ CSV แล้ว เปิดด้วย Excel ได้เลย', 'success');
     } catch (err) {
         console.error('exportTableCSV error:', err);
-        showToast('บันทึก CSV ไม่สำเร็จ', 'error');
+        showToast('โปรแกรมบันทึกไฟล์ CSV ไม่สำเร็จ ลองกดใหม่อีกครั้ง ถ้ายังไม่ได้ให้ตรวจว่าเบราว์เซอร์บล็อกการดาวน์โหลดอยู่หรือเปล่า', 'error');
     }
 }
 
@@ -266,6 +266,6 @@ function exportCliTxt() {
         showToast('บันทึกคำสั่ง CLI ของทุกอุปกรณ์เป็นไฟล์แล้ว', 'success');
     } catch (err) {
         console.error('exportCliTxt error:', err);
-        showToast('บันทึกไฟล์ CLI ไม่สำเร็จ', 'error');
+        showToast('โปรแกรมบันทึกไฟล์คำสั่งไม่สำเร็จ ลองกดใหม่อีกครั้ง ถ้ายังไม่ได้ให้ตรวจว่าเบราว์เซอร์บล็อกการดาวน์โหลดอยู่หรือเปล่า', 'error');
     }
 }

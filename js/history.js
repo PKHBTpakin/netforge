@@ -68,7 +68,7 @@ function undo() {
         showToast('ย้อนกลับ: ' + entry.label, 'info');
     } catch (err) {
         console.error('undo error:', err);
-        showToast('ย้อนกลับไม่สำเร็จ', 'error');
+        showToast('โปรแกรมย้อนกลับไม่สำเร็จ ลองกด Ctrl+Z ใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -85,7 +85,7 @@ function redo() {
         showToast('ทำซ้ำแล้ว', 'info');
     } catch (err) {
         console.error('redo error:', err);
-        showToast('ทำซ้ำไม่สำเร็จ', 'error');
+        showToast('โปรแกรมทำซ้ำไม่สำเร็จ ลองกด Ctrl+Y ใหม่อีกครั้ง', 'error');
     }
 }
 

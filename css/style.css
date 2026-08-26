@@ -292,9 +292,21 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
    เดิมตั้งไว้ 10000 ซึ่ง "ต่ำกว่า" modal -> toast ที่ยิงจากในหน้าคลังโปรเจกต์
    (เช่น "ยังไม่มีข้อมูลให้บันทึก") จะถูกฉากมืดของ modal ทับจนอ่านแทบไม่ออก
    ทั้งที่มันคือข้อความบอกว่าทำไมกดแล้วไม่เกิดอะไรขึ้น */
+/* toast อยู่มุมล่างขวา ไม่ใช่บนขวา (อ่านก่อนย้ายกลับ):
+
+   เดิมตั้ง top: 70px right: 20px ซึ่งทับปุ่ม PC / Server / Router / Connect / แปลน พอดี
+   เพราะปุ่มชุดนั้นวางแบบ absolute top-3 right-3 ในกล่องผัง = ประมาณ y 68-100px ของหน้าจอ
+   ส่วน toast วางแบบ fixed จากขอบบนหน้าจอ ทั้งสองอันชิดขวาเหมือนกัน จึงชนกันเต็ม ๆ
+
+   ครึ่งบนของแอปแน่นมาก (แถบเครื่องมือ 10 ปุ่ม + ปุ่มอุปกรณ์ 5 ปุ่ม + ป้ายชื่อผัง)
+   การตั้ง top: เป็นตัวเลขตายตัวจึงเปราะ ถ้าวันหลังจอแคบจนแถบบนขึ้นสองบรรทัด มันจะกลับมาทับอีก
+   มุมล่างขวามีแค่ตาราง IP ซึ่งอยู่นิ่งและถูกบังชั่วคราวไม่กี่วินาทีเท่านั้น
+
+   column-reverse: toast อันใหม่โผล่ล่างสุดแล้วกองขึ้นข้างบน
+   ถ้าใช้ column ธรรมดา อันใหม่จะดันอันเก่าลงไปจนหลุดขอบจอ */
 .toast-container {
-    position: fixed; top: 70px; right: 20px; z-index: 10002;
-    display: flex; flex-direction: column; gap: 8px;
+    position: fixed; bottom: 20px; right: 20px; z-index: 10002;
+    display: flex; flex-direction: column-reverse; gap: 8px;
 }
 .toast {
     padding: 10px 18px; border-radius: 6px; font-size: 14px;

@@ -474,7 +474,7 @@ function onSuggestBase() {
         showToast('ปรับ Base เป็น /' + cidr + ' ให้แล้ว ซึ่งเป็นขนาดเล็กที่สุดที่ยังพอใช้ครบทุกแผนก', 'success');
     } catch (err) {
         console.error('onSuggestBase error:', err);
-        showToast('แนะนำ Base ไม่สำเร็จ', 'error');
+        showToast('โปรแกรมแนะนำ Base ไม่สำเร็จ ลองกดปุ่มไม้กายสิทธิ์ใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -543,7 +543,7 @@ function suggestBaseV6Info() {
         }
     } catch (err) {
         console.error('suggestBaseV6Info error:', err);
-        showToast('ปรับค่า IPv6 ไม่สำเร็จ', 'error');
+        showToast('โปรแกรมปรับค่า IPv6 ไม่สำเร็จ ลองกดปุ่มไม้กายสิทธิ์ใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -771,7 +771,7 @@ function onDetailInput(deptId, field, value) {
         updateDetailSubnetInfo();
     } catch (err) {
         console.error('onDetailInput error:', err);
-        if (typeof showToast === 'function') showToast('แก้ไขไม่สำเร็จ ลองใหม่อีกครั้ง', 'error');
+        if (typeof showToast === 'function') showToast('โปรแกรมแก้ไขไม่สำเร็จ ลองกดใหม่อีกครั้ง', 'error');
     } finally {
         isEditing = false;
     }
@@ -802,7 +802,7 @@ function onBaseChange() {
         else showToast('คำนวณเรียบร้อยแล้ว', 'success');
     } catch (err) {
         console.error('onBaseChange error:', err);
-        showToast('คำนวณไม่สำเร็จ ตรวจสอบข้อมูลแผนกอีกครั้ง', 'error');
+        showToast('โปรแกรมคำนวณไม่สำเร็จ ลองตรวจชื่อแผนกกับจำนวนเครื่องอีกครั้ง แล้วกด CALCULATE ใหม่', 'error');
     }
 }
 
@@ -834,7 +834,7 @@ function onBaseChangeV6() {
         else showToast('คำนวณ IPv6 เรียบร้อยแล้ว', 'success');
     } catch (err) {
         console.error('onBaseChangeV6 error:', err);
-        showToast('คำนวณ IPv6 ไม่สำเร็จ ตรวจสอบข้อมูลอีกครั้ง', 'error');
+        showToast('โปรแกรมคำนวณ IPv6 ไม่สำเร็จ ลองตรวจ Base IPv6 กับ Prefix อีกครั้ง แล้วกด CALCULATE ใหม่', 'error');
     }
 }
 
@@ -857,7 +857,7 @@ function setIpMode(mode, silent) {
         if (!silent) showToast('สลับไปโหมด ' + (mode === 'v6' ? 'IPv6' : 'IPv4'), 'info');
     } catch (err) {
         console.error('setIpMode error:', err);
-        showToast('สลับโหมดไม่สำเร็จ', 'error');
+        showToast('โปรแกรมสลับโหมดไม่สำเร็จ ลองกดปุ่ม IPv4 หรือ IPv6 ใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -954,7 +954,7 @@ function onAddDept() {
         showToast('เพิ่ม ' + name + ' สำเร็จ', 'success');
     } catch (err) {
         console.error('onAddDept error:', err);
-        showToast('เพิ่มแผนกไม่สำเร็จ', 'error');
+        showToast('โปรแกรมเพิ่มแผนกไม่สำเร็จ ลองกดปุ่มเพิ่มแผนกใหม่อีกครั้ง', 'error');
     } finally {
         isEditing = false;
     }
@@ -978,7 +978,7 @@ function onDuplicateDept(id) {
         showToast('ทำซ้ำ ' + src.name + ' แล้ว', 'success');
     } catch (err) {
         console.error('onDuplicateDept error:', err);
-        showToast('ทำซ้ำไม่สำเร็จ', 'error');
+        showToast('โปรแกรมทำสำเนาแผนกไม่สำเร็จ ลองกดใหม่อีกครั้ง', 'error');
     } finally {
         isEditing = false;
     }
@@ -1023,7 +1023,7 @@ function onRemoveDept(id) {
         showToast((dept ? 'ลบ ' + dept.name + ' แล้ว' : 'ลบแผนกแล้ว') + ' ถ้าลบผิดกด Ctrl+Z เพื่อเอากลับคืนได้', 'info');
     } catch (err) {
         console.error('onRemoveDept error:', err);
-        showToast('ลบแผนกไม่สำเร็จ', 'error');
+        showToast('โปรแกรมลบแผนกไม่สำเร็จ ลองกดใหม่อีกครั้ง', 'error');
     } finally {
         isEditing = false;
     }
@@ -1045,10 +1045,10 @@ function copyToClipboard(text, successMsg) {
             var ok = document.execCommand('copy');
             document.body.removeChild(ta);
             if (ok) showToast(successMsg, 'success');
-            else showToast('คัดลอกอัตโนมัติไม่สำเร็จ กรุณาเลือกข้อความแล้วกด Ctrl+C เอง', 'error');
+            else showToast('คัดลอกอัตโนมัติไม่สำเร็จ ให้ลากเลือกข้อความแล้วกด Ctrl+C เอง', 'error');
         } catch (err) {
             console.error('fallbackCopy error:', err);
-            showToast('คัดลอกอัตโนมัติไม่สำเร็จ กรุณาเลือกข้อความแล้วกด Ctrl+C เอง', 'error');
+            showToast('คัดลอกอัตโนมัติไม่สำเร็จ ให้ลากเลือกข้อความแล้วกด Ctrl+C เอง', 'error');
         }
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1360,7 +1360,7 @@ function togglePlacingMode(type) {
             : 'Ready';
     } catch (err) {
         console.error('togglePlacingMode error:', err);
-        showToast('สลับโหมดวางอุปกรณ์ไม่สำเร็จ', 'error');
+        showToast('โปรแกรมสลับโหมดวางอุปกรณ์ไม่สำเร็จ ลองกดปุ่มใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -1375,7 +1375,7 @@ function toggleConnectMode() {
             : 'Ready';
     } catch (err) {
         console.error('toggleConnectMode error:', err);
-        showToast('สลับโหมดเชื่อมสายไม่สำเร็จ', 'error');
+        showToast('โปรแกรมสลับโหมดเชื่อมสายไม่สำเร็จ ลองกดปุ่ม Connect ใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -1443,7 +1443,7 @@ function onManualIpChange(id, value) {
         showToast('บันทึก IP แล้ว', 'success');
     } catch (err) {
         console.error('onManualIpChange error:', err);
-        showToast('แก้ไข IP ไม่สำเร็จ', 'error');
+        showToast('โปรแกรมบันทึก IP ไม่สำเร็จ ลองกดใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -1459,7 +1459,7 @@ function onSuggestIp(id) {
         showToast('แนะนำ IP: ' + ip, 'success');
     } catch (err) {
         console.error('onSuggestIp error:', err);
-        showToast('แนะนำ IP ไม่สำเร็จ', 'error');
+        showToast('โปรแกรมแนะนำ IP ไม่สำเร็จ ลองกดใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -1472,7 +1472,7 @@ function onRemoveLink(linkId) {
         showToast('ลบสายเชื่อมแล้ว', 'info');
     } catch (err) {
         console.error('onRemoveLink error:', err);
-        showToast('ลบสายไม่สำเร็จ', 'error');
+        showToast('โปรแกรมลบสายเชื่อมไม่สำเร็จ ลองกดใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -1486,6 +1486,6 @@ function onRemoveManualNode(id) {
         showToast('ลบอุปกรณ์แล้ว ถ้าลบผิดกด Ctrl+Z เพื่อเอากลับคืนได้', 'info');
     } catch (err) {
         console.error('onRemoveManualNode error:', err);
-        showToast('ลบอุปกรณ์ไม่สำเร็จ', 'error');
+        showToast('โปรแกรมลบอุปกรณ์ไม่สำเร็จ ลองกดใหม่อีกครั้ง', 'error');
     }
 }

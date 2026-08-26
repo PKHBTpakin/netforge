@@ -435,7 +435,7 @@ function exportLabHtml() {
         showToast('บันทึกคู่มือแบบเปิดในเบราว์เซอร์แล้ว มีปุ่มคัดลอกทุกบล็อก', 'success');
     } catch (err) {
         console.error('exportLabHtml error:', err);
-        showToast('สร้างคู่มือไม่สำเร็จ', 'error');
+        showToast('โปรแกรมสร้างคู่มือไม่สำเร็จ ลองกด CALCULATE คำนวณใหม่ก่อน แล้วค่อยกดสร้างคู่มืออีกครั้ง', 'error');
     }
 }
 
@@ -447,6 +447,6 @@ function exportLabMd() {
         showToast('บันทึกคู่มือแบบ Markdown แล้ว', 'success');
     } catch (err) {
         console.error('exportLabMd error:', err);
-        showToast('สร้างคู่มือไม่สำเร็จ', 'error');
+        showToast('โปรแกรมสร้างคู่มือไม่สำเร็จ ลองกด CALCULATE คำนวณใหม่ก่อน แล้วค่อยกดสร้างคู่มืออีกครั้ง', 'error');
     }
 }

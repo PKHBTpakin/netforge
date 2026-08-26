@@ -75,7 +75,7 @@ function calculateIPv6() {
     } catch (err) {
         console.error('calculateIPv6 error:', err);
         state.calculatedV6 = [];
-        showToast('คำนวณ IPv6 ไม่สำเร็จ', 'error');
+        showToast('โปรแกรมคำนวณ IPv6 ไม่สำเร็จ ลองกด CALCULATE ใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -125,7 +125,7 @@ function loadExample(key) {
         showToast('โหลดตัวอย่าง: ' + ex.label + (built > 0 ? ' (Router สาขา ' + built + ' ตัว ต่อสายให้เรียบร้อยแล้ว)' : ''), 'success');
     } catch (err) {
         console.error('loadExample error:', err);
-        showToast('โหลดตัวอย่างไม่สำเร็จ', 'error');
+        showToast('โปรแกรมโหลดตัวอย่างไม่สำเร็จ ลองเลือกชุดตัวอย่างใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -245,7 +245,7 @@ function clearAll() {
         showToast('ล้างข้อมูลทั้งหมดแล้ว', 'info');
     } catch (err) {
         console.error('clearAll error:', err);
-        showToast('ล้างข้อมูลไม่สำเร็จ', 'error');
+        showToast('โปรแกรมล้างข้อมูลไม่สำเร็จ ลองกด CLEAR ใหม่อีกครั้ง', 'error');
     }
 }
 
@@ -337,7 +337,7 @@ function exportProject() {
         showToast('บันทึกโปรเจกต์เป็นไฟล์แล้ว', 'success');
     } catch (err) {
         console.error('exportProject error:', err);
-        showToast('บันทึกโปรเจกต์ไม่สำเร็จ', 'error');
+        showToast('โปรแกรมบันทึกไฟล์ไม่สำเร็จ ลองกด SAVE ใหม่อีกครั้ง ถ้ายังไม่ได้ให้ตรวจว่าเบราว์เซอร์บล็อกการดาวน์โหลดอยู่หรือเปล่า', 'error');
     }
 }
 
@@ -366,7 +366,7 @@ function onImportFileSelected(inputEl) {
         if (typeof clearHistory === 'function') clearHistory();
     };
     reader.onerror = function() {
-        showToast('อ่านไฟล์ไม่สำเร็จ', 'error');
+        showToast('อ่านไฟล์ไม่สำเร็จ ไฟล์อาจเสียหาย ลองเปิดไฟล์อื่นที่บันทึกจากโปรแกรมนี้', 'error');
     };
     reader.readAsText(file);
 }
@@ -514,7 +514,7 @@ function applyProjectData(data) {
         showToast('โหลดโปรเจกต์สำเร็จ', 'success');
     } catch (err) {
         console.error('applyProjectData error:', err);
-        showToast('โหลดโปรเจกต์ไม่สำเร็จ ข้อมูลอาจไม่สมบูรณ์', 'error');
+        showToast('เปิดโปรเจกต์ไม่สำเร็จ ข้อมูลในไฟล์อาจไม่ครบ ลองเปิดไฟล์สำรองอันอื่น หรือกด CLEAR แล้วเริ่มใหม่', 'error');
     }
 }
 

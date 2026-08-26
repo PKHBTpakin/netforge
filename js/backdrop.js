@@ -143,17 +143,17 @@ function onBackdropFile(input) {
                     }
                 } catch (err) {
                     console.error('backdrop encode error:', err);
-                    showToast('ย่อรูปไม่สำเร็จ', 'error');
+                    showToast('โปรแกรมย่อรูปไม่สำเร็จ ลองใช้ไฟล์ PNG หรือ JPG ที่ขนาดเล็กกว่านี้', 'error');
                 }
             };
             img.onerror = function () { showToast('เปิดรูปนี้ไม่ได้ ลองเปลี่ยนเป็นไฟล์ PNG หรือ JPG ดู', 'error'); };
             img.src = e.target.result;
         };
-        reader.onerror = function () { showToast('อ่านไฟล์ไม่สำเร็จ', 'error'); };
+        reader.onerror = function () { showToast('อ่านไฟล์รูปไม่สำเร็จ ไฟล์อาจเสียหาย ลองเลือกรูปอื่น', 'error'); };
         reader.readAsDataURL(file);
     } catch (err) {
         console.error('onBackdropFile error:', err);
-        showToast('ใส่รูปไม่สำเร็จ', 'error');
+        showToast('โปรแกรมใส่แปลนอาคารไม่สำเร็จ ลองเลือกรูปใหม่อีกครั้ง', 'error');
     } finally {
         if (input) input.value = ''; // ล้างค่าเพื่อให้เลือกไฟล์เดิมซ้ำได้อีก
     }

@@ -112,7 +112,7 @@ function addSummaryRoute() {
         showToast('เพิ่ม ' + normalized + ' แล้ว', 'success');
     } catch (err) {
         console.error('addSummaryRoute error:', err);
-        showToast('เพิ่มเส้นทางไม่สำเร็จ', 'error');
+        showToast('โปรแกรมเพิ่มเส้นทางไม่สำเร็จ ลองกดใหม่อีกครั้ง', 'error');
     }
 }
 

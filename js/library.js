@@ -96,7 +96,7 @@ function saveToLibrary(name) {
         return entry.id;
     } catch (err) {
         console.error('saveToLibrary error:', err);
-        showToast('บันทึกลงคลังไม่สำเร็จ', 'error');
+        showToast('โปรแกรมบันทึกลงคลังไม่สำเร็จ ลองกดใหม่อีกครั้ง ถ้ายังไม่ได้ให้กด SAVE เก็บเป็นไฟล์ไว้ก่อน', 'error');
         return null;
     }
 }
@@ -111,7 +111,7 @@ function openFromLibrary(id) {
         document.getElementById('statusBar').textContent = 'เปิดจากคลัง: ' + entry.name;
     } catch (err) {
         console.error('openFromLibrary error:', err);
-        showToast('เปิดโปรเจกต์ไม่สำเร็จ', 'error');
+        showToast('โปรแกรมเปิดโปรเจกต์ไม่สำเร็จ ข้อมูลในคลังอาจเสียหาย ลองเปิดชิ้นอื่นดู', 'error');
     }
 }
 
@@ -224,7 +224,7 @@ function copyShareLink() {
         }
     } catch (err) {
         console.error('copyShareLink error:', err);
-        showToast('สร้างลิงก์ไม่สำเร็จ', 'error');
+        showToast('โปรแกรมสร้างลิงก์ไม่สำเร็จ ลองกดใหม่อีกครั้ง ถ้ายังไม่ได้ให้กด SAVE บันทึกเป็นไฟล์แล้วส่งไฟล์แทน', 'error');
     }
 }
 
