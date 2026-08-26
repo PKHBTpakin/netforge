@@ -123,7 +123,7 @@ function onBackdropFile(input) {
                     c.fillRect(0, 0, w, h);
                     c.drawImage(img, 0, 0, w, h);
 
-                    if (typeof pushHistory === 'function') pushHistory('ใส่รูปพื้นหลัง');
+                    if (typeof pushHistory === 'function') pushHistory('ใส่แปลนอาคาร');
                     var b = getBackdrop();
                     b.src = cv.toDataURL('image/jpeg', BACKDROP_QUALITY);
                     // วางกึ่งกลางบริเวณที่ผังถูกจัดไว้ตั้งแต่ต้น ไม่ใช่มุมซ้ายบนที่ผู้ใช้ต้องเลื่อนไปหา
@@ -161,14 +161,14 @@ function onBackdropFile(input) {
 
 function removeBackdrop() {
     if (!hasBackdrop()) return;
-    if (typeof pushHistory === 'function') pushHistory('ลบรูปพื้นหลัง');
+    if (typeof pushHistory === 'function') pushHistory('ลบแปลนอาคาร');
     state.backdrop = defaultBackdrop();
     backdropImg = null;
     backdropLoadedSrc = null;
     renderBackdropPanel();
     if (typeof scheduleAutosave === 'function') scheduleAutosave();
     if (typeof requestRedraw === 'function') requestRedraw();
-    showToast('ลบรูปพื้นหลังแล้ว', 'success');
+    showToast('ลบแปลนอาคารแล้ว', 'success');
 }
 
 function onBackdropOpacity(value) {
@@ -226,17 +226,17 @@ function renderBackdropPanel() {
             '<button onclick="toggleBackdropLock()" class="' + (b.locked ? 'btn-cyber' : 'btn-neon') + ' text-[12px] px-2 py-1">' +
                 '<i class="fas ' + (b.locked ? 'fa-lock' : 'fa-lock-open') + ' mr-1" aria-hidden="true"></i>' +
                 (b.locked ? 'ล็อกอยู่' : 'ลากรูปได้') + '</button>' +
-            '<button onclick="removeBackdrop()" class="btn-hot text-[12px] px-2 py-1" title="เอารูปพื้นหลังออก">' +
+            '<button onclick="removeBackdrop()" class="btn-hot text-[12px] px-2 py-1" title="เอาแปลนอาคารออก">' +
                 '<i class="fas fa-trash" aria-hidden="true"></i></button>' +
         '</div>' +
 
         '<label class="text-subtle text-[11px] tracking-wider block mt-2" for="backdropOpacity">ความจาง — ' + opacityPct + '%</label>' +
         '<input id="backdropOpacity" type="range" min="5" max="100" value="' + opacityPct + '" class="w-full" ' +
-            'oninput="onBackdropOpacity(this.value)" aria-label="ความจางของรูปพื้นหลัง">' +
+            'oninput="onBackdropOpacity(this.value)" aria-label="ความจางของแปลนอาคาร">' +
 
         '<label class="text-subtle text-[11px] tracking-wider block mt-2" for="backdropScale">ขนาด — ' + scalePct + '%</label>' +
         '<input id="backdropScale" type="range" min="10" max="400" value="' + scalePct + '" class="w-full" ' +
-            'oninput="onBackdropScale(this.value)" aria-label="ขนาดของรูปพื้นหลัง">' +
+            'oninput="onBackdropScale(this.value)" aria-label="ขนาดของแปลนอาคาร">' +
 
         '<div class="text-subtle text-[11px] mt-2 leading-relaxed">' +
             (b.locked

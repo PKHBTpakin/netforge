@@ -210,7 +210,7 @@ let panel = stripTags(getElementById('utilPanel').innerHTML);
 check('panel: แสดงครบทั้งสามส่วน',
     panel.includes('ใช้งานจริง') && panel.includes('เสียเพราะปัดขนาด') && panel.includes('เหลือเผื่อขยาย'), panel.slice(0, 100));
 check('panel: อธิบายว่าส่วนที่เหลือไว้ไม่ใช่ความสูญเปล่า', panel.includes('ไม่ถือว่าเสียเปล่า'));
-check('panel: เสนอเปลี่ยนเลขตั้งต้นพร้อมปุ่มกดเปลี่ยน (36.5% -> 73%)', panel.includes('ถ้าเปลี่ยนเลขตั้งต้นเป็น') && panel.includes('/24'));
+check('panel: เสนอเปลี่ยน Base พร้อมปุ่มกดเปลี่ยน (36.5% -> 73%)', panel.includes('ถ้าเปลี่ยน Base เป็น') && panel.includes('/24'));
 check('panel: แสดงโควตาที่ได้ฟรี', panel.includes('เพิ่มเครื่องได้อีกฟรี'));
 
 // ตรวจตัวเลข headroom กับ subnet จริง: IT-Department ขอ 50 ได้ /26 (62 usable) -> ฟรี 12

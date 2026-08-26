@@ -300,6 +300,7 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
     padding: 10px 18px; border-radius: 6px; font-size: 14px;
     opacity: 0; transform: translateX(30px); transition: all 0.3s; border: 1px solid;
     max-width: 360px; line-height: 1.5;
+    cursor: pointer;   /* คลิกที่กล่องเพื่อปิดทิ้งได้ ดู showToast() ใน app.js */
     /* หลายที่ในโค้ดส่งข้อความหลายบรรทัดมาด้วย '\n' (เช่น errors.join('\n') ใน calculateVLSM)
        แต่เดิมเบราว์เซอร์ยุบขึ้นบรรทัดเดียวหมด ทำให้ error หลายแผนกอ่านไม่รู้เรื่อง */
     white-space: pre-line;

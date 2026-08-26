@@ -120,7 +120,7 @@ function loadExample(key) {
             });
         }, 50);
 
-        document.getElementById('statusBar').textContent = 'โหลดตัวอย่าง ' + ex.label + ' แล้ว มี ' + ex.departments.length + ' แผนก ใช้เลขตั้งต้น ' + ex.baseIp + '/' + ex.baseCidr +
+        document.getElementById('statusBar').textContent = 'โหลดตัวอย่าง ' + ex.label + ' แล้ว มี ' + ex.departments.length + ' แผนก ใช้ Base ' + ex.baseIp + '/' + ex.baseCidr +
             (built > 0 ? ' และมี Router สาขาอีก ' + built + ' ตัว' : '');
         showToast('โหลดตัวอย่าง: ' + ex.label + (built > 0 ? ' (Router สาขา ' + built + ' ตัว ต่อสายให้เรียบร้อยแล้ว)' : ''), 'success');
     } catch (err) {
@@ -510,7 +510,7 @@ function applyProjectData(data) {
         setIpMode(state.ipMode, true); // silent — ไม่ toast ซ้อนกับ toast โหลดสำเร็จด้านล่าง
 
         refreshAll(true); // โปรเจกต์ใหม่ทั้งก้อน (ไฟล์ไม่ได้เก็บตำแหน่ง Router/Switch อยู่แล้ว)
-        document.getElementById('statusBar').textContent = 'เปิดไฟล์งานแล้ว มี ' + state.departments.length + ' แผนก ใช้เลขตั้งต้น ' + state.baseIp + '/' + state.baseCidr;
+        document.getElementById('statusBar').textContent = 'เปิดไฟล์โปรเจกต์แล้ว มี ' + state.departments.length + ' แผนก ใช้ Base ' + state.baseIp + '/' + state.baseCidr;
         showToast('โหลดโปรเจกต์สำเร็จ', 'success');
     } catch (err) {
         console.error('applyProjectData error:', err);
@@ -545,7 +545,7 @@ function tryRestoreAutosave() {
         var data = JSON.parse(raw);
         if (!isValidProjectData(data)) return;
         applyProjectData(data);
-        showToast('เปิดงานที่ค้างไว้ครั้งก่อนกลับมาให้แล้ว (' + data.departments.length + ' แผนก) ถ้าอยากเริ่มใหม่ให้กดปุ่ม CLEAR', 'info');
+        showToast('เปิดโปรเจกต์ที่ค้างไว้ครั้งก่อนกลับมาให้แล้ว (' + data.departments.length + ' แผนก) ถ้าอยากเริ่มใหม่ให้กดปุ่ม CLEAR', 'info');
     } catch (err) {
         console.error('tryRestoreAutosave error:', err);
     }
@@ -645,19 +645,49 @@ function showExampleDetail(key) {
         ' <span class="ex-detail-label">Base</span> ' + escapeHtml(ex.baseIp + '/' + ex.baseCidr);
 }
 
-// Toast
+/* Toast
+
+   ทำไมเวลาแสดงผลถึงไม่คงที่ (อ่านก่อนแก้กลับเป็นตัวเลขเดียว):
+
+   เดิมตั้งไว้ตายตัว 2500 ms ทุกข้อความ ซึ่งพอดีกับข้อความสั้นอย่าง "คำนวณเรียบร้อยแล้ว"
+   แต่ข้อความแจ้งข้อผิดพลาดต้องบอกสองอย่างเสมอ คือเกิดอะไรขึ้น และต้องทำอะไรต่อ
+   มันจึงยาวกว่ามาก เช่น
+
+     "บันทึกไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์น่าจะเต็ม ลองลบโปรเจกต์เก่าที่ไม่ใช้แล้วออกก่อน"
+
+   91 ตัวอักษร อ่านไม่ทันใน 2.5 วินาที กล่องหายไปก่อนที่ผู้ใช้จะรู้ว่าต้องทำอะไร
+   เท่ากับข้อความที่เขียนดีขึ้นกลับไม่มีประโยชน์ เพราะไม่มีใครได้อ่าน
+
+   จึงคิดเวลาจากความยาวข้อความแทน แล้วจำกัดไว้สองด้าน
+     ขั้นต่ำ 2500 ms  ข้อความสั้นไม่ควรหายเร็วกว่าเดิม
+     ขั้นสูง 9000 ms  ต่อให้ยาวมากก็ไม่ควรค้างจนบังหน้าจอ
+
+   และเปิดให้คลิกที่กล่องเพื่อปิดทิ้งได้ทันที สำหรับคนที่อ่านจบก่อนเวลา */
 function showToast(msg, type) {
     type = type || 'success';
     var container = document.getElementById('toast-container');
     var toast = document.createElement('div');
     toast.className = 'toast toast-' + type;
     toast.textContent = msg;
+    toast.title = 'คลิกเพื่อปิด';
     container.appendChild(toast);
     requestAnimationFrame(function() { toast.classList.add('show'); });
-    setTimeout(function() {
+
+    var ms = 2000 + String(msg).length * 55;
+    if (ms < 2500) ms = 2500;
+    if (ms > 9000) ms = 9000;
+
+    var timer = null;
+    var closing = false;
+    function dismissToast() {
+        if (closing) return;   // กันกดซ้ำระหว่างที่กำลังเฟดออกอยู่
+        closing = true;
+        clearTimeout(timer);
         toast.classList.remove('show');
         setTimeout(function() { toast.remove(); }, 300);
-    }, 2500);
+    }
+    timer = setTimeout(dismissToast, ms);
+    toast.addEventListener('click', dismissToast);
 }
 
 function toggleExportMenu() {

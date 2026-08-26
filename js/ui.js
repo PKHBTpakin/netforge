@@ -254,13 +254,13 @@ function renderUtilization() {
 
             '<div class="text-[11px] text-subtle mt-2 leading-relaxed">' +
                 'ส่วนที่เสียไปเพราะปัดขนาดขึ้นเป็นเรื่องปกติ หลีกเลี่ยงไม่ได้ เพราะขนาดของแต่ละกลุ่มต้องเป็น 2, 4, 8, 16 ไล่ขึ้นไปเรื่อย ๆ เท่านั้น ' +
-                'ต่อให้เลือกเลขตั้งต้นได้พอดีที่สุดแล้ว ก็ยังใช้ได้สูงสุดแค่ ' + pct(u.ceilingPct) + ' อยู่ดี' +
+                'ต่อให้เลือก Base ได้พอดีที่สุดแล้ว ก็ยังใช้ได้สูงสุดแค่ ' + pct(u.ceilingPct) + ' อยู่ดี' +
                 '<br>ส่วนที่เหลือไว้เผื่อขยายไม่ถือว่าเสียเปล่า เพราะเป็นพื้นที่ที่กันไว้ให้เพิ่มเครื่องได้ในอนาคต' +
             '</div>' +
 
             (worthIt
                 ? '<div class="text-[12px] mt-2 pt-2" style="border-top:1px solid var(--border)">' +
-                  '<i class="fas fa-lightbulb text-neon mr-1"></i>ถ้าเปลี่ยนเลขตั้งต้นเป็น <span class="text-neon">/' + u.suggestedCidr + '</span> ' +
+                  '<i class="fas fa-lightbulb text-neon mr-1"></i>ถ้าเปลี่ยน Base เป็น <span class="text-neon">/' + u.suggestedCidr + '</span> ' +
                   'สัดส่วนที่ได้ใช้จริงจะเพิ่มเป็น <span class="text-neon">' + pct(wouldBe) + '</span> ' +
                   '<button onclick="onSuggestBase()" class="btn-cyber text-[11px] ml-1 px-2 py-0.5">เปลี่ยนให้เลย</button></div>'
                 : '') +
@@ -471,7 +471,7 @@ function onSuggestBase() {
 
         document.getElementById('baseCidrInput').value = cidr;
         onBaseChange(); // ให้ทางเดิมเป็นคนตรวจ+ปัด Network Address+คำนวณ ไม่เขียนตรรกะซ้ำ
-        showToast('ปรับเลขตั้งต้นเป็น /' + cidr + ' ให้แล้ว ซึ่งเป็นขนาดเล็กที่สุดที่ยังพอใช้ครบทุกแผนก', 'success');
+        showToast('ปรับ Base เป็น /' + cidr + ' ให้แล้ว ซึ่งเป็นขนาดเล็กที่สุดที่ยังพอใช้ครบทุกแผนก', 'success');
     } catch (err) {
         console.error('onSuggestBase error:', err);
         showToast('แนะนำ Base ไม่สำเร็จ', 'error');

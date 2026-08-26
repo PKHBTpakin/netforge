@@ -72,7 +72,7 @@ function saveToLibrary(name) {
 
         var list = loadLibrary();
         if (list.length >= LIBRARY_MAX) {
-            showToast('คลังเก็บงานเต็มแล้ว (เก็บได้สูงสุด ' + LIBRARY_MAX + ' ชิ้น) ต้องลบงานเก่าออกก่อนถึงจะเก็บเพิ่มได้', 'error');
+            showToast('คลังโปรเจกต์เต็มแล้ว (เก็บได้สูงสุด ' + LIBRARY_MAX + ' ชิ้น) ต้องลบโปรเจกต์เก่าออกก่อนถึงจะเก็บเพิ่มได้', 'error');
             return null;
         }
 
@@ -88,7 +88,7 @@ function saveToLibrary(name) {
 
         list.unshift(entry); // ใหม่สุดอยู่บนสุด
         if (!persistLibrary(list)) {
-            showToast('บันทึกไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์น่าจะเต็ม ลองลบงานเก่าที่ไม่ใช้แล้วออกก่อน', 'error');
+            showToast('บันทึกไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์น่าจะเต็ม ลองลบโปรเจกต์เก่าที่ไม่ใช้แล้วออกก่อน', 'error');
             return null;
         }
         renderLibrary();
@@ -206,7 +206,7 @@ function copyShareLink() {
         }
         var url = buildShareUrl();
         if (url.length > 30000) { // เผื่อขอบเขตความยาว URL ที่เบราว์เซอร์/แชตแอปรองรับ
-            showToast('งานชิ้นนี้ใหญ่เกินกว่าจะใส่ในลิงก์ได้ ให้ใช้ปุ่ม SAVE บันทึกเป็นไฟล์แล้วส่งไฟล์แทน', 'error');
+            showToast('โปรเจกต์นี้ใหญ่เกินกว่าจะใส่ในลิงก์ได้ ให้ใช้ปุ่ม SAVE บันทึกเป็นไฟล์แล้วส่งไฟล์แทน', 'error');
             return;
         }
         copyToClipboard(url, 'คัดลอกลิงก์แชร์แล้ว (' + url.length.toLocaleString() + ' ตัวอักษร) — วางส่งได้เลย');
@@ -250,7 +250,7 @@ function tryLoadFromUrl() {
 
         applyProjectData(data);
         if (typeof clearHistory === 'function') clearHistory();
-        showToast('เปิดงานจากลิงก์เรียบร้อยแล้ว ถ้าอยากเก็บไว้ในเครื่อง ให้กดปุ่ม LIBRARY', 'info');
+        showToast('เปิดโปรเจกต์จากลิงก์เรียบร้อยแล้ว ถ้าอยากเก็บไว้ในเครื่อง ให้กดปุ่ม LIBRARY', 'info');
         return true;
     } catch (err) {
         console.error('tryLoadFromUrl error:', err);
@@ -302,7 +302,7 @@ function renderLibrary() {
     var list = loadLibrary();
     if (list.length === 0) {
         el.innerHTML = '<div class="text-muted text-center py-6 text-[13px]">คลังยังว่าง<br>' +
-            '<span class="text-subtle text-[12px]">ตั้งชื่อแล้วกดบันทึกด้านบนเพื่อเก็บงานปัจจุบันไว้</span></div>';
+            '<span class="text-subtle text-[12px]">ตั้งชื่อแล้วกดบันทึกด้านบนเพื่อเก็บโปรเจกต์ปัจจุบันไว้</span></div>';
         return;
     }
 
