@@ -153,7 +153,7 @@ function overwriteInLibrary(id) {
         entry.savedAt = new Date().toISOString();
         entry.deptCount = state.departments.length;
         entry.base = state.baseIp + '/' + state.baseCidr;
-        if (!persistLibrary(list)) { showToast('บันทึกทับไม่สำเร็จ', 'error'); return; }
+        if (!persistLibrary(list)) { showToast('บันทึกทับไม่สำเร็จ พื้นที่เก็บข้อมูลในเบราว์เซอร์น่าจะเต็ม ลองลบโปรเจกต์เก่าที่ไม่ใช้แล้วออกก่อน', 'error'); return; }
         renderLibrary();
         showToast('บันทึกทับ "' + entry.name + '" แล้ว', 'success');
     } catch (err) {

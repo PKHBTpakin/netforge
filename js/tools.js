@@ -193,6 +193,6 @@ function calcSummary() {
             '<span class="text-muted break-all">ip route ' + longToIp(summaryNet) + ' ' + cidrToMask(summaryCidr) + ' &lt;next-hop&gt;</span></div>';
     } catch (err) {
         console.error('calcSummary error:', err);
-        out.innerHTML = '<div class="text-hot text-[12px]">คำนวณไม่สำเร็จ</div>';
+        out.innerHTML = '<div class="text-hot text-[12px]">คำนวณไม่สำเร็จ ลองตรวจรูปแบบเส้นทางที่เพิ่มไว้อีกครั้ง</div>';
     }
 }

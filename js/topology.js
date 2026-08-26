@@ -850,7 +850,7 @@ function handlePointerDown(x, y) {
             if (link) {
                 if (typeof showToast === 'function') showToast(lastLinkMessage || 'เชื่อมสำเร็จ', lastLinkMessage ? 'info' : 'success');
             } else if (typeof showToast === 'function') {
-                showToast(lastLinkMessage || 'เชื่อมไม่สำเร็จ', 'error');
+                showToast(lastLinkMessage || 'เชื่อมสายไม่สำเร็จ ลองตรวจว่าอุปกรณ์สองตัวนี้ต่อกันได้ไหม ดูกฎการต่อได้ที่ปุ่ม HELP แท็บหลายสาขา', 'error');
             }
             document.getElementById('statusBar').textContent = 'กำลังลากสาย ให้คลิกอุปกรณ์ตัวแรกที่ต้องการเชื่อม';
             return;

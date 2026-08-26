@@ -828,7 +828,7 @@ function init() {
         console.error('init() ล้มเหลว:', err);
         document.body.innerHTML = '<div style="padding:40px;font-family:\'Share Tech Mono\',monospace;color:#F0575C;background:#0f1115;min-height:100vh;">' +
             '<h2 style="margin-bottom:10px;">NetForge โหลดไม่สำเร็จ</h2>' +
-            '<p style="color:#d8dae0;">เกิดข้อผิดพลาดตอนเริ่มต้นระบบ ลองรีเฟรชหน้าเว็บ ถ้ายังไม่หายรบกวนแจ้งผู้พัฒนาพร้อมข้อความด้านล่างนี้</p>' +
+            '<p style="color:#d8dae0;">เกิดข้อผิดพลาดตอนเริ่มต้นระบบ ลองรีเฟรชหน้าเว็บดูก่อน ข้อมูลที่บันทึกไว้ยังอยู่ครบ ไม่ได้หายไปไหน ถ้ายังไม่หายให้แจ้งผู้พัฒนาพร้อมข้อความด้านล่างนี้</p>' +
             '<p style="opacity:0.6;font-size:14px;margin-top:10px;">' + (err && err.message ? err.message : String(err)) + '</p></div>';
     }
 }

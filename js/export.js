@@ -113,7 +113,7 @@ function exportTopologyPNG(scale) {
         var name = 'netforge-topology-' + exportStamp() + '.png';
         if (out.toBlob) {
             out.toBlob(function (blob) {
-                if (!blob) { showToast('สร้างรูปไม่สำเร็จ', 'error'); return; }
+                if (!blob) { showToast('โปรแกรมสร้างไฟล์รูปไม่สำเร็จ ผังอาจใหญ่เกินไป ลองย่อขนาดผังลงแล้วกดใหม่อีกครั้ง', 'error'); return; }
                 downloadBlob(blob, name);
                 showToast('บันทึกรูปผังแล้ว (' + out.width + '×' + out.height + ' px)', 'success');
             }, 'image/png');
