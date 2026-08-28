@@ -272,7 +272,7 @@ function labHtml() {
         'h1{font-size:36px;color:#1F3864;border-bottom:3px solid #1F3864;padding-bottom:8px}' +
         'h2{font-size:29px;color:#1F3864;margin-top:34px;border-bottom:1px solid #ccd3db;padding-bottom:4px}' +
         'h3{font-size:25px;color:#1F3864;margin-top:24px}' +
-        'table{border-collapse:collapse;width:100%;margin:10px 0 18px;font-size:19px}'
+        'table{border-collapse:collapse;width:100%;margin:10px 0 18px;font-size:19px}' +
         'td,th{white-space:nowrap}td:first-child,th:first-child{white-space:normal}' +
         'th{background:#E8EDF3;color:#1F3864;border:1px solid #9AA5B1;padding:7px 9px;text-align:left}' +
         'td{border:1px solid #C6CDD5;padding:6px 9px;vertical-align:top}' +
