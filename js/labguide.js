@@ -267,27 +267,27 @@ function labHtml() {
     var d = buildLabData();
 
     var css =
-        'body{font-family:"TH Sarabun New","Sarabun",system-ui,sans-serif;font-size:17px;' +
+        'body{font-family:"TH Sarabun New","Sarabun",system-ui,sans-serif;font-size:20px;' +
         'line-height:1.6;color:#1a1a1a;max-width:1180px;margin:0 auto;padding:28px 20px 60px}' +
-        'h1{font-size:30px;color:#1F3864;border-bottom:3px solid #1F3864;padding-bottom:8px}' +
-        'h2{font-size:23px;color:#1F3864;margin-top:34px;border-bottom:1px solid #ccd3db;padding-bottom:4px}' +
-        'h3{font-size:19px;color:#1F3864;margin-top:24px}' +
-        'table{border-collapse:collapse;width:100%;margin:10px 0 18px;font-size:14.5px}'
+        'h1{font-size:34px;color:#1F3864;border-bottom:3px solid #1F3864;padding-bottom:8px}' +
+        'h2{font-size:26px;color:#1F3864;margin-top:34px;border-bottom:1px solid #ccd3db;padding-bottom:4px}' +
+        'h3{font-size:22px;color:#1F3864;margin-top:24px}' +
+        'table{border-collapse:collapse;width:100%;margin:10px 0 18px;font-size:17px}'
         'td,th{white-space:nowrap}td:first-child,th:first-child{white-space:normal}' +
         'th{background:#E8EDF3;color:#1F3864;border:1px solid #9AA5B1;padding:7px 9px;text-align:left}' +
         'td{border:1px solid #C6CDD5;padding:6px 9px;vertical-align:top}' +
         'tr:nth-child(even) td{background:#FAFBFC}' +
         '.cfg{position:relative;margin:10px 0 22px}' +
         'pre{background:#1E2430;color:#E6EAF2;border-radius:6px;padding:14px 16px;overflow-x:auto;' +
-        'font-family:Consolas,"DejaVu Sans Mono",monospace;font-size:13.5px;line-height:1.5;margin:0}' +
+        'font-family:Consolas,"DejaVu Sans Mono",monospace;font-size:15.5px;line-height:1.55;margin:0}' +
         '.copy{position:absolute;top:8px;right:8px;background:#2E5C8A;color:#fff;border:0;' +
-        'border-radius:5px;padding:6px 14px;font-size:14px;cursor:pointer;font-family:inherit}' +
+        'border-radius:5px;padding:7px 15px;font-size:15px;cursor:pointer;font-family:inherit}' +
         '.copy:hover{background:#3B72A8}.copy.ok{background:#1E7D45}' +
         'blockquote{border-left:4px solid #C0502A;background:#FBF3F0;margin:12px 0;padding:8px 14px}' +
         '.tag{display:inline-block;background:#C0502A;color:#fff;border-radius:4px;padding:2px 9px;' +
-        'font-size:14px;margin-left:6px}' +
+        'font-size:15px;margin-left:6px}' +
         '.note{background:#EEF1F5;border-left:4px solid #1F3864;padding:10px 14px;margin:14px 0}' +
-        'code{background:#EEF1F5;padding:1px 5px;border-radius:3px;font-size:14px}' +
+        'code{background:#EEF1F5;padding:1px 5px;border-radius:3px;font-size:16px}' +
         '@media print{.copy{display:none}pre{background:#f4f5f7;color:#111;border:1px solid #ccc}}';
 
     var h = [];
@@ -303,7 +303,7 @@ function labHtml() {
 
     /* ตารางแผนก */
     p('<h2>ตารางการแบ่ง Subnet</h2><table><tr><th>VLAN</th><th>Department</th><th>Hosts</th>',
-      '<th>Network</th><th>Gateway<br><span style="font-weight:400;font-size:13px">Host แรก</span></th>',
+      '<th>Network</th><th>Gateway<br><span style="font-weight:400;font-size:15px">Host แรก</span></th>',
       '<th>Host สุดท้าย</th><th>Subnet Mask</th><th>Router</th></tr>');
     d.depts.forEach(function (x) {
         p('<tr><td>', x.vlan, '</td><td>', labEsc(x.name), '</td><td>', x.hosts, '</td><td>',
@@ -311,7 +311,7 @@ function labHtml() {
           labEsc(x.lastHost), '</td><td>', labEsc(x.netmask), '</td><td>',
           labEsc(x.router), '</td></tr>');
     });
-    p('</table><p style="color:#5A5A5A;font-size:15px">Gateway ของแต่ละแผนกคือ Host หมายเลขแรก',
+    p('</table><p style="color:#5A5A5A;font-size:17px">Gateway ของแต่ละแผนกคือ Host หมายเลขแรก',
       'ของ subnet นั้น ซึ่ง configuration กำหนดให้ sub-interface ของ Router ไว้แล้ว</p>');
 
     /* ตาราง PC */
@@ -400,7 +400,7 @@ function labHtml() {
       '<tr><td>Serial ขึ้น up/down</td><td>ฝั่ง DCE กลับด้าน</td>',
       '<td>ลบสายแล้วต่อใหม่ คลิกฝั่ง DCE ก่อน</td></tr></table>');
 
-    p('<p style="margin-top:34px;color:#5A5A5A;font-size:15px">สร้างโดย NetForge ',
+    p('<p style="margin-top:34px;color:#5A5A5A;font-size:17px">สร้างโดย NetForge ',
       '<a href="https://pkhbtpakin.github.io/netforge/">pkhbtpakin.github.io/netforge</a></p>');
 
     // ปุ่มคัดลอก มีทางสำรองเพราะ clipboard API ถูกปิดเมื่อเปิดไฟล์ผ่าน file://
