@@ -111,12 +111,6 @@
 <body class="bg-dark-900 overflow-x-hidden">
     <div class="scanlines pointer-events-none"></div>
 
-    <!-- ไม่ใส่คลาส z-* ของ Tailwind ตรงนี้ — z-index คุมจาก .toast-container ใน style.css ที่เดียว
-         (เดิมมี z-[100] ซ้อนอยู่ ทำให้มีสองแหล่งค่าจริงที่ขัดกันเอง) -->
-    <!-- aria-live ทำให้โปรแกรมอ่านหน้าจออ่าน toast ให้ฟังตอนมันโผล่ขึ้นมา
-         ถ้าไม่มี ผู้ใช้ที่มองไม่เห็นจะไม่รู้เลยว่าบันทึกสำเร็จหรือพลาด -->
-    <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
-
     <!-- หน้าช่วยเหลือ: แสดงอัตโนมัติครั้งแรกที่เปิดแอป และเรียกดูซ้ำได้ทุกเมื่อผ่านปุ่ม HELP หรือกด ?
          เนื้อหาต้องครอบคลุมฟีเจอร์ "ที่มีอยู่จริงตอนนี้" — ของที่หาไม่เจอเท่ากับของที่ไม่มี -->
     <div id="onboardOverlay" class="onboard-overlay hidden" onclick="if(event.target===this) closeOnboarding()">
@@ -434,6 +428,12 @@
                     <button id="btnConnect" onclick="toggleConnectMode()" class="btn-cyber text-[12px] px-2 py-1" title="คลิกปุ่มนี้ แล้วคลิกอุปกรณ์ 2 ตัวเพื่อเชื่อมสาย"><i class="fas fa-link mr-1"></i>Connect</button>
                     <button id="btnBackdrop" onclick="openBackdropPanel()" class="btn-cyber text-[12px] px-2 py-1" title="ใส่รูปแปลนอาคารไว้ใต้ผัง แล้วลากอุปกรณ์ไปวางตรงตำแหน่งจริง"><i class="fas fa-image mr-1"></i>แปลน</button>
                 </div>
+
+                <!-- toast ถูกย้ายมาไว้ในกล่องผัง (ดูเหตุผลใน .toast-container ที่ style.css)
+                     aria-live ทำให้โปรแกรมอ่านหน้าจออ่าน toast ให้ฟังตอนมันโผล่ขึ้นมา
+                     ถ้าไม่มี ผู้ใช้ที่มองไม่เห็นจะไม่รู้เลยว่าบันทึกสำเร็จหรือพลาด
+                     ไม่ใส่คลาส z-* ของ Tailwind ตรงนี้ — z-index คุมจาก style.css ที่เดียว -->
+                <div id="toast-container" class="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
 
                 <!-- แผงจัดการรูปแปลนอาคาร — ซ่อนไว้จนกว่าจะกดปุ่ม "แปลน"
                      input file แยกไว้นอกแผงและซ่อนถาวร เพราะปุ่มเลือกไฟล์มาตรฐานของเบราว์เซอร์

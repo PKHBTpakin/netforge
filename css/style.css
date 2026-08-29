@@ -292,27 +292,32 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
    เดิมตั้งไว้ 10000 ซึ่ง "ต่ำกว่า" modal -> toast ที่ยิงจากในหน้าคลังโปรเจกต์
    (เช่น "ยังไม่มีข้อมูลให้บันทึก") จะถูกฉากมืดของ modal ทับจนอ่านแทบไม่ออก
    ทั้งที่มันคือข้อความบอกว่าทำไมกดแล้วไม่เกิดอะไรขึ้น */
-/* toast อยู่มุมล่างขวา ไม่ใช่บนขวา (อ่านก่อนย้ายกลับ):
+/* toast อยู่ในกล่องผัง มุมขวาบน ใต้แถวปุ่มอุปกรณ์ (อ่านก่อนย้าย):
 
-   เดิมตั้ง top: 70px right: 20px ซึ่งทับปุ่ม PC / Server / Router / Connect / แปลน พอดี
-   เพราะปุ่มชุดนั้นวางแบบ absolute top-3 right-3 ในกล่องผัง = ประมาณ y 68-100px ของหน้าจอ
-   ส่วน toast วางแบบ fixed จากขอบบนหน้าจอ ทั้งสองอันชิดขวาเหมือนกัน จึงชนกันเต็ม ๆ
+   ลองมาแล้วสองแบบและพังทั้งคู่ เพราะทั้งคู่วางแบบ fixed คือวัดจากขอบ "หน้าจอ" ไม่ใช่ขอบกล่องผัง
+     fixed top:70px right:20px  -> ทับปุ่ม PC / Server / Router / Connect / แปลน
+     fixed top:70px left:20px   -> ทับหัวข้อ VLSM PLANNER กับปุ่ม IPV4 / IPv6 ของแผงซ้าย
+   และระยะจากขอบจอถึงกล่องผังยังไม่คงที่ด้วย เพราะกด F11 เต็มจอแล้วแถบเบราว์เซอร์หายไป
+   ทุกอย่างเลื่อนขึ้นราว 80px ตัวเลข top: ที่ตั้งไว้ตายตัวจึงถูกในโหมดเดียวเสมอ
 
-   ครึ่งบนของแอปแน่นมาก (แถบเครื่องมือ 10 ปุ่ม + ปุ่มอุปกรณ์ 5 ปุ่ม + ป้ายชื่อผัง)
-   การตั้ง top: เป็นตัวเลขตายตัวจึงเปราะ ถ้าวันหลังจอแคบจนแถบบนขึ้นสองบรรทัด มันจะกลับมาทับอีก
-   มุมล่างขวามีแค่ตาราง IP ซึ่งอยู่นิ่งและถูกบังชั่วคราวไม่กี่วินาทีเท่านั้น
+   จึงย้าย div ไปไว้ในกล่องผัง (ตัวที่มีคลาส relative ใน index.html) แล้วใช้ absolute แทน
+   ปุ่มอุปกรณ์อยู่ที่ top-3 (12px) สูงราว 28px ดังนั้น top: 52px คือใต้แถวปุ่มพอดี
+   วิธีนี้ toast ขยับตามกล่องผังเสมอ ไม่ว่าจะเต็มจอหรือไม่ ไม่ต้องมาไล่แก้ตัวเลขอีก
 
    column-reverse: toast อันใหม่โผล่ล่างสุดแล้วกองขึ้นข้างบน
    ถ้าใช้ column ธรรมดา อันใหม่จะดันอันเก่าลงไปจนหลุดขอบจอ */
 .toast-container {
-    position: fixed; top: 70px; left: 20px; z-index: 10002;
-    display: flex; flex-direction: column; gap: 8px;
+    position: absolute; top: 52px; right: 12px; z-index: 10002;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+    max-width: calc(100% - 24px);   /* จอแคบ ๆ toast จะได้ไม่ล้นออกนอกกล่องผัง */
+    pointer-events: none;   /* ไม่ให้กล่องเปล่าบังการลากผังตอนไม่มี toast */
 }
 .toast {
     padding: 10px 18px; border-radius: 6px; font-size: 14px;
-    opacity: 0; transform: translateX(-30px); transition: all 0.3s; border: 1px solid;
+    opacity: 0; transform: translateX(30px); transition: all 0.3s; border: 1px solid;
     max-width: 360px; line-height: 1.5;
     cursor: pointer;   /* คลิกที่กล่องเพื่อปิดทิ้งได้ ดู showToast() ใน app.js */
+    pointer-events: auto;   /* กล่องแม่ปิดรับคลิกไว้ ตัว toast ต้องเปิดเองเพื่อให้คลิกปิดได้ */
     /* หลายที่ในโค้ดส่งข้อความหลายบรรทัดมาด้วย '\n' (เช่น errors.join('\n') ใน calculateVLSM)
        แต่เดิมเบราว์เซอร์ยุบขึ้นบรรทัดเดียวหมด ทำให้ error หลายแผนกอ่านไม่รู้เรื่อง */
     white-space: pre-line;
