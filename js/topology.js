@@ -56,6 +56,23 @@ function setupCanvas() {
     canvas = document.getElementById('topoCanvas');
     ctx = canvas.getContext('2d');
     resizeCanvas();
+
+    /* ผังต้องรู้ตัวเมื่อ "กล่องแม่" เปลี่ยนขนาด ไม่ใช่แค่ตอนหน้าต่างเบราว์เซอร์เปลี่ยน
+       เดิมดัก window resize อย่างเดียว ซึ่งพอแล้วตอนที่แผงรายละเอียดอุปกรณ์จองที่ไว้ตายตัว
+       แต่ตอนนี้แผงนั้นสไลด์เข้ามาดันผังให้แคบลง 320px โดยขนาดหน้าต่างไม่ได้เปลี่ยนเลย
+       ถ้าไม่ดักตรงนี้ canvas จะยังวาดด้วยความกว้างเดิมแล้วถูก CSS ยืดจนภาพเบลอ
+       และพิกัดคลิกจะเพี้ยนไปจากภาพที่เห็น เพราะ hit-test คิดจาก cW ตัวเก่า
+       เทียบค่าก่อนเรียกทุกครั้ง กัน ResizeObserver ยิงซ้ำตอนที่ขนาดไม่ได้เปลี่ยนจริง */
+    if (typeof ResizeObserver === 'function' && canvas.parentElement) {
+        let lastW = 0, lastH = 0;
+        new ResizeObserver(function (entries) {
+            const box = entries[0].contentRect;
+            const w = Math.round(box.width), h = Math.round(box.height);
+            if (w === lastW && h === lastH) return;
+            lastW = w; lastH = h;
+            resizeCanvas();
+        }).observe(canvas.parentElement);
+    }
 }
 
 function resizeCanvas() {
