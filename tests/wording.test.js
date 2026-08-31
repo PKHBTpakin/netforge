@@ -103,6 +103,31 @@ check('T10: หัวข้อ clock rate ระบุชัดว่าใส�
 check('T11: หน้าเริ่มใช้งานบอกวิธีระบุฝั่ง DCE ใน Packet Tracer',
     html.indexOf('อุปกรณ์ตัวที่คุณคลิกก่อน') !== -1);
 
+// IPv4 / IPv6 สะกดตายตัว ห้ามให้ CSS แปลงเป็นตัวพิมพ์ใหญ่จนกลายเป็น IPV4
+// ปุ่มโหมดกับป้าย SUBNET INFO อยู่ในคลาสที่ตั้ง text-transform: uppercase ไว้
+// จึงต้องกำกับคลาส keep-case ทุกจุดที่ข้อความมีคำว่า IPv
+const upper = ['btn-neon', 'btn-example', 'section-label', 'tab-btn'];
+const uiSrc = fs.readFileSync(path.join(ROOT, 'js/ui.js'), 'utf8');
+const cssSrc = fs.readFileSync(path.join(ROOT, 'css/style.css'), 'utf8');
+
+check('T12: css มีคลาส keep-case ไว้ยกเลิกการบังคับตัวพิมพ์ใหญ่',
+    /\.keep-case\s*\{[^}]*text-transform:\s*none/.test(cssSrc));
+
+const missing = [];
+[['index.html', html], ['js/ui.js', uiSrc]].forEach(function (pair) {
+    const name = pair[0], src = pair[1];
+    const re = /class="([^"]*)"[^>]*>([^<]{0,60})/g;
+    let m;
+    while ((m = re.exec(src)) !== null) {
+        const cls = m[1], text = m[2];
+        if (!/IPv[46]/.test(text)) continue;
+        if (!upper.some(function (u) { return cls.split(/\s+/).indexOf(u) !== -1; })) continue;
+        if (cls.split(/\s+/).indexOf('keep-case') === -1) missing.push(name + ' → ' + text.trim());
+    }
+});
+check('T13: ทุกข้อความที่มี IPv4/IPv6 ในคลาสตัวพิมพ์ใหญ่ กำกับ keep-case ครบ',
+    missing.length === 0, missing.join(' / '));
+
 /* ===== สรุปผล ===== */
 let pass = 0;
 results.forEach(function (r) {

@@ -710,9 +710,9 @@ function renderDetailPanelInner() {
             '<input id="detailName" type="text" value="' + escapeHtml(dept.name) + '" class="input-cyber w-full" oninput="onDetailInput(' + dept.id + ',\'name\',this.value)" /></div>' +
             '<div><label class="text-subtle text-[11px] tracking-wider block mb-1">REQUIRED HOSTS</label>' +
             '<input id="detailHosts" type="number" value="' + dept.hosts + '" min="1" max="65534" class="input-cyber w-full" oninput="onDetailInput(' + dept.id + ',\'hosts\',parseInt(this.value)||1)" /></div>' +
-            '<div class="border-t border-dark-600 pt-3"><div class="section-label mb-2">SUBNET INFO (IPv4)</div>' +
+            '<div class="border-t border-dark-600 pt-3"><div class="section-label keep-case mb-2">SUBNET INFO (IPv4)</div>' +
             '<div id="detailSubnetInfo">' + (dept.subnet ? renderSubnetInfoHTML(dept, vlanId, color) : '<div class="text-muted text-[13px]">ยังไม่มีข้อมูล — กด Calculate</div>') + '</div></div>' +
-            '<div class="border-t border-dark-600 pt-3"><div class="section-label mb-2">SUBNET INFO (IPv6)</div>' +
+            '<div class="border-t border-dark-600 pt-3"><div class="section-label keep-case mb-2">SUBNET INFO (IPv6)</div>' +
             (deptV6 ? renderSubnetInfoV6HTML(deptV6, color) : '<div class="text-muted text-[13px]">ยังไม่มีข้อมูล — สลับโหมด IPv6 แล้วกด Calculate</div>') +
             '</div>' +
         '</div>';

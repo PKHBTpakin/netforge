@@ -228,6 +228,10 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
 .text-label { color: var(--label); }
 .text-subtle { color: var(--subtle); }
 
+/* ยกเลิกการบังคับตัวพิมพ์ใหญ่เฉพาะจุด สำหรับคำที่สะกดตายตัว เช่น IPv4 IPv6
+   ถ้าปล่อยให้ text-transform: uppercase ทำงาน จะกลายเป็น IPV4 ซึ่งผิดมาตรฐาน */
+.keep-case { text-transform: none !important; }
+
 /* --- Tab --- */
 .tab-btn {
     padding: 8px 18px; font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px;

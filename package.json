@@ -1,6 +1,6 @@
 {
   "name": "netforge",
-  "version": "2.1.0",
+  "version": "3.7.1",
   "private": true,
   "description": "เครื่องมือวางแผนเครือข่าย VLSM/IPv6 + Topology + Cisco IOS config ทำงานในเบราว์เซอร์ล้วน",
   "license": "MIT",
