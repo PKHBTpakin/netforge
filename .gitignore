@@ -11,3 +11,8 @@ presentation/
 # ผลลัพธ์จากการรันเทสบนเบราว์เซอร์
 playwright-report/
 test-results/
+
+# ไฟล์สำรองและของชั่วคราวจากการทำงานร่วมกับผู้ช่วย — ไม่ต้องขึ้น repo
+*.bak
+_to_delete/
+Claude outputs/
