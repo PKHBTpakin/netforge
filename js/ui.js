@@ -405,7 +405,7 @@ function renderWanTable() {
                 // ป้าย DCE ติดกับปลายที่เป็น DCE เพื่อให้เห็นทันทีว่าคำสั่ง clock rate จะไปอยู่ที่ Router ตัวไหน
                 var tag = function(end) {
                     return w.dceId === end.id
-                        ? ' <span class="label-tag" style="background:rgba(240,160,32,0.15);border:1px solid rgba(240,160,32,0.5);color:#b8790f;">DCE</span>'
+                        ? ' <span class="label-tag" style="background:rgba(240,160,32,0.15);border:1px solid rgba(240,160,32,0.5);color:var(--warn);">DCE</span>'
                         : '';
                 };
                 var dceEnd = w.ends.find(function(e) { return e.id === w.dceId; }) || w.ends[0];
