@@ -65,6 +65,90 @@ let PC_COLOR = PC_COLOR_DARK;
 let SERVER_COLOR = SERVER_COLOR_DARK;
 let BRANCH_COLOR = BRANCH_COLOR_DARK;
 
+/* ============================================
+   ตารางคุณสมบัติของอุปกรณ์แต่ละชนิด — แหล่งความจริงแหล่งเดียวของคำว่า "ชนิดนี้ทำอะไรได้"
+
+   ทำไมต้องมี (อ่านก่อนลบ/ย้าย):
+
+   ก่อนหน้านี้คำถามว่า "โหนดนี้เป็น Router ไหม" ถูกตอบด้วยการเทียบสตริงกระจาย 31 จุด
+   ทั่วทั้ง topology.js (23) · wan.js (4) · ui.js (3) · export.js (1)
+   และตรรกะชุดเดียวกันถูกเขียนซ้ำสองที่โดยไม่รู้ตัว
+
+     wan.js        function isRouterType(type) { return type === 'router' || type === 'router-branch'; }
+     topology.js   const isRouter = t => t === 'router' || t === 'router-branch';   (ประกาศซ้ำในฟังก์ชัน)
+
+   ปัญหาคือวันที่เพิ่มอุปกรณ์ชนิดใหม่ ต้องไล่แก้ทุกจุดและพลาดจุดเดียวคือบั๊กเงียบ
+   ตารางนี้ทำให้เพิ่มชนิดใหม่ = เพิ่มหนึ่งแถว แล้วทุกที่ในโปรแกรมรู้พร้อมกันทันที
+
+   เรื่องความเสถียร: ชนิดที่ไม่รู้จัก (เช่นมาจากไฟล์บันทึกที่ถูกแก้มือ หรือเวอร์ชันอนาคต)
+   จะได้ UNKNOWN_CAPS ที่เป็น false ทุกช่อง แทนที่จะเป็น undefined แล้วพังตอน .isRouter
+   หลักการคือ "ไม่รู้จัก = ไม่ได้สิทธิ์อะไรเลย" ไม่ใช่ "ไม่รู้จัก = แครช"
+   ============================================ */
+
+const UNKNOWN_CAPS = Object.freeze({
+    label: 'ไม่รู้จัก', role: 'unknown',
+    isRouter: false, isMainRouter: false, isBranchRouter: false,
+    isSwitch: false, isEndDevice: false, isVirtual: false, isManual: false,
+    ownsBaseNetwork: false, hasVlan: false, hasOwnIp: false, canBeDeleted: false
+});
+
+const DEVICE_CAPS = Object.freeze({
+    // Router หลัก — มีได้ตัวเดียว เป็นเจ้าของ Base Network ของทั้งระบบ ลบไม่ได้
+    'router': Object.freeze({
+        label: 'Router', role: 'router',
+        isRouter: true, isMainRouter: true, isBranchRouter: false,
+        isSwitch: false, isEndDevice: false, isVirtual: false, isManual: false,
+        ownsBaseNetwork: true, hasVlan: false, hasOwnIp: true, canBeDeleted: false
+    }),
+    // Router สาขา — ผู้ใช้วางเอง มีได้หลายตัว IP มาจากการจอง /30 ของลิงก์ WAN
+    'router-branch': Object.freeze({
+        label: 'Router สาขา', role: 'router',
+        isRouter: true, isMainRouter: false, isBranchRouter: true,
+        isSwitch: false, isEndDevice: false, isVirtual: false, isManual: true,
+        ownsBaseNetwork: false, hasVlan: false, hasOwnIp: true, canBeDeleted: true
+    }),
+    // Switch — สร้างอัตโนมัติ 1 ตัวต่อ 1 แผนก ไม่มี IP ของตัวเอง (อุปกรณ์ชั้นที่ 2)
+    'switch': Object.freeze({
+        label: 'Switch', role: 'switch',
+        isRouter: false, isMainRouter: false, isBranchRouter: false,
+        isSwitch: true, isEndDevice: false, isVirtual: false, isManual: false,
+        ownsBaseNetwork: false, hasVlan: true, hasOwnIp: false, canBeDeleted: false
+    }),
+    'pc': Object.freeze({
+        label: 'PC', role: 'host',
+        isRouter: false, isMainRouter: false, isBranchRouter: false,
+        isSwitch: false, isEndDevice: true, isVirtual: false, isManual: true,
+        ownsBaseNetwork: false, hasVlan: false, hasOwnIp: true, canBeDeleted: true
+    }),
+    'server': Object.freeze({
+        label: 'Server', role: 'host',
+        isRouter: false, isMainRouter: false, isBranchRouter: false,
+        isSwitch: false, isEndDevice: true, isVirtual: false, isManual: true,
+        ownsBaseNetwork: false, hasVlan: false, hasOwnIp: true, canBeDeleted: true
+    }),
+    // Department — กล่องแสดงผลบนผัง ไม่ใช่อุปกรณ์จริง จึงเชื่อมสายกับอะไรไม่ได้เลย
+    'department': Object.freeze({
+        label: 'Department', role: 'virtual',
+        isRouter: false, isMainRouter: false, isBranchRouter: false,
+        isSwitch: false, isEndDevice: false, isVirtual: true, isManual: false,
+        ownsBaseNetwork: false, hasVlan: false, hasOwnIp: false, canBeDeleted: false
+    })
+});
+
+// รับได้ทั้งตัวโหนดและสตริงชนิด เพื่อให้เรียกได้ทั้งจากที่ที่มีโหนดอยู่ในมือและที่ที่มีแค่ชนิด
+function deviceCaps(nodeOrType) {
+    var t = (nodeOrType && typeof nodeOrType === 'object') ? nodeOrType.type : nodeOrType;
+    return DEVICE_CAPS[t] || UNKNOWN_CAPS;
+}
+
+function isRouterType(type) { return deviceCaps(type).isRouter; }
+function isMainRouterType(type) { return deviceCaps(type).isMainRouter; }
+function isBranchRouterType(type) { return deviceCaps(type).isBranchRouter; }
+function isSwitchType(type) { return deviceCaps(type).isSwitch; }
+function isEndDeviceType(type) { return deviceCaps(type).isEndDevice; }
+function isVirtualNodeType(type) { return deviceCaps(type).isVirtual; }
+function deviceTypeLabel(type) { return deviceCaps(type).label; }
+
 // ----- คลาสฐาน: คุณสมบัติร่วมที่ทุก Node บน Canvas ต้องมี -----
 class NetworkDevice {
     constructor(id, type, x, y, w, h, label, color, icon) {
@@ -78,6 +162,16 @@ class NetworkDevice {
         this.color = color;
         this.icon = icon;
         this.subnetInfo = ''; // ให้ drawXxxNode() เติมค่าตอน render แต่ละเฟรม
+    }
+
+    // ถามตัวอุปกรณ์แทนการเทียบสตริงจากข้างนอก เช่น node.is('isRouter')
+    // ชื่อความสามารถที่ไม่มีในตารางคืน false เสมอ ไม่ใช่ undefined -> เงื่อนไข if ไม่มีทางหลุดไปทางที่ไม่ตั้งใจ
+    is(capability) {
+        return deviceCaps(this)[capability] === true;
+    }
+
+    get caps() {
+        return deviceCaps(this);
     }
 }
 

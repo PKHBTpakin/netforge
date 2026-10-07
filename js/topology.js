@@ -291,21 +291,22 @@ let lastLinkMessage = null;
 // คืน ok:false = ห้ามเชื่อมเด็ดขาด (ผิดหลักการจนไม่มีความหมายในแบบจำลอง)
 // คืน ok:true พร้อม message = เชื่อมได้ แต่เตือนไว้ว่าไม่ตรงตามที่นิยมทำจริง
 function validateLink(a, b) {
-    if (a.type === 'department' || b.type === 'department') {
+    // กล่อง Department เป็นของแสดงผล ไม่ใช่อุปกรณ์จริง จึงเชื่อมสายกับอะไรไม่ได้เลย
+    if (isVirtualNodeType(a.type) || isVirtualNodeType(b.type)) {
         return { ok: false, message: 'Department ไม่ใช่อุปกรณ์จริง เชื่อมกับ Switch ของแผนกนั้นแทน' };
     }
-    const isEndDevice = t => t === 'pc' || t === 'server';
-    const isRouter = t => t === 'router' || t === 'router-branch';
+    // เดิมบรรทัดนี้ประกาศ isEndDevice/isRouter ขึ้นมาใหม่ในฟังก์ชัน ซ้ำกับที่ wan.js มีอยู่แล้ว
+    // ตอนนี้ทั้งสองที่อ่านจากตาราง DEVICE_CAPS ใน devices.js ชุดเดียวกัน
 
     // ----- ลิงก์ WAN: Router ต่อ Router -----
-    if (isRouter(a.type) && isRouter(b.type)) {
+    if (isRouterType(a.type) && isRouterType(b.type)) {
         return { ok: true, message: 'ลิงก์ WAN — ระบบจองซับเน็ต /30 ให้อัตโนมัติ ดูเลข IP ได้ที่แท็บ IP Table' };
     }
 
     // ----- Switch ย้ายไปอยู่กับ Router สาขา -----
-    if ((a.type === 'router-branch' && b.type === 'switch') || (b.type === 'router-branch' && a.type === 'switch')) {
-        const sw = a.type === 'switch' ? a : b;
-        const branch = a.type === 'router-branch' ? a : b;
+    if ((isBranchRouterType(a.type) && isSwitchType(b.type)) || (isBranchRouterType(b.type) && isSwitchType(a.type))) {
+        const sw = isSwitchType(a.type) ? a : b;
+        const branch = isBranchRouterType(a.type) ? a : b;
         // Switch หนึ่งตัวขึ้นกับ Router ได้ตัวเดียว ไม่งั้น CLI จะกำหนด gateway ซ้ำสองที่
         const existing = typeof getDeptOwnerRouter === 'function' ? getDeptOwnerRouter(sw.deptId) : null;
         if (existing && existing.id !== branch.id) {
@@ -315,14 +316,14 @@ function validateLink(a, b) {
     }
 
     // Router หลักกับ Switch เชื่อมกันอยู่แล้วโดยอัตโนมัติ ไม่ต้องลากเพิ่ม
-    if ((a.type === 'router' && b.type === 'switch') || (b.type === 'router' && a.type === 'switch')) {
+    if ((isMainRouterType(a.type) && isSwitchType(b.type)) || (isMainRouterType(b.type) && isSwitchType(a.type))) {
         return { ok: false, message: 'Switch เชื่อมกับ Router หลักอยู่แล้วโดยอัตโนมัติ — ถ้าจะย้ายไปสาขา ให้ลากไปที่ Router สาขาแทน' };
     }
 
-    if ((isRouter(a.type) && isEndDevice(b.type)) || (isRouter(b.type) && isEndDevice(a.type))) {
+    if ((isRouterType(a.type) && isEndDeviceType(b.type)) || (isRouterType(b.type) && isEndDeviceType(a.type))) {
         return { ok: true, message: 'ปกติ PC/Server จะไม่เชื่อมตรงกับ Router ควรผ่าน Switch — เชื่อมให้ตามที่สั่งแล้ว' };
     }
-    if (isEndDevice(a.type) && isEndDevice(b.type)) {
+    if (isEndDeviceType(a.type) && isEndDeviceType(b.type)) {
         return { ok: true, message: 'การเชื่อม PC/Server ตรงกันมักใช้เฉพาะกรณีพิเศษ ตรวจสอบให้แน่ใจว่าตั้งใจ' };
     }
     return { ok: true, message: null };
@@ -349,8 +350,8 @@ function addLink(fromId, toId) {
         const self = pair[0], other = pair[1];
         // Router สาขามีช่อง linkedDeptId ติดมาด้วย (สืบทอดโครงเดียวกับ PC/Server) แต่ความหมายคนละเรื่อง
         // ความเป็นเจ้าของแผนกของ Router ดูจากลิงก์โดยตรงผ่าน getDeptOwnerRouter() ไม่ใช่จากช่องนี้
-        if (self.type === 'router-branch') return;
-        if (other.type === 'switch' && 'linkedDeptId' in self) {
+        if (isBranchRouterType(self.type)) return;
+        if (isSwitchType(other.type) && 'linkedDeptId' in self) {
             // ย้ายไปเชื่อมแผนกใหม่ที่ไม่ใช่แผนกเดิม -> IP เก่าอ้างอิง subnet ที่ไม่เกี่ยวข้องแล้ว ล้างทิ้งกันข้อมูลหลอก
             if (self.linkedDeptId !== null && self.linkedDeptId !== other.deptId) {
                 self.ip = null;

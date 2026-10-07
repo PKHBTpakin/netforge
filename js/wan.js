@@ -41,11 +41,10 @@ function resetWanRegistry() {
     nextWanIndex = 0;
 }
 
-/* ---------- ตัวช่วยระบุชนิดโหนด ---------- */
-
-function isRouterType(type) {
-    return type === 'router' || type === 'router-branch';
-}
+/* ---------- ตัวช่วยระบุชนิดโหนด ----------
+   isRouterType() ย้ายไปอยู่ใน devices.js แล้ว ให้อ่านจากตาราง DEVICE_CAPS ที่เดียว
+   เดิมประกาศไว้ตรงนี้ และ topology.js ก็ประกาศของตัวเองซ้ำอีกชุด ซึ่งเป็นตรรกะเดียวกันเป๊ะ
+   สองชุดนั้นมีโอกาสเลื่อนจากกันเงียบ ๆ ตอนเพิ่มอุปกรณ์ชนิดใหม่ */
 
 function isRouterNode(node) {
     return !!node && isRouterType(node.type);
@@ -53,7 +52,7 @@ function isRouterNode(node) {
 
 // Router สาขาทั้งหมดที่ผู้ใช้วางเอง (Router หลักไม่รวมอยู่ในนี้ เพราะอยู่ที่ topoNodes.router)
 function getBranchRouters() {
-    return topoNodes.manualNodes.filter(function (n) { return n.type === 'router-branch'; });
+    return topoNodes.manualNodes.filter(function (n) { return isBranchRouterType(n.type); });
 }
 
 /* ---------- Router สาขาที่ยังลอยอยู่ ----------
@@ -66,7 +65,7 @@ function getBranchRouters() {
    ข้อสุดท้ายอันตรายที่สุด เพราะผังดูเหมือนถูกต้องทุกอย่างแต่ config ที่ได้ใช้งานจริงไม่ได้
    จึงต้องมีสัญญาณเตือนบนผังและในแผงรายละเอียด ไม่ใช่ให้ผู้ใช้ค้นพบเอาเองตอนแปะลงอุปกรณ์ */
 function isOrphanBranchRouter(node) {
-    if (!node || node.type !== 'router-branch') return false;
+    if (!node || !isBranchRouterType(node.type)) return false;
     return getWanLinksOfRouter(node.id).length === 0;
 }
 
@@ -92,7 +91,7 @@ function getDeptOwnerRouter(deptId) {
         var otherId = l.fromId === swId ? l.toId : (l.toId === swId ? l.fromId : null);
         if (!otherId) continue;
         var other = topoNodes.manualNodes.find(function (n) { return n.id === otherId; });
-        if (other && other.type === 'router-branch') return other;
+        if (other && isBranchRouterType(other.type)) return other;
     }
     return null;
 }
