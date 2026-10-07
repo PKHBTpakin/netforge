@@ -780,6 +780,7 @@ results.forEach(r => {
 });
 console.log('\n' + pass + '/' + results.length + ' passed — ' + new Date().toISOString());
 if (pass !== results.length) dumpMutedErrors(); // มีอะไรพัง -> คืน error ที่กลืนไว้ให้ครบเพื่อดีบั๊ก
-process.exit(pass === results.length ? 0 : 1);
+// จบด้วย process.exitCode ไม่ใช่การสั่งให้โปรเซสตายทันที — เหตุผลเต็มอยู่ใน tests/run-all.js
+process.exitCode = pass === results.length ? 0 : 1;
 
 })();

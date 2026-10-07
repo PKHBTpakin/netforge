@@ -514,4 +514,5 @@ results.forEach(r => {
 console.log('\nผ่าน ' + pass + ' จาก ' + results.length + ' ข้อ');
 // รูปแบบบรรทัดนี้ต้องตรงกับที่ run-all.js อ่าน คือ /(\d+)\/(\d+) passed/
 console.log(pass + '/' + results.length + ' passed — ' + new Date().toISOString());
-process.exit(pass === results.length ? 0 : 1);
+// จบด้วย process.exitCode ไม่ใช่การสั่งให้โปรเซสตายทันที — เหตุผลเต็มอยู่ใน tests/run-all.js
+process.exitCode = pass === results.length ? 0 : 1;

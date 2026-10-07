@@ -671,6 +671,7 @@ results.forEach(r => {
     console.log((r.pass ? 'PASS' : 'FAIL') + ' — ' + r.label + (r.detail ? '  [' + r.detail + ']' : ''));
 });
 console.log('\n' + pass + '/' + results.length + ' passed — ' + new Date().toISOString());
-process.exit(pass === results.length ? 0 : 1);
+// จบด้วย process.exitCode ไม่ใช่การสั่งให้โปรเซสตายทันที — เหตุผลเต็มอยู่ใน tests/run-all.js
+process.exitCode = pass === results.length ? 0 : 1;
 
 })();

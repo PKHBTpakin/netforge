@@ -260,5 +260,6 @@ function check(label, cond, detail) { results.push({ label, pass: !!cond, detail
     }
     console.log('\n' + pass + '/' + results.length + ' passed — ' + new Date().toISOString());
     if (!results.every(r => r.pass)) dumpMutedErrors(); // มีอะไรพัง -> คืน error ที่กลืนไว้ให้ครบ
-    process.exit(results.every(r => r.pass) ? 0 : 1);
+    // จบด้วย process.exitCode ไม่ใช่การสั่งให้โปรเซสตายทันที — เหตุผลเต็มอยู่ใน tests/run-all.js
+    process.exitCode = results.every(r => r.pass) ? 0 : 1;
 })();
