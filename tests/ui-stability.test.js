@@ -251,6 +251,109 @@ function check(label, cond, detail) { results.push({ label, pass: !!cond, detail
     check('real-event: Connect flow via 2 real clicks linked PC to switch dept', linkedDeptId !== null, linkedDeptId);
     check('real-event: exactly 1 link created', vm.runInContext('topoNodes.links.length', context) === 1, vm.runInContext('topoNodes.links.length', context));
 
+    /* ===== ธีม: สลับแล้วส่วน HTML ต้องทาสีใหม่ด้วย (เพิ่ม 7 ต.ค. 2569) =====
+
+       ผู้ใช้รายงานว่าในโหมดสว่าง ข้อความในตาราง IP แทบอ่านไม่ออก และเวลาชี้เมาส์
+       จะเห็นเป็นแถบสีดำ ตรวจแล้วพบบั๊กสองเรื่องที่ชุดทดสอบ 817 ข้อเดิมจับไม่ได้เลย
+
+       1. applyTheme() สลับตัวแปรสีให้ครบ สั่งวาด Canvas ใหม่ และ recolorTopology()
+          แต่ไม่ได้สั่งให้ส่วน HTML วาดใหม่ สีประจำแผนกถูกฝังเป็น style="color:#xxxxxx"
+          ตอน render ไม่ใช่ตัวแปร CSS (จำเป็น เพราะมี 12 สีหมุนเวียนตามแผนก)
+          ตาราง IP / รายชื่อแผนก / แผงรายละเอียด จึงค้างสีของธีมเดิมไว้
+          สีเหลือง #FDE047 ที่ออกแบบมาสำหรับพื้นดำ วัดบนพื้นขาวได้ประมาณ 1.4:1
+
+       2. tailwind.config.js ผูกสีชุด dark กับตัวแปร CSS ไว้หมดแล้ว ยกเว้น dark-700
+          ที่ฝังเป็น #1d212b ตายตัว และทุกแถวของตารางใช้ hover:bg-dark-700
+
+       เป็นบั๊กแบบ "ไม่มี error ไม่มีอะไรพัง แค่คนอ่านไม่เห็น" จึงต้องถามด้วยข้อทดสอบ
+       แบบ "ต้องไม่มีสีของอีกโหมดหลงเหลือ" ไม่ใช่ "ต้องมีสีนี้อยู่" */
+
+    vm.runInContext("loadExample('company'); selectNode(state.departments[0].id, 'department');", context);
+    const D_FIRST = vm.runInContext('DEPT_COLORS_DARK[0]', context);
+    const L_FIRST = vm.runInContext('DEPT_COLORS_LIGHT[0]', context);
+    const paneHtml = function (id) { return vm.runInContext("document.getElementById('" + id + "').innerHTML", context); };
+
+    vm.runInContext("applyTheme('dark');", context);
+    vm.runInContext("applyTheme('light');", context);
+    check('theme-repaint: ตาราง IP ไม่เหลือสีของโหมดมืดหลังสลับไปสว่าง',
+        paneHtml('ipTableBody').indexOf(D_FIRST) === -1, D_FIRST);
+    check('theme-repaint: ตาราง IP ได้สีของโหมดสว่างมาจริง',
+        paneHtml('ipTableBody').indexOf(L_FIRST) !== -1, L_FIRST);
+    check('theme-repaint: รายชื่อแผนกฝั่งซ้ายไม่เหลือสีของโหมดมืด',
+        paneHtml('deptList').indexOf(D_FIRST) === -1);
+    check('theme-repaint: แผงรายละเอียดไม่เหลือสีของโหมดมืด',
+        paneHtml('detailContent').indexOf(D_FIRST) === -1);
+
+    vm.runInContext("applyTheme('dark');", context);
+    check('theme-repaint: สลับกลับเป็นมืดแล้ว ตารางไม่เหลือสีของโหมดสว่าง',
+        paneHtml('ipTableBody').indexOf(L_FIRST) === -1, L_FIRST);
+    check('theme-repaint: สลับกลับเป็นมืดแล้ว ตารางได้สีของโหมดมืดมาจริง',
+        paneHtml('ipTableBody').indexOf(D_FIRST) !== -1);
+    check('theme-repaint: รายชื่อแผนกฝั่งซ้ายไม่เหลือสีของโหมดสว่าง',
+        paneHtml('deptList').indexOf(L_FIRST) === -1);
+
+    // สลับไปกลับ 6 รอบ ต้องนิ่ง ไม่สะสมสีค้างจากรอบก่อน
+    let themeFlipOk = true;
+    for (let i = 0; i < 3; i++) {
+        vm.runInContext("applyTheme('light');", context);
+        if (paneHtml('ipTableBody').indexOf(D_FIRST) !== -1) themeFlipOk = false;
+        vm.runInContext("applyTheme('dark');", context);
+        if (paneHtml('ipTableBody').indexOf(L_FIRST) !== -1) themeFlipOk = false;
+    }
+    check('theme-repaint: สลับไปกลับ 6 รอบแล้วยังไม่มีสีของอีกโหมดค้าง', themeFlipOk);
+
+    /* ===== ธีม: สีพื้นแถวตอนชี้เมาส์ ต้องมาจากตัวแปร ไม่ใช่ค่าตายตัว ===== */
+
+    const cfgSrc = fs.readFileSync(path.join(PROJECT_ROOT, 'tailwind.config.js'), 'utf8');
+    const darkPalette = (cfgSrc.match(/dark:\s*\{[^}]*\}/) || [''])[0];
+    check('theme-hover: ชุดสี dark ใน tailwind.config.js ไม่มีโค้ดสีตายตัวเหลือแม้แต่ตัวเดียว',
+        darkPalette.length > 0 && !/#[0-9a-fA-F]{3,8}/.test(darkPalette), darkPalette);
+
+    const styleSrc = fs.readFileSync(path.join(PROJECT_ROOT, 'css/style.css'), 'utf8');
+    check('theme-hover: style.css ประกาศ --row-hover ครบทั้งสองธีม',
+        (styleSrc.match(/--row-hover\s*:/g) || []).length >= 2,
+        (styleSrc.match(/--row-hover\s*:/g) || []).length + ' ที่');
+
+    const twSrc = fs.readFileSync(path.join(PROJECT_ROOT, 'css/tailwind.css'), 'utf8');
+    check('theme-hover: css/tailwind.css ที่คอมไพล์แล้ว ใช้ var(--row-hover) ไม่ใช่สี rgb ตายตัว',
+        /hover\\:bg-dark-700:hover\{background-color:var\(--row-hover\)\}/.test(twSrc),
+        (twSrc.match(/hover\\:bg-dark-700:hover\{[^}]*\}/) || ['(ไม่พบ)'])[0]);
+
+    /* ===== css/tailwind.css ต้องตรงกับคลาสที่ใช้จริงในซอร์ส =====
+       index.html เขียนเตือนไว้ว่า "ถ้าเพิ่มคลาส Tailwind ใหม่ ต้องรัน npm run build:css ก่อน commit"
+       แต่ไม่มีอะไรบังคับ รอบ 7 ต.ค. ลืมรันจริง ทำให้ text-[17px] whitespace-nowrap pr-4
+       ไม่มีสไตล์บนเว็บจริงทั้งที่เห็นในโค้ด ข้อนี้จับแทนสายตาคน
+
+       ยกเว้น fa-* กับ fas ของ Font Awesome (มาจาก CDN) และคลาสที่ labguide.js
+       กำหนดสไตล์ไว้ใน HTML ที่มันสร้างเอง กับคลาสที่ใช้เป็นตัวเกาะให้ JS เท่านั้น */
+    const ALLOW_CLASSES = ['fas', 'far', 'fab', 'help-pane', 'tab-content', 'note', 'tag', 'cfg', 'copy'];
+    function cssEscapeClass(t) {
+        return '.' + t.replace(/([\[\]\.\/\(\)#%])/g, '\\$1').replace(/:/g, '\\:');
+    }
+    const srcFiles = ['index.html'].concat(
+        fs.readdirSync(path.join(PROJECT_ROOT, 'js')).filter(function (f) { return f.endsWith('.js'); }).map(function (f) { return 'js/' + f; })
+    );
+    const usedClasses = new Set();
+    srcFiles.forEach(function (f) {
+        const text = fs.readFileSync(path.join(PROJECT_ROOT, f), 'utf8');
+        const re = /class=["']([^"'<>+]*?)["']/g;
+        let m;
+        while ((m = re.exec(text))) {
+            m[1].split(/\s+/).forEach(function (t) {
+                if (/^[a-z][a-z0-9:_\-\[\]\.\/%]*$/.test(t) && t.indexOf('fa-') !== 0 && ALLOW_CLASSES.indexOf(t) === -1) {
+                    usedClasses.add(t);
+                }
+            });
+        }
+    });
+    const missingStyle = Array.from(usedClasses).filter(function (t) {
+        const sel = cssEscapeClass(t);
+        return twSrc.indexOf(sel) === -1 && styleSrc.indexOf(sel) === -1;
+    });
+    check('build-css: ทุกคลาสที่ใช้ในซอร์สมีสไตล์จริงใน tailwind.css หรือ style.css',
+        missingStyle.length === 0,
+        missingStyle.length > 0 ? 'ขาด ' + missingStyle.length + ' ตัว: ' + missingStyle.join(' ') + ' — ลืมรัน npm run build:css หรือเปล่า' : usedClasses.size + ' คลาส');
+
     // ===== รายงานผล =====
     console.log('\n=== NetForge UI Stability (Theme + Canvas) — Test Results ===\n');
     let pass = 0;

@@ -888,6 +888,23 @@ function applyTheme(mode) {
     } catch (err) {
         console.error('applyTheme error:', err);
     }
+
+    /* ส่วน HTML ไม่ได้ทาสีใหม่เองเหมือน Canvas
+       สีประจำแผนกถูกฝังเป็น style="color:#xxxxxx" ตอน render ไม่ใช่ตัวแปร CSS
+       (จำเป็น เพราะมี 12 สีหมุนเวียนตามแผนก ทำเป็นตัวแปรคงที่ไม่ได้)
+       ถ้าไม่สั่งวาดใหม่ตรงนี้ ตาราง IP / รายชื่อแผนก / แผงรายละเอียด จะค้างสีของธีมเดิมไว้
+       สีที่ออกแบบมาสำหรับพื้นดำวัดบนพื้นขาวได้แค่ประมาณ 1.4:1 คือมองแทบไม่เห็น
+       และพังทั้งสองทิศทาง ไม่ใช่เฉพาะตอนสลับไปโหมดสว่าง
+
+       แยก try ของตัวเองออกจากก้อนบน เพราะถ้าตรงนี้พลาด ปุ่มสลับธีมกับสีบน Canvas
+       ต้องยังทำงานได้ตามปกติ ไม่ใช่ล้มทั้งฟังก์ชัน */
+    try {
+        if (typeof renderSidebarDepts === 'function') renderSidebarDepts();
+        if (typeof renderTable === 'function') renderTable();
+        if (typeof renderDetailPanel === 'function') renderDetailPanel();
+    } catch (err) {
+        console.error('applyTheme repaint error:', err);
+    }
 }
 
 function toggleTheme() {

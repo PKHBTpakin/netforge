@@ -31,7 +31,7 @@ module.exports = {
                 neon: 'var(--neon)',
                 cyber: 'var(--cyber)',
                 hot: 'var(--hot)',
-                dark: { 900: 'var(--bg)', 800: 'var(--card)', 700: '#1d212b', 600: 'var(--border)' }
+                dark: { 900: 'var(--bg)', 800: 'var(--card)', 700: 'var(--row-hover)', 600: 'var(--border)' }
             },
             fontFamily: {
                 display: ['Orbitron', 'sans-serif'],
