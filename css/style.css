@@ -42,6 +42,15 @@
        ซึ่งเป็นค่าเดียวในชุดที่ไม่ได้ผูกกับตัวแปร CSS พอสลับไปโหมดสว่าง
        แถวที่ชี้เมาส์จึงกลายเป็นแถบดำบนพื้นขาว อ่านข้อความไม่ออก */
     --row-hover: #1d212b;
+    /* กล่อง CLI Config — ชุดสีของตัวเอง ไม่ใช้ตัวแปรทั่วไปของแอป
+       เพราะพื้นของกล่องนี้เข้มกว่าพื้นการ์ดมาก ค่าที่ผ่านเกณฑ์บนการ์ดอาจไม่ผ่านบนนี้
+       ค่าในโหมดมืดเท่าของเดิมทุกตัว เพื่อให้หน้าตาโหมดมืดไม่เปลี่ยนแม้แต่พิกเซลเดียว
+       ตัวเลขในวงเล็บคือ contrast ที่วัดกับ --cli-bg ของธีมเดียวกัน (เกณฑ์ AA = 4.5) */
+    --cli-bg: #000000;
+    --cli-text: #d8dae0;    /* 15.02 */
+    --cli-cmd: #5C97FF;     /*  7.33 — คำสั่ง Cisco */
+    --cli-value: #94A3B8;   /*  8.19 — ค่า/IP/ชื่อ */
+    --cli-comment: #9BA4B8; /*  8.40 — คอมเมนต์ */
 
     /* เงาของ dropdown/modal — เดิมฝังค่า rgba(0,0,0,0.6) ไว้ตรง ๆ ซึ่งบนพื้นขาวของ Light Mode
        จะกลายเป็นเงาดำทึบดูหนักผิดที่ Light UI ต้องใช้เงาจางกว่ามาก จึงแยกเป็นตัวแปรให้สลับตามธีม */
@@ -90,6 +99,11 @@
     --input-bg: rgba(0,0,0,0.04);
     --item-bg: rgba(0,0,0,0.03);
     --row-hover: #E8EDF5; /* เทาอมฟ้าอ่อน แยกจากการ์ดสีขาวพอให้เห็นว่าชี้แถวไหนอยู่ โดยข้อความยังอ่านได้เต็มที่ */
+    --cli-bg: #F7F9FC;      /* เทาอมฟ้าจาง ๆ ให้ดูเป็นบล็อกโค้ด แยกจากการ์ดสีขาวได้โดยไม่ต้องใช้เส้นหนา */
+    --cli-text: #1A1D24;    /* 15.99 */
+    --cli-cmd: #1841B8;     /*  8.01 — น้ำเงินเข้มชุดเดียวกับ --neon ของโหมดสว่าง */
+    --cli-value: #475569;   /*  7.18 */
+    --cli-comment: #5B6673; /*  5.54 — จางกว่า value เล็กน้อยตามลำดับความสำคัญ แต่ยังผ่านเกณฑ์สบาย ๆ */
 
     --shadow: rgba(15,23,42,0.13); /* เงาอมน้ำเงินจาง ๆ แทนดำทึบ ให้ยกตัวขึ้นจากพื้นโดยไม่ดูหนัก */
 
@@ -362,15 +376,27 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
 .toast-error { background: rgba(247,130,137,0.1); border-color: var(--hot); color: var(--hot); }
 .toast-info { background: rgba(148,163,184,0.15); border-color: var(--cyber); color: var(--cyber); }
 
-/* --- CLI Output --- */
+/* --- CLI Output ---
+   เดิมกล่องนี้ถูกตรึงให้เป็นจอ terminal สีดำเสมอ ไม่ตามธีม Light/Dark ของทั้งแอป
+   ด้วยเหตุผลว่า terminal ใน editor ทั่วไปมักคงโทนเข้มไว้ และคอมเมนต์เดิมก็เตือนไว้ด้วยว่า
+   "ถ้าใช้ var(--neon) พอสลับ Light Mode ตัวอักษรจะกลายเป็นสีเข้มบนพื้นดำ อ่านไม่ออก"
+
+   แต่บรรทัด .cli-output .cmd กลับใช้ var(--neon) จริง ๆ ซึ่งขัดกับคำเตือนของตัวเอง
+   ผลคือในโหมดสว่าง คำสั่ง Cisco ทุกคำ (hostname interface ip address switchport ...)
+   กลายเป็น #1841B8 บนพื้นดำ วัดได้ 2.49:1 ต่ำกว่าเกณฑ์ AA เกือบครึ่ง
+   และ .cli-output ไม่ได้กำหนด color ของตัวเอง ข้อความที่ไม่ได้ห่อ span จึงรับ --text มา
+   ซึ่งในโหมดสว่างคือ #1A1D24 บนพื้นดำ = 1.25:1 คือมองไม่เห็นเลย (ตอนนี้ยังไม่มี แต่เป็นระเบิดเวลา)
+
+   ผู้ใช้เลือกให้กล่องนี้ตามธีมไปด้วย (7 ต.ค. 2569) จึงเปลี่ยนมาใช้ตัวแปร --cli-* ทั้งชุด
+   ค่าในโหมดมืดเท่าของเดิมทุกตัว โหมดสว่างเป็นชุดใหม่ที่วัด contrast ผ่านทุกค่า
+   **ห้ามฝังโค้ดสีลงในบล็อกนี้อีก** ให้เพิ่มตัวแปรใน :root และ [data-theme="light"] แทน
+   tests/ui-stability.test.js หมวด cli-theme คำนวณ contrast จากไฟล์นี้ตรง ๆ และจะฟ้องทันที */
 .cli-output {
-    background: #000; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--cli-bg); color: var(--cli-text);
+    border: 1px solid var(--border); border-radius: 6px;
     padding: 14px; font-size: 14px; line-height: 1.7;
     overflow: auto; white-space: pre-wrap; word-break: break-all;
 }
-/* หมายเหตุ: CLI panel ตั้งใจให้เป็นจอ terminal สีเข้มเสมอ ไม่ตามธีม Light/Dark ของทั้งแอป
-   (เหมือน terminal ใน editor ทั่วไปที่มักคงโทนเข้มไว้) เลยใช้ค่าตายตัวแทน var() ตรงนี้
-   ถ้าใช้ var(--neon) ฯลฯ พอสลับ Light Mode ตัวอักษรจะกลายเป็นสีเข้มบนพื้นดำ อ่านไม่ออก */
 /* ตอนยังไม่มีคำสั่งให้แสดง อย่าปล่อยเป็นกล่องดำทึบเต็มจอสองกล่อง
    ในโหมด Light มันกลายเป็นช่องว่างสีดำก้อนโตที่ดูหนักและสะดุดตาผิดที่
    (จอ terminal สีเข้มมีความหมายเมื่อ "มีคำสั่งอยู่ข้างใน" เท่านั้น) */
@@ -384,9 +410,9 @@ button.is-disabled:hover, button:disabled:hover { background: transparent; }
     text-align: center;
 }
 
-.cli-output .cmd { color: var(--neon); } /* เดิมฝังค่า #4C8DFF ไว้ตรง ๆ จึงไม่ตามธีมและไม่ตามการปรับ contrast */
-.cli-output .comment { color: #9BA4B8; }
-.cli-output .value { color: #94A3B8; }
+.cli-output .cmd { color: var(--cli-cmd); }
+.cli-output .comment { color: var(--cli-comment); }
+.cli-output .value { color: var(--cli-value); }
 
 /* --- Example Dropdown --- */
 .example-dropdown {

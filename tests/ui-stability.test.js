@@ -354,6 +354,103 @@ function check(label, cond, detail) { results.push({ label, pass: !!cond, detail
         missingStyle.length === 0,
         missingStyle.length > 0 ? 'ขาด ' + missingStyle.length + ' ตัว: ' + missingStyle.join(' ') + ' — ลืมรัน npm run build:css หรือเปล่า' : usedClasses.size + ' คลาส');
 
+    /* ===== กล่อง CLI Config ต้องตามธีม และต้องอ่านออกจริงทั้งสองโหมด (7 ต.ค. 2569) =====
+
+       เดิมกล่องนี้ถูกตรึงเป็นจอดำเสมอ พร้อมคอมเมนต์เตือนว่าห้ามใช้ var() กับสีตัวอักษร
+       แต่บรรทัด .cmd กลับใช้ var(--neon) จริง ๆ ผลคือในโหมดสว่าง คำสั่ง Cisco ทุกคำ
+       กลายเป็น #1841B8 บนพื้นดำ วัดได้ 2.49:1 ต่ำกว่าเกณฑ์ AA เกือบครึ่ง
+       ผู้ใช้เลือกให้กล่องนี้ตามธีมไปด้วย จึงย้ายมาใช้ตัวแปร --cli-* ทั้งชุด
+
+       ข้อทดสอบชุดนี้ไม่ได้เชื่อตัวเลขที่เขียนในคอมเมนต์ แต่อ่านค่าสีจาก style.css
+       แล้วคำนวณสูตร WCAG ใหม่เองทุกครั้งที่รัน ถ้ามีใครแก้สีจนตกเกณฑ์จะฟ้องทันที
+       ไม่ต้องรอให้ใครสังเกตเห็นด้วยตาเปล่า */
+
+    function srgbChannel(v) {
+        const c = v / 255;
+        return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+    function relLuminance(hex) {
+        const h = hex.replace('#', '');
+        const full = h.length === 3 ? h.split('').map(function (x) { return x + x; }).join('') : h;
+        return 0.2126 * srgbChannel(parseInt(full.slice(0, 2), 16)) +
+               0.7152 * srgbChannel(parseInt(full.slice(2, 4), 16)) +
+               0.0722 * srgbChannel(parseInt(full.slice(4, 6), 16));
+    }
+    function contrastRatio(a, b) {
+        const la = relLuminance(a), lb = relLuminance(b);
+        return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+    }
+    // ดึงค่าตัวแปรจากบล็อกธีมที่ระบุ โดยตัดคอมเมนต์ /* ... */ ออกก่อน กันอ่านตัวเลขในคำอธิบายมาเป็นค่าสี
+    function themeVars(cssText, selector) {
+        const start = cssText.indexOf(selector);
+        if (start === -1) return {};
+        const open = cssText.indexOf('{', start);
+        const close = cssText.indexOf('\n}', open);
+        const body = cssText.slice(open, close).replace(/\/\*[\s\S]*?\*\//g, '');
+        const out = {};
+        const re = /(--[a-z0-9-]+)\s*:\s*([^;]+);/g;
+        let m;
+        while ((m = re.exec(body))) out[m[1]] = m[2].trim();
+        return out;
+    }
+
+    const cssText = fs.readFileSync(path.join(PROJECT_ROOT, 'css/style.css'), 'utf8');
+    const darkVars = themeVars(cssText, ':root');
+    const lightVars = themeVars(cssText, '[data-theme="light"]');
+    const CLI_TOKENS = [
+        ['--cli-text', 'ข้อความเปล่า'],
+        ['--cli-cmd', 'คำสั่ง Cisco'],
+        ['--cli-value', 'ค่า/IP'],
+        ['--cli-comment', 'คอมเมนต์']
+    ];
+
+    [['โหมดมืด', darkVars], ['โหมดสว่าง', lightVars]].forEach(function (pair) {
+        const label = pair[0], vars = pair[1];
+        const bg = vars['--cli-bg'];
+        check('cli-theme: ' + label + ' ประกาศ --cli-bg ไว้', /^#[0-9a-fA-F]{3,8}$/.test(String(bg)), String(bg));
+        CLI_TOKENS.forEach(function (t) {
+            const key = t[0], name = t[1];
+            const val = vars[key];
+            if (!/^#[0-9a-fA-F]{3,8}$/.test(String(val)) || !/^#[0-9a-fA-F]{3,8}$/.test(String(bg))) {
+                check('cli-theme: ' + label + ' ' + name + ' (' + key + ') เป็นโค้ดสีที่อ่านได้', false, String(val));
+                return;
+            }
+            const ratio = contrastRatio(val, bg);
+            check('cli-theme: ' + label + ' ' + name + ' อ่านออกบนพื้นกล่อง CLI (ต้อง >= 4.5)',
+                ratio >= 4.5, val + ' บน ' + bg + ' = ' + ratio.toFixed(2) + ':1');
+        });
+    });
+
+    // โหมดมืดต้องหน้าตาเท่าเดิมเป๊ะ ไม่ใช่ "ปรับไปด้วยเลย" ตอนแก้โหมดสว่าง
+    check('cli-theme: โหมดมืดยังใช้ค่าสีเดิมทุกตัว ไม่ได้เปลี่ยนไปด้วย',
+        darkVars['--cli-bg'] === '#000000' && darkVars['--cli-cmd'] === '#5C97FF' &&
+        darkVars['--cli-value'] === '#94A3B8' && darkVars['--cli-comment'] === '#9BA4B8',
+        [darkVars['--cli-bg'], darkVars['--cli-cmd'], darkVars['--cli-value'], darkVars['--cli-comment']].join(' '));
+
+    // ตัวบล็อก .cli-output กับ token ของมัน ต้องไม่มีโค้ดสีตายตัวเหลือ
+    const cliBlockStart = cssText.indexOf('.cli-output {');
+    const cliBlockEnd = cssText.indexOf('.cli-output .value');
+    const cliBlock = cliBlockStart !== -1 && cliBlockEnd !== -1
+        ? cssText.slice(cliBlockStart, cliBlockEnd + 60).replace(/\/\*[\s\S]*?\*\//g, '') : '';
+    check('cli-theme: บล็อก .cli-output ไม่มีโค้ดสีตายตัวหลงเหลือ',
+        cliBlock.length > 0 && !/#[0-9a-fA-F]{3,8}/.test(cliBlock),
+        (cliBlock.match(/#[0-9a-fA-F]{3,8}/g) || []).join(' '));
+    check('cli-theme: .cli-output กำหนดสีตัวอักษรของตัวเอง ไม่ปล่อยให้สืบทอด --text มา',
+        /\.cli-output\s*\{[^}]*color:\s*var\(--cli-text\)/.test(cssText));
+
+    // สีที่ CLI เคยใช้แล้วตกเกณฑ์ ห้ามกลับมา
+    check('cli-theme: .cmd เลิกใช้ var(--neon) แล้ว (ตกเกณฑ์ 2.49:1 บนพื้นดำในโหมดสว่าง)',
+        !/\.cli-output\s+\.cmd\s*\{[^}]*var\(--neon\)/.test(cssText));
+
+    // ทุก span ที่ cli.js สร้างจริง ต้องมีสีกำหนดไว้ครบ ไม่มีตัวไหนตกหล่น
+    const cliJs = fs.readFileSync(path.join(PROJECT_ROOT, 'js/cli.js'), 'utf8');
+    const spanClasses = Array.from(new Set((cliJs.match(/class="([a-z]+)"/g) || []).map(function (x) {
+        return x.replace(/class="|"/g, '');
+    })));
+    const unstyled = spanClasses.filter(function (c) { return cssText.indexOf('.cli-output .' + c) === -1; });
+    check('cli-theme: ทุกคลาสที่ cli.js ใช้มีสีกำหนดไว้ใน style.css ครบ',
+        unstyled.length === 0, unstyled.length ? 'ขาด: ' + unstyled.join(' ') : spanClasses.join(' '));
+
     // ===== รายงานผล =====
     console.log('\n=== NetForge UI Stability (Theme + Canvas) — Test Results ===\n');
     let pass = 0;
