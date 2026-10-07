@@ -136,6 +136,25 @@ function checkPracticeAnswers() {
         pct === 100 ? 'success' : 'info');
 }
 
+/* ไล่เลขสองยกกำลังให้เห็นว่าทำไมต้องปัดขึ้นเป็นขนาดนี้ ไม่ใช่ขนาดอื่น
+   คืนเฉพาะสองขั้นสุดท้าย คือตัวที่ยังไม่พอ กับตัวที่พอ เพราะไล่ตั้งแต่ 4 จะยาวเกินอ่าน
+   แยกเป็นฟังก์ชันเดี่ยวเพราะทั้งคำใบ้และเฉลยเรียกใช้ร่วมกัน แก้ที่เดียวเปลี่ยนทั้งสองที่ */
+function practicePow2Trace(need) {
+    var steps = [];
+    for (var k = 2; k <= 20; k++) {
+        var val = Math.pow(2, k);
+        steps.push({ exp: k, val: val, ok: val >= need });
+        if (val >= need) break;
+    }
+    return steps.slice(-2);
+}
+
+function practicePow2Text(need) {
+    return practicePow2Trace(need).map(function (s) {
+        return '2 ยกกำลัง ' + s.exp + ' = ' + s.val + (s.ok ? ' พอ' : ' ไม่พอ');
+    }).join(' · ');
+}
+
 /* บอกว่าพลาดที่ขั้นตอนไหน แทนที่จะบอกแค่ว่าผิด
    ไล่ตรวจจากสาเหตุที่ "ต้นทาง" ที่สุดก่อน เพราะถ้าขนาดผิดตั้งแต่แรก ช่องอื่นจะผิดตามหมด
    การบอกว่าผิด 4 ช่องทั้งที่พลาดเรื่องเดียวจะทำให้ผู้ใช้ท้อโดยไม่จำเป็น */
@@ -143,32 +162,46 @@ function practiceHintFor(ans, given, fields) {
     if (fields.network && fields.cidr && fields.first && fields.last && fields.broadcast) return null;
 
     var wantSize = ans.subnet.size;
+    var need = ans.hosts + 2;
+    var hostBits = 32 - ans.subnet.cidr;
     var gotCidr = parseInt(String(given.cidr || '').replace(/^\//, ''), 10);
 
     if (!fields.cidr) {
-        if (isFinite(gotCidr) && gotCidr > ans.subnet.cidr) {
-            return 'ขนาดที่ให้เล็กเกินไป แผนกนี้ขอ ' + ans.hosts + ' เครื่อง ต้องบวกอีก 2 IP ให้ Network Address กับ Broadcast Address รวมเป็น ' +
-                   (ans.hosts + 2) + ' แล้วปัดขึ้นเป็นขนาดที่ subnet มีให้เลือก คือ ' + wantSize + ' IP ซึ่งตรงกับ /' + ans.subnet.cidr;
+        if (!isFinite(gotCidr)) {
+            return 'ยังไม่ได้กรอกขนาด หรือกรอกในรูปแบบที่อ่านไม่ออก ให้ใส่เป็นตัวเลขหลังเครื่องหมายทับ เช่น 27';
         }
-        if (isFinite(gotCidr) && gotCidr < ans.subnet.cidr) {
-            return 'ขนาดที่ให้ใหญ่เกินจำเป็น ' + (ans.hosts + 2) + ' IP ปัดขึ้นเป็นขนาดที่ subnet มีให้เลือก ได้ ' + wantSize +
-                   ' พอดี ไม่ต้องเผื่อไปถึงขนาดถัดไป';
+        // กันค่านอกช่วงก่อนเอาไปเข้าสูตร ไม่งั้น Math.pow จะได้เลขประหลาดไปโชว์ผู้ใช้
+        if (gotCidr < 1 || gotCidr > 32) {
+            return 'เลขหลังเครื่องหมายทับต้องอยู่ระหว่าง 1 ถึง 32 เท่านั้น เพราะหมายเลข IP มีทั้งหมด 32 บิต · คุณใส่ ' + gotCidr;
         }
-        return 'ยังไม่ได้กรอกขนาด หรือกรอกในรูปแบบที่อ่านไม่ออก ให้ใส่เป็นตัวเลขหลังเครื่องหมายทับ เช่น 27';
+        var why = 'ขั้นที่ 1 เรื่องขนาด ยังไม่ผ่าน · ' +
+            'แผนกนี้ขอ ' + ans.hosts + ' เครื่อง ต้องบวกอีก 2 ให้ Network Address กับ Broadcast Address รวมเป็น ' + need + ' หมายเลข · ' +
+            'ปัดขึ้นเป็นเลขสองยกกำลังที่ครอบได้ ' + practicePow2Text(need) + ' · ' +
+            'จึงกัน ' + hostBits + ' บิตไว้ไล่นับเครื่อง แล้วเอา 32 ลบ ' + hostBits + ' ได้ /' + ans.subnet.cidr;
+        var gotSize = Math.pow(2, 32 - gotCidr);
+        return why + ' · คุณใส่ /' + gotCidr + ' ซึ่งมี ' + gotSize + ' หมายเลข ' +
+               (gotCidr > ans.subnet.cidr ? 'เล็กเกินไป' : 'ใหญ่เกินจำเป็น');
     }
 
     if (!fields.network) {
-        return 'ขนาดถูกแล้ว แต่จุดเริ่มไม่ถูก แผนกนี้ต้องเริ่มที่ IP ถัดจาก Broadcast Address ของแผนกก่อนหน้าพอดี ' +
-               'ห้ามเว้นช่องว่างและห้ามทับกัน คำตอบที่ถูกคือ ' + ans.subnet.network;
+        return 'ขั้นที่ 2 เรื่องจุดเริ่ม ยังไม่ผ่าน · ขนาด /' + ans.subnet.cidr + ' ถูกแล้ว · ' +
+               'แผนกนี้ต้องเริ่มที่หมายเลขถัดจาก Broadcast Address ของแผนกก่อนหน้าพอดี ห้ามเว้นช่องว่างและห้ามทับกัน · ' +
+               'อีกข้อคือจุดเริ่มต้องหารด้วยขนาด ' + wantSize + ' ลงตัวเสมอ · คำตอบที่ถูกคือ ' + ans.subnet.network;
     }
+
     if (!fields.broadcast) {
-        return 'Broadcast Address คือ IP หมายเลขสุดท้ายของ subnet หาได้จาก Network Address บวกขนาดแล้วลบหนึ่ง คือ ' +
-               ans.subnet.network + ' บวก ' + wantSize + ' ลบ 1 เท่ากับ ' + ans.subnet.broadcast;
+        return 'ขั้นที่ 3 เรื่อง Broadcast ยังไม่ผ่าน · Broadcast Address คือหมายเลขสุดท้ายของช่วง · ' +
+               'คิดจาก Network บวกขนาดแล้วลบหนึ่ง คือ ' + ans.subnet.network + ' บวก ' + wantSize +
+               ' ลบ 1 เท่ากับ ' + ans.subnet.broadcast;
     }
+
     if (!fields.first || !fields.last) {
-        return 'ช่วงที่จ่ายให้เครื่องได้คือถัดจาก Network Address ไปหนึ่งหมายเลข จนถึงก่อน Broadcast Address หนึ่งหมายเลข ' +
-               'ในที่นี้คือ ' + ans.subnet.firstUsable + ' ถึง ' + ans.subnet.lastUsable;
+        return 'ขั้นที่ 4 เรื่องช่วงที่จ่ายให้เครื่อง ยังไม่ผ่าน · ' +
+               'Host แรก คือ Network บวกหนึ่ง ได้ ' + ans.subnet.firstUsable + ' · ' +
+               'Host สุดท้าย คือ Broadcast ลบหนึ่ง ได้ ' + ans.subnet.lastUsable + ' · ' +
+               'จ่ายให้เครื่องได้จริง ' + (wantSize - 2) + ' หมายเลข ซึ่งพอกับ ' + ans.hosts + ' เครื่องที่ขอมา';
     }
+
     return null;
 }
 
@@ -268,7 +301,7 @@ function renderPractice() {
             var cls = 'input-cyber w-full text-[12px]';
             var style = '';
             if (practiceState.checked) {
-                style = ok ? 'border-color:#1F7A45;' : 'border-color:var(--hot);';
+                style = ok ? 'border-color:var(--ok);' : 'border-color:var(--hot);';
             }
             return '<td class="py-1 pr-2">' +
                 '<input type="text" value="' + escapeHtml(given[field] || '') + '" placeholder="' + placeholder + '" ' +
@@ -276,7 +309,7 @@ function renderPractice() {
                     'oninput="onPracticeInput(' + d.id + ',\'' + field + '\',this.value)" ' +
                     'aria-label="' + escapeHtml(d.name) + ' ' + placeholder + '">' +
                 (practiceState.revealed
-                    ? '<div class="text-[11px] mt-0.5" style="color:#1F7A45;">' + correctValue + '</div>'
+                    ? '<div class="text-[11px] mt-0.5" style="color:var(--ok);">' + correctValue + '</div>'
                     : '') +
             '</td>';
         };
@@ -310,7 +343,7 @@ function renderPractice() {
     var scoreHtml = '';
     if (sc) {
         var pct = sc.total > 0 ? Math.round(sc.correct / sc.total * 100) : 0;
-        var color = pct === 100 ? '#1F7A45' : (pct >= 60 ? '#b8790f' : 'var(--hot)');
+        var color = pct === 100 ? 'var(--ok)' : (pct >= 60 ? 'var(--warn)' : 'var(--hot)');
         /* ถ้ากดตรวจโดยยังไม่กรอกอะไรเลย ต้องบอกตรง ๆ ว่ายังไม่ได้ตอบ
            ไม่ใช่บอกว่า "ดูคำอธิบายใต้แถวที่ผิด" ทั้งที่ตอนนี้ไม่มีคำอธิบายขึ้นสักแถว */
         var blank = p.departments.every(function (d) {
@@ -324,7 +357,7 @@ function renderPractice() {
                 (blank
                     ? '<span class="text-muted text-[12px] ml-2">ยังไม่ได้กรอกคำตอบสักช่อง ลองเติมในตารางด้านล่างแล้วกดตรวจอีกครั้ง</span>'
                     : pct === 100
-                        ? '<span class="text-[12px] ml-2" style="color:#1F7A45;">ถูกหมดทุกช่อง ลองเพิ่มระดับความยากดูได้</span>'
+                        ? '<span class="text-[12px] ml-2" style="color:var(--ok);">ถูกหมดทุกช่อง ลองเพิ่มระดับความยากดูได้</span>'
                         : '<span class="text-muted text-[12px] ml-2">ดูคำอธิบายใต้แถวที่ผิด แล้วแก้แล้วกดตรวจใหม่ได้</span>') +
             '</div>';
     }
@@ -362,27 +395,75 @@ function renderPractice() {
    ใช้ลำดับเดียวกับ 5 ขั้นในคู่มือ เพื่อให้ผู้ใช้เชื่อมโยงกับสิ่งที่อ่านมาแล้วได้ */
 function renderPracticeSteps() {
     var p = practiceState.problem;
+    if (!p || !p.answer || !p.answer.length) return '';
+
+    var orderLine = p.answer.map(function (a) {
+        return escapeHtml(a.name) + ' ' + a.hosts;
+    }).join('  >  ');
+
+    /* การ์ดอธิบาย 6 ขั้นของแต่ละแผนก เรียงตามลำดับที่จัดสรรจริง
+       ทุกค่ามาจาก a.subnet ที่ solveVLSM() คำนวณให้ ไม่ได้คิดเลขใหม่เอง
+       เฉลยจึงไม่มีทางขัดกับสิ่งที่ระบบหลักทำ */
+    var cards = p.answer.map(function (a, i) {
+        var need = a.hosts + 2;
+        var bits = 32 - a.subnet.cidr;
+        var prev = i > 0 ? p.answer[i - 1] : null;
+        var aligned = (ipToLong(a.subnet.network) % a.subnet.size) === 0;
+
+        var row = function (no, title, body) {
+            return '<tr class="align-top" style="border-top:1px solid var(--border);">' +
+                '<td class="py-2 pr-3 text-subtle whitespace-nowrap align-top">ขั้น ' + no + '</td>' +
+                '<td class="py-2 pr-4 whitespace-nowrap align-top" style="color:var(--text);">' + title + '</td>' +
+                '<td class="py-2 leading-relaxed" style="color:var(--text);">' + body + '</td></tr>';
+        };
+
+        return '<div class="rounded p-3 mb-3" style="background:var(--item-bg);border:1px solid var(--border);">' +
+            '<div class="text-[17px] mb-2" style="color:var(--text);">' +
+                '<b>' + escapeHtml(a.name) + '</b> <span class="text-subtle">' + a.hosts + ' เครื่อง</span> ' +
+                '<span class="text-neon">ลำดับที่ ' + (i + 1) + ' จาก ' + p.answer.length + '</span></div>' +
+            '<table class="w-full text-[16px]"><tbody>' +
+            row(1, 'ทำไมได้คิวนี้', i === 0
+                ? 'ใช้เครื่องมากที่สุดในโจทย์ จึงต้องจัดสรรก่อน'
+                : 'รองลงมาจาก ' + escapeHtml(prev.name) + ' ที่มี ' + prev.hosts + ' เครื่อง') +
+            row(2, 'ต้องการเท่าไหร่', '<span class="font-mono">' + a.hosts + ' + 2 = ' + need + '</span> เผื่อ Network กับ Broadcast') +
+            row(3, 'ปัดขึ้นเป็น', '<span class="font-mono">' + practicePow2Text(need) + '</span> จึงกัน ' + bits + ' บิตไว้นับเครื่อง') +
+            row(4, 'เลขทับ', '<span class="font-mono">32 − ' + bits + ' = /' + a.subnet.cidr + '</span> คือ ' + a.subnet.netmask) +
+            row(5, 'วางตรงไหน', (prev
+                ? 'ถัดจาก Broadcast ของ ' + escapeHtml(prev.name) + ' (<span class="font-mono">' + prev.subnet.broadcast + '</span>)'
+                : 'แผนกแรก เริ่มที่ต้นช่วงที่ได้รับมา') +
+                ' → <span class="font-mono">' + a.subnet.network + '</span>' +
+                (aligned ? ' <span class="text-subtle">หารด้วย ' + a.subnet.size + ' ลงตัว</span>' : '')) +
+            row(6, 'เติม 5 ช่อง',
+                '<div class="py-0.5"><span class="font-mono">Network ' + a.subnet.network + '</span> <span class="text-subtle">ตัวแรกของช่วง</span></div>' +
+                '<div class="py-0.5"><span class="font-mono">Host แรก ' + a.subnet.firstUsable + '</span> <span class="text-subtle">ตัวแรก + 1</span></div>' +
+                '<div class="py-0.5"><span class="font-mono">Host สุดท้าย ' + a.subnet.lastUsable + '</span> <span class="text-subtle">ตัวสุดท้าย − 1</span></div>' +
+                '<div class="py-0.5"><span class="font-mono">Broadcast ' + a.subnet.broadcast + '</span> <span class="text-subtle">' +
+                    a.subnet.network + ' + ' + a.subnet.size + ' − 1</span></div>') +
+            '</tbody></table></div>';
+    }).join('');
+
+    /* ===== ตารางสรุปเดิม คงไว้ทั้งก้อน ไม่ได้แก้อะไรเลย ===== */
     var lines = p.answer.map(function (a, i) {
         var need = a.hosts + 2;
         return '<tr class="border-t border-dark-600">' +
             '<td class="py-1 pr-2 text-subtle">' + (i + 1) + '</td>' +
             '<td class="py-1 pr-2">' + escapeHtml(a.name) + '</td>' +
-            '<td class="py-1 pr-2 text-muted">' + a.hosts + ' + 2 = ' + need + '</td>' +
-            '<td class="py-1 pr-2 text-muted">ปัดขึ้นเป็น ' + a.subnet.size + '</td>' +
+            '<td class="py-1 pr-2" style="color:var(--text);">' + a.hosts + ' + 2 = ' + need + '</td>' +
+            '<td class="py-1 pr-2" style="color:var(--text);">ปัดขึ้นเป็น ' + a.subnet.size + '</td>' +
             '<td class="py-1 pr-2 text-neon font-mono">/' + a.subnet.cidr + '</td>' +
             '<td class="py-1 font-mono">' + a.subnet.network + ' ถึง ' + a.subnet.broadcast + '</td>' +
         '</tr>';
     }).join('');
 
     return '<div class="glow-border rounded p-3 mt-3">' +
-        '<div class="text-[13px] mb-2" style="color:var(--text);"><b>วิธีคิดทีละขั้น</b> ' +
-            '<span class="text-subtle text-[11px]">เรียงตามลำดับที่จัดสรรจริง คือจากแผนกที่ใช้เครื่องมากที่สุดลงมา</span></div>' +
-        '<div class="overflow-x-auto"><table class="w-full text-[12px] min-w-[640px]">' +
-        '<thead><tr class="text-subtle text-left"><th class="pb-1 pr-2">ลำดับ</th><th class="pb-1 pr-2">แผนก</th>' +
+        '<div class="text-[17px] mb-2" style="color:var(--text);"><b>วิธีคิดทีละขั้น</b></div>' +
+        '<div class="text-[14px] mb-3 leading-relaxed" style="color:var(--text);">' +
+            'ขั้นแรกของทุกโจทย์คือเรียงจากแผนกใหญ่ไปเล็ก &nbsp;<span class="font-mono" style="color:var(--text);">' + orderLine + '</span><br>' +
+            'เพราะช่วงใหญ่ต้องวางก่อน ถ้าแจกตัวเล็กก่อนจะเกิดช่องว่างแทรกที่ช่วงใหญ่ลงไม่ได้' +
+        '</div>' + cards +
+        '<div class="overflow-x-auto mt-1"><table class="w-full text-[14px] min-w-[640px]">' +
+        '<thead><tr class="text-muted text-left"><th class="pb-1 pr-2">ลำดับ</th><th class="pb-1 pr-2">แผนก</th>' +
         '<th class="pb-1 pr-2">ต้องการจริง</th><th class="pb-1 pr-2">ขนาดที่ได้</th><th class="pb-1 pr-2">คือ</th>' +
         '<th class="pb-1">ช่วงที่ได้</th></tr></thead><tbody>' + lines + '</tbody></table></div>' +
-        '<div class="text-subtle text-[11px] mt-2 leading-relaxed">' +
-            'สังเกตว่าแผนกถัดไปเริ่มที่ IP ถัดจาก Broadcast Address ของแผนกก่อนหน้าพอดีทุกครั้ง ไม่มีการเว้นช่องว่าง ' +
-            'และการเรียงจากใหญ่ไปเล็กคือสิ่งที่ทำให้ไม่เกิดช่องว่างแทรกที่ใช้ต่อไม่ได้' +
-        '</div></div>';
+        '</div>';
 }
