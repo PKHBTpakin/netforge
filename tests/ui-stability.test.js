@@ -451,6 +451,64 @@ function check(label, cond, detail) { results.push({ label, pass: !!cond, detail
     check('cli-theme: ทุกคลาสที่ cli.js ใช้มีสีกำหนดไว้ใน style.css ครบ',
         unstyled.length === 0, unstyled.length ? 'ขาด: ' + unstyled.join(' ') : spanClasses.join(' '));
 
+    /* ===== ห้ามฝังโค้ดสีเป็น "สีตัวอักษร" ลงในไฟล์ JS ของหน้าแอป (8 ต.ค. 2569) =====
+
+       รอบ 7 ต.ค. กวาดสีโดยค้นหาทีละชื่อ (#1F7A45 กับ #b8790f) ซึ่งแคบเกินไป
+       จึงพลาด #f0a020 ที่ฝังไว้อีกสองที่ และตัวที่สำคัญคือหัวข้อกล่องเตือน
+       "Router นี้ยังใช้งานไม่ได้" ใน ui.js ที่เป็นข้อความตัวหนา
+       วัดบนพื้นกล่องเตือนในโหมดสว่างได้ 2.01:1 คือแทบมองไม่เห็น
+
+       ข้อนี้จึงถามกลับด้านว่า "ต้องไม่มีโค้ดสีใด ๆ ถูกใช้เป็นสีตัวอักษรเลย"
+       แทนการไล่ชื่อสีทีละตัว เพิ่มสีใหม่กี่ตัวก็จับได้หมดโดยไม่ต้องแก้เทส
+       สีที่เป็นพื้นหรือเส้นขอบแบบ rgba(...) ไม่นับ เพราะเป็นสีเคลือบบาง ๆ ที่ใช้ได้ทั้งสองธีม */
+
+    const COLOR_EXEMPT = {
+        // CSS ของไฟล์ HTML ที่โปรแกรมสร้างออกไปให้ผู้ใช้ดาวน์โหลด เป็นเอกสารสำหรับพิมพ์
+        // พื้นขาวเสมอ ไม่ได้อยู่ในหน้าแอปและไม่มีระบบธีม
+        'labguide.js': 'CSS ของคู่มือ Lab ที่ export ออกไป',
+        // หน้าจอ fallback ตอน init() ล้ม ต้องใช้ค่าตายตัวเพราะตอนนั้น CSS อาจโหลดไม่สำเร็จ
+        // ถ้าใช้ var() แล้วไฟล์ CSS หาย ข้อความแจ้ง error จะมองไม่เห็นเลย ซึ่งแย่ที่สุด
+        'app.js': 'หน้าจอแจ้ง error ตอนระบบเริ่มไม่ขึ้น'
+    };
+    const jsFiles = fs.readdirSync(path.join(PROJECT_ROOT, 'js')).filter(function (f) { return f.endsWith('.js'); });
+    const inlineColorOffenders = [];
+    jsFiles.forEach(function (f) {
+        if (COLOR_EXEMPT[f]) return;
+        const lines = fs.readFileSync(path.join(PROJECT_ROOT, 'js', f), 'utf8').split('\n');
+        lines.forEach(function (line, i) {
+            const m = line.match(/color:\s*#[0-9a-fA-F]{3,8}/g);
+            if (m) inlineColorOffenders.push(f + ':' + (i + 1) + ' ' + m.join(' '));
+        });
+    });
+    check('no-hex: ไม่มีไฟล์ JS ของหน้าแอปไฟล์ไหนฝังโค้ดสีเป็นสีตัวอักษร',
+        inlineColorOffenders.length === 0,
+        inlineColorOffenders.length ? inlineColorOffenders.join(' · ') + ' — ให้ใช้ var(--warn) var(--ok) var(--hot) var(--text) แทน'
+                                    : 'ตรวจ ' + (jsFiles.length - Object.keys(COLOR_EXEMPT).length) + ' ไฟล์');
+
+    // ไฟล์ที่ยกเว้นต้องยังมีอยู่จริง ไม่ใช่รายชื่อที่ตกค้างจากไฟล์ที่ถูกลบไปแล้ว
+    check('no-hex: รายชื่อไฟล์ที่ยกเว้นยังตรงกับไฟล์จริงในโปรเจกต์',
+        Object.keys(COLOR_EXEMPT).every(function (f) { return jsFiles.indexOf(f) !== -1; }),
+        Object.keys(COLOR_EXEMPT).join(' '));
+
+    /* กล่องเตือนในโหมดสว่างต้องอ่านออกจริง วัดโดยผสมสีพื้นโปร่งแสงลงบนพื้นการ์ดก่อน
+       ไม่ใช่วัดกับพื้นการ์ดเปล่า ๆ ซึ่งจะได้ตัวเลขที่ดูดีกว่าความจริง */
+    function blendOver(fgHex, alpha, bgHex) {
+        const f = fgHex.replace('#', ''), b = bgHex.replace('#', '');
+        const out = [0, 2, 4].map(function (i) {
+            const fv = parseInt(f.slice(i, i + 2), 16), bv = parseInt(b.slice(i, i + 2), 16);
+            return Math.round(fv * alpha + bv * (1 - alpha));
+        });
+        return '#' + out.map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('');
+    }
+    [['โหมดมืด', darkVars, '#171a21'], ['โหมดสว่าง', lightVars, '#FFFFFF']].forEach(function (t) {
+        const label = t[0], vars = t[1], card = t[2];
+        const panelBg = blendOver('#F0A020', 0.10, card);  // rgba(240,160,32,0.1) ที่ใช้เป็นพื้นกล่องเตือน
+        const warn = vars['--warn'];
+        const r = contrastRatio(warn, panelBg);
+        check('no-hex: ' + label + ' หัวข้อกล่องเตือนอ่านออกบนพื้นกล่องเตือนจริง (ต้อง >= 4.5)',
+            r >= 4.5, warn + ' บน ' + panelBg + ' = ' + r.toFixed(2) + ':1');
+    });
+
     // ===== รายงานผล =====
     console.log('\n=== NetForge UI Stability (Theme + Canvas) — Test Results ===\n');
     let pass = 0;

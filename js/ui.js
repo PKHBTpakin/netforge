@@ -609,7 +609,7 @@ function renderDetailPanelInner() {
         // จึงยกขึ้นมาไว้บนสุดเป็นขั้นตอนที่ทำตามได้ทีละข้อ
         const orphanNotice = wan.length > 0 ? '' :
             '<div class="rounded p-3 mb-3" style="background:rgba(240,160,32,0.1);border:1px solid rgba(240,160,32,0.5);">' +
-                '<div class="text-[13px] font-bold mb-1" style="color:#f0a020;">' +
+                '<div class="text-[13px] font-bold mb-1" style="color:var(--warn);">' +
                     '<i class="fas fa-triangle-exclamation mr-1" aria-hidden="true"></i>Router นี้ยังใช้งานไม่ได้</div>' +
                 '<div class="text-muted text-[12px] leading-relaxed">' +
                     'Router สาขาต้องมีทางออกก่อน ไม่งั้นจะไม่มี IP ฝั่ง WAN และแผนกที่ย้ายมาอยู่หลังมันจะถูกตัดขาด' +

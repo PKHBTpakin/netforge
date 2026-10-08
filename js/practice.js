@@ -324,7 +324,7 @@ function renderPractice() {
         if (practiceState.checked && res && res.hint && answeredSomething) {
             hintRow = '<tr><td colspan="6" class="pb-2">' +
                 '<div class="text-[11px] rounded px-2 py-1.5" style="background:rgba(240,160,32,0.1);border:1px solid rgba(240,160,32,0.4);color:var(--text);">' +
-                    '<i class="fas fa-lightbulb mr-1" aria-hidden="true" style="color:#f0a020;"></i>' + escapeHtml(res.hint) +
+                    '<i class="fas fa-lightbulb mr-1" aria-hidden="true" style="color:var(--warn);"></i>' + escapeHtml(res.hint) +
                 '</div></td></tr>';
         }
 
